@@ -156,7 +156,8 @@ class TestRadiusFilterAndOrdering(unittest.TestCase):
         try:
             _seed_standard(store)
             hits = store.repo.search_nearby(
-                latitude=CENTER[0], longitude=CENTER[1], radius_km=3.0)
+                latitude=CENTER[0], longitude=CENTER[1], radius_km=3.0,
+                today=TODAY)
             titles = {h["title"] for h in hits}
             self.assertIn("A两九", titles)       # 2.9 km — MUST appear
             self.assertNotIn("B三一", titles)    # 3.1 km — MUST NOT appear
@@ -168,7 +169,8 @@ class TestRadiusFilterAndOrdering(unittest.TestCase):
         try:
             store.add_event(title="正好三公里", km_north=3.0, km_east=0.0)
             hits = store.repo.search_nearby(
-                latitude=CENTER[0], longitude=CENTER[1], radius_km=3.0)
+                latitude=CENTER[0], longitude=CENTER[1], radius_km=3.0,
+                today=TODAY)
             self.assertEqual([h["title"] for h in hits], ["正好三公里"])
             self.assertAlmostEqual(hits[0]["distance_km"], 3.0, places=2)
         finally:
@@ -179,7 +181,8 @@ class TestRadiusFilterAndOrdering(unittest.TestCase):
         try:
             _seed_standard(store)
             hits = store.repo.search_nearby(
-                latitude=CENTER[0], longitude=CENTER[1], radius_km=3.0)
+                latitude=CENTER[0], longitude=CENTER[1], radius_km=3.0,
+                today=TODAY)
             titles = [h["title"] for h in hits]
             self.assertEqual(titles, ["C零五", "D一八", "A两九"])
             self.assertTrue(all(hits[i]["distance_km"] <= hits[i + 1]["distance_km"]
@@ -194,7 +197,7 @@ class TestRadiusFilterAndOrdering(unittest.TestCase):
             store.add_event(title="读书会", km_north=1.2, km_east=0.0)
             hits = store.repo.search_nearby(
                 latitude=CENTER[0], longitude=CENTER[1], radius_km=3.0,
-                keyword="网球")
+                keyword="网球", today=TODAY)
             self.assertEqual([h["title"] for h in hits], ["网球局"])
         finally:
             store.close()
@@ -208,7 +211,7 @@ class TestRadiusFilterAndOrdering(unittest.TestCase):
                             start="2026-10-01T09:00:00")
             hits = store.repo.search_nearby(
                 latitude=CENTER[0], longitude=CENTER[1], radius_km=3.0,
-                date_start="2026-09-25", date_end="2026-09-27")
+                date_start="2026-09-25", date_end="2026-09-27", today=TODAY)
             self.assertEqual([h["title"] for h in hits], ["九二六"])
         finally:
             store.close()
@@ -223,7 +226,8 @@ class TestRadiusFilterAndOrdering(unittest.TestCase):
                 sourceUrl="https://example.com/events/nocoord")
             store.repo.upsert_event(event)
             hits = store.repo.search_nearby(
-                latitude=CENTER[0], longitude=CENTER[1], radius_km=3.0)
+                latitude=CENTER[0], longitude=CENTER[1], radius_km=3.0,
+                today=TODAY)
             self.assertEqual(hits, [])
         finally:
             store.close()
@@ -324,11 +328,23 @@ class TestServiceNearby(unittest.TestCase):
         store = NearbyFixture()
         try:
             _seed_standard(store)
-            # No geocoder configured (default env in tests): the service must
-            # refuse to guess coordinates and return an honest empty result.
-            result = search_events(
-                {"query": "这个周末有什么活动", "place": "五角场", "radiusKm": 3},
-                today=TODAY, repository=store.repo)
+            # No geocoder configured: the service must refuse to guess
+            # coordinates and return an honest empty result. The env is
+            # scrubbed explicitly — this machine may carry a real AMAP_KEY,
+            # and a test asserting "not configured" must not depend on the
+            # host environment (P5-A audit finding).
+            saved = {k: os.environ.get(k) for k in
+                     ("AMAP_KEY", "GORGON_AMAP_KEY", "GAODE_KEY", "GORGON_GEOCODER")}
+            for k in saved:
+                os.environ.pop(k, None)
+            try:
+                result = search_events(
+                    {"query": "这个周末有什么活动", "place": "五角场", "radiusKm": 3},
+                    today=TODAY, repository=store.repo)
+            finally:
+                for k, v in saved.items():
+                    if v is not None:
+                        os.environ[k] = v
             self.assertEqual(result["placeResolution"]["status"],
                              "not_configured")
             self.assertEqual(result["results"], [])
@@ -342,9 +358,20 @@ class TestServiceNearby(unittest.TestCase):
         store = NearbyFixture()
         try:
             _seed_standard(store)
-            result = search_events(
-                {"query": "五角场附近的活动"}, today=TODAY,
-                repository=store.repo)
+            # Env scrubbed for the same reason as above: a host AMAP_KEY
+            # must not flip this into the resolved-geocoder path.
+            saved = {k: os.environ.get(k) for k in
+                     ("AMAP_KEY", "GORGON_AMAP_KEY", "GAODE_KEY", "GORGON_GEOCODER")}
+            for k in saved:
+                os.environ.pop(k, None)
+            try:
+                result = search_events(
+                    {"query": "五角场附近的活动"}, today=TODAY,
+                    repository=store.repo)
+            finally:
+                for k, v in saved.items():
+                    if v is not None:
+                        os.environ[k] = v
             self.assertEqual(result["results"], [])
             self.assertNotIn("杨浦", result["request"].get("district") or "")
             self.assertIsNone(result["request"].get("locationPreference"))

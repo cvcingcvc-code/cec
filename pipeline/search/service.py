@@ -446,6 +446,12 @@ def nearby_search_payload(request, *, today=None, settings=None,
             date_start=(date_range["start"] if date_range else None),
             date_end=(date_range["end"] if date_range else None),
             limit=NEARBY_CANDIDATE_LIMIT,
+            # PHASE 5 (P5-A audit fix): the caller's pinned `today` must
+            # reach the past-exclusion filter. Without this, the repo used
+            # the REAL clock while the request carried a pinned date, so
+            # tests pinning `today` (and any caller whose clock differs)
+            # silently lost every candidate to past-exclusion.
+            today=today,
         )
     finally:
         if own_repo:

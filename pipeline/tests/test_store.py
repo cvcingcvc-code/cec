@@ -9,6 +9,7 @@ import sqlite3
 import sys
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 
 PIPELINE_DIR = Path(__file__).resolve().parents[1]
@@ -340,7 +341,7 @@ class SearchTest(unittest.TestCase):
     def test_district_filter(self):
         with EventRepository(":memory:") as repo:
             self._seed(repo)
-            rows = repo.search(district="徐汇")
+            rows = repo.search(district="徐汇", today=date(2026, 9, 22))
             titles = [r["title"] for r in rows]
             self.assertEqual(2, len(rows))
             self.assertIn("AI 艺术展", titles)
@@ -366,7 +367,7 @@ class SearchTest(unittest.TestCase):
     def test_keyword_matches_organizer(self):
         with EventRepository(":memory:") as repo:
             self._seed(repo)
-            rows = repo.search(keyword="星巴克")
+            rows = repo.search(keyword="星巴克", today=date(2026, 9, 22))
             self.assertEqual(1, len(rows))
             self.assertEqual("咖啡讲座", rows[0]["title"])
 
@@ -413,7 +414,7 @@ class SearchTest(unittest.TestCase):
     def test_date_range(self):
         with EventRepository(":memory:") as repo:
             self._seed(repo)
-            rows = repo.search(dateStart="2026-10-01")
+            rows = repo.search(dateStart="2026-10-01", today=date(2026, 9, 22))
             titles = [r["title"] for r in rows]
             self.assertIn("AI 艺术展", titles)
             self.assertIn("上海音乐节", titles)
@@ -429,7 +430,8 @@ class SearchTest(unittest.TestCase):
     def test_combined_filters(self):
         with EventRepository(":memory:") as repo:
             self._seed(repo)
-            rows = repo.search(district="徐汇", keyword="AI")
+            rows = repo.search(district="徐汇", keyword="AI",
+                               today=date(2026, 9, 22))
             self.assertEqual(1, len(rows))
             self.assertEqual("AI 艺术展", rows[0]["title"])
             rows = repo.search(district="徐汇", dateStart="2026-11-01")
@@ -453,7 +455,7 @@ class SearchTest(unittest.TestCase):
     def test_search_returns_dicts(self):
         with EventRepository(":memory:") as repo:
             self._seed(repo)
-            rows = repo.search(keyword="AI")
+            rows = repo.search(keyword="AI", today=date(2026, 9, 22))
             self.assertEqual(1, len(rows))
             self.assertIsInstance(rows[0], dict)
             # Expected keys present.
@@ -464,7 +466,7 @@ class SearchTest(unittest.TestCase):
     def test_limit_is_respected(self):
         with EventRepository(":memory:") as repo:
             self._seed(repo)
-            rows = repo.search(limit=2)
+            rows = repo.search(limit=2, today=date(2026, 9, 22))
             self.assertEqual(2, len(rows))
 
 
