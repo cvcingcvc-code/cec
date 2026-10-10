@@ -1,0 +1,14 @@
+{
+  "appId": "cn.gorgon.workbench",
+  "appName": "Gorgon Workbench",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#0f1115"
+  },
+  "plugins": {}
+}

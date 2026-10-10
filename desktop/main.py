@@ -33,6 +33,7 @@ import json
 import os
 import socket
 import sys
+import tempfile
 import threading
 import time
 import urllib.error
@@ -55,6 +56,45 @@ def _base_dir() -> Path:
 
 def _app_dist() -> Path:
     return _base_dir() / "app" / "dist"
+
+
+def _storage_dir() -> Path:
+    """Stable, writable per-user directory for WebView2 profile data.
+
+    pywebview's ``webview.start()`` defaults to ``private_mode=True``, which
+    makes WebView2 run in InPrivate: localStorage / IndexedDB are discarded on
+    close, so tasks and notes vanish after a restart (Phase 11 defect). To
+    persist them we must (a) pass ``private_mode=False`` and (b) give WebView2
+    a stable ``storage_path`` it can write a real user-profile to.
+
+    We deliberately avoid the frozen bundle dir (read-only / wiped on update)
+    and prefer the OS per-user app-data location:
+      Windows : %LOCALAPPDATA%\\GorgonWorkbench\\webview
+      other   : ~/.local/share/GorgonWorkbench/webview  (or ~/.gorgon/...)
+    Falls back to a temp dir only if the preferred path is unusable, so the
+    window always opens.
+    """
+    candidates = []
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        candidates.append(Path(local_app_data) / "GorgonWorkbench" / "webview")
+    home = Path.home()
+    candidates.append(home / ".local" / "share" / "GorgonWorkbench" / "webview")
+    candidates.append(home / ".gorgon" / "webview")
+    for path in candidates:
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+            # probe writability
+            probe = path / ".writable"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink()
+            return path
+        except Exception:
+            continue
+    # last resort: a temp dir (still better than InPrivate, though not stable)
+    fallback = Path(tempfile.gettempdir()) / "GorgonWorkbench" / "webview"
+    fallback.mkdir(parents=True, exist_ok=True)
+    return fallback
 
 
 def _free_port(host: str = "127.0.0.1", skip=()) -> int:
@@ -314,9 +354,15 @@ def _open_window(url: str) -> int:
         print(f"[gorgon] pywebview 不可用({exc})，回退到系统浏览器", file=sys.stderr)
         return _browser_fallback(url)
 
+    # Persistence fix (Phase 11 defect): pywebview defaults to
+    # private_mode=True => WebView2 InPrivate => localStorage discarded on
+    # close => tasks/notes lost after restart. Passing private_mode=False with
+    # a stable per-user storage_path gives WebView2 a real profile that
+    # survives reboots. See _storage_dir() for the path-resolution rationale.
+    storage = _storage_dir()
     try:
         webview.create_window(APP_TITLE, url, width=1360, height=900, min_size=(960, 640))
-        webview.start()
+        webview.start(private_mode=False, storage_path=str(storage))
         return 0
     except Exception as exc:  # backend missing / no GUI session
         print(f"[gorgon] 桌面窗口启动失败({exc})，回退到系统浏览器", file=sys.stderr)
