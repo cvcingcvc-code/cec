@@ -52,15 +52,34 @@ export function isNative() {
  * (any object exposing get/set/remove/keys). Production never sets it.
  */
 async function loadPreferences() {
+  // 1. Test seam (production never sets it).
   if (typeof globalThis.__GORGON_PREFS_OVERRIDE__ !== "undefined") {
     prefs = globalThis.__GORGON_PREFS_OVERRIDE__;
     return prefs;
   }
+  // 2. PREFERRED: the native plugin bridge Capacitor already registered.
+  //    This is synchronous and cannot hang — critical because a hanging
+  //    await here would block React from ever mounting (white screen).
+  //    window.Capacitor.Plugins.Preferences exposes the same async surface
+  //    (get/set/remove/keys) as the JS module.
+  try {
+    const cap = globalThis.window && globalThis.window.Capacitor;
+    const P = cap && cap.Plugins && cap.Plugins.Preferences;
+    if (P && typeof P.get === "function" && typeof P.set === "function") {
+      prefs = P;
+      return prefs;
+    }
+  } catch (e) {
+    /* fall through to dynamic import */
+  }
+  // 3. Fallback: dynamic import of the JS module (web-only path; on native the
+  //    bridge above should always win). Guarded so a resolution failure can
+  //    never break the app — we degrade to plain localStorage.
   try {
     const mod = await import("@capacitor/preferences");
     prefs = mod.Preferences;
   } catch (e) {
-    prefs = null; // plugin unavailable -> mirror disabled, app still runs
+    prefs = null;
   }
   return prefs;
 }
