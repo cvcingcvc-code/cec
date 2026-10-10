@@ -47,8 +47,15 @@ export function isNative() {
  * Load the Preferences plugin lazily so web builds never pay for it and a
  * missing/failed plugin can never break the app (we degrade to plain
  * localStorage, which still works — just without the native mirror).
+ *
+ * Tests may inject a fake via `globalThis.__GORGON_PREFS_OVERRIDE__`
+ * (any object exposing get/set/remove/keys). Production never sets it.
  */
 async function loadPreferences() {
+  if (typeof globalThis.__GORGON_PREFS_OVERRIDE__ !== "undefined") {
+    prefs = globalThis.__GORGON_PREFS_OVERRIDE__;
+    return prefs;
+  }
   try {
     const mod = await import("@capacitor/preferences");
     prefs = mod.Preferences;
