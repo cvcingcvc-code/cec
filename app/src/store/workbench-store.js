@@ -14,10 +14,15 @@
 //     legacy GorgonStore (store.js) contract.
 
 import * as Repo from "./task-repository.js";
-import { TASK_STATUS, canTransition, InvalidTransitionError } from "../workbench/task-model.js";
+import {
+  TASK_STATUS, canTransition, InvalidTransitionError,
+  normIsoOrNull, normDateStrOrNull, localDateStr, isTaskOnDate, isOpenTask, isOverdue,
+} from "../workbench/task-model.js";
 import { runTask as runTaskEngine } from "../workbench/task-runner.js";
 import { searchActivities } from "../lib/api.js";
 import * as Proposals from "./proposal-repository.js";
+import * as Projects from "./project-repository.js";
+import * as Opportunities from "./opportunity-repository.js";
 
 const K_TASKS_V2 = Repo.SCHEMA_VERSION ? "gorgon_workbench_tasks_v2" : "gorgon_workbench_tasks_v2";
 const K_V1_TASKS = "gorgon_workbench_tasks";
@@ -65,11 +70,13 @@ export function getTask(id) {
 /**
  * Create a task. The user text is the GOAL; the title is auto-derived from
  * it (§16). Kept for Phase-1 call sites — returns the stored list.
+ * Phase 4: opts may carry dueAt / scheduledDate / projectId (all optional;
+ * createTask normalizes them, invalid values degrade to null).
  */
-export function addTask(goal, { source = "手动输入" } = {}) {
+export function addTask(goal, { source = "手动输入", dueAt = null, scheduledDate = null, projectId = null } = {}) {
   const text = String(goal || "").trim();
   if (!text) return Repo.listTasks();
-  const next = Repo.createTaskEntry(text, { source });
+  const next = Repo.createTaskEntry(text, { source, dueAt, scheduledDate, projectId });
   logEvent("task_create", `创建任务「${next[0] ? next[0].title : text}」`);
   return next;
 }
@@ -125,6 +132,222 @@ export function getStorageHealth() {
 
 export function getSchemaVersion() {
   return Repo.SCHEMA_VERSION;
+}
+
+// ── Phase 4 (P0-B): task scheduling — dueAt / scheduledDate ────────────
+//
+// The user sets dates; the engine never does. All writes go through
+// updateTask so the timeline records what actually happened.
+
+export function setTaskSchedule(id, { dueAt, scheduledDate } = {}) {
+  const task = Repo.getTask(id);
+  if (!task) return null;
+  const patch = {};
+  let changed = false;
+  if (dueAt !== undefined) {
+    const v = dueAt === null ? null : normIsoOrNull(dueAt);
+    if (dueAt !== null && !v) return null; // invalid input — refuse, never guess
+    if (v !== task.dueAt) { patch.dueAt = v; changed = true; }
+  }
+  if (scheduledDate !== undefined) {
+    const v = scheduledDate === null ? null : normDateStrOrNull(scheduledDate);
+    if (scheduledDate !== null && !v) return null;
+    if (v !== task.scheduledDate) { patch.scheduledDate = v; changed = true; }
+  }
+  if (!changed) return task;
+  return Repo.updateTask(id, patch, {
+    eventType: "task_scheduled",
+    eventMessage: describeSchedule(patch),
+    eventMetadata: patch,
+  }) && Repo.getTask(id);
+}
+
+function describeSchedule(patch) {
+  const parts = [];
+  if ("dueAt" in patch) parts.push(patch.dueAt ? "截止 " + patch.dueAt.slice(0, 16).replace("T", " ") : "清除截止时间");
+  if ("scheduledDate" in patch) parts.push(patch.scheduledDate ? "安排到 " + patch.scheduledDate : "清除计划日期");
+  return "调整排期：" + (parts.join("；") || "无变化");
+}
+
+export function linkTaskToProject(taskId, projectId) {
+  const task = Repo.getTask(taskId);
+  const project = projectId ? Projects.getProject(projectId) : null;
+  if (!task) return null;
+  if (projectId && !project) return null;
+  if ((task.projectId || null) === (projectId || null)) return task;
+  Repo.updateTask(taskId, { projectId: projectId || null }, {
+    eventType: "project_linked",
+    eventMessage: project ? `关联到项目「${project.title}」` : "已移出项目",
+    eventMetadata: { projectId: projectId || null },
+  });
+  return Repo.getTask(taskId);
+}
+
+/**
+ * P0-B: convert the plan skill's steps into EDITABLE todo steps on the task.
+ * Honest by construction:
+ *   * every created step starts as `pending` — a suggestion is NEVER marked done;
+ *   * steps carry metadata.origin="plan_suggestion" + method so the UI can say
+ *     「来自本地规划建议」;
+ *   * duplicates (same title already on the task) are skipped, so pressing the
+ *     button twice does not pile up identical todos.
+ */
+export function savePlanStepsAsTodos(taskId, steps, { source = "plan_suggestion" } = {}) {
+  const task = Repo.getTask(taskId);
+  if (!task) return null;
+  const titles = Array.isArray(steps) ? steps : [];
+  const existing = new Set(task.steps.map((s) => s.title));
+  const created = [];
+  for (const raw of titles) {
+    const title = String(raw == null ? "" : (typeof raw === "object" ? raw.title || "" : raw)).trim();
+    if (!title || existing.has(title)) continue;
+    existing.add(title);
+    Repo.addTaskStep(taskId, {
+      title,
+      metadata: { origin: source, editable: true },
+    });
+    created.push(title);
+  }
+  if (created.length) {
+    Repo.appendTimelineEvent(taskId, "plan_saved_as_todos",
+      `规划建议已保存为 ${created.length} 个可编辑待办（初始状态均为待执行）`,
+      { count: created.length, source });
+  }
+  return Repo.getTask(taskId);
+}
+
+/** Today's tasks: open tasks scheduled for (or due on) the given local date. */
+export function getTodayTasks(dateStr) {
+  const day = dateStr || localDateStr(new Date());
+  return Repo.listTasks().filter((t) => isTaskOnDate(t, day));
+}
+
+/** Open tasks with no completed/failed status, newest first. */
+export function getOpenTasks() {
+  return Repo.listTasks().filter((t) => isOpenTask(t));
+}
+
+export function isTaskOverdue(task, now) {
+  return isOverdue(task, now);
+}
+
+export { localDateStr, isTaskOnDate, isOpenTask, normIsoOrNull, normDateStrOrNull };
+
+// ── Phase 4 (P0-A): projects — facade over project-repository ──────────
+
+export const PROJECT_ORIGIN = Projects.PROJECT_ORIGIN;
+
+export function getProjects(opts) {
+  return Projects.listProjects(opts);
+}
+
+export function getProject(id) {
+  return Projects.getProject(id);
+}
+
+export function createProject(input) {
+  const p = Projects.createProject(input);
+  if (p) logEvent("project_create", `创建项目「${p.title}」`);
+  return p;
+}
+
+/**
+ * Create a project FROM an activity view (P0-A step 3). The activity
+ * snapshot is stored on the project; DEMO activities keep their flag.
+ */
+export function createProjectFromActivity(view, { title, goal } = {}) {
+  if (!view || !view.id) return null;
+  const p = Projects.createProject({
+    title: title || view.title || "未命名项目",
+    goal: goal || "",
+    origin: Projects.PROJECT_ORIGIN.ACTIVITY,
+    activity: view,
+  });
+  if (p) logEvent("project_create", `从活动「${p.title}」创建项目`);
+  return p;
+}
+
+export function linkActivityToProject(projectId, view) {
+  const p = Projects.linkActivity(projectId, view);
+  if (p) logEvent("project_link", `项目关联活动「${(view && view.title) || ""}」`);
+  return p;
+}
+
+export function findProjectByActivity(activityId) {
+  return Projects.findProjectByActivity(activityId);
+}
+
+export function updateProject(id, patch) {
+  return Projects.updateProject(id, patch);
+}
+
+export function archiveProject(id) {
+  const p = Projects.archiveProject(id);
+  if (p) logEvent("project_archive", `归档项目「${p.title}」`);
+  return p;
+}
+
+/** Everything a project detail surface needs, assembled from the real stores. */
+export function getProjectBundle(projectId) {
+  const project = Projects.getProject(projectId);
+  if (!project) return null;
+  const tasks = Repo.listTasks().filter((t) => t.projectId === projectId);
+  const notes = Opportunities.listNotes({ projectId });
+  const places = Opportunities.listPlaces().filter((pl) => pl.projectId === projectId);
+  const review = Opportunities.getProjectReview(projectId);
+  const activityIds = project.activities.map((a) => a.activityId);
+  const registrations = Opportunities.listRegistrations()
+    .filter((r) => activityIds.includes(r.activityId));
+  return { project, tasks, notes, places, review, registrations };
+}
+
+/** Today + open view data for the workbench home (P0-D). */
+export function getHomeData() {
+  const today = localDateStr(new Date());
+  const all = Repo.listTasks();
+  return {
+    today,
+    todayTasks: all.filter((t) => isTaskOnDate(t, today)),
+    openTasks: all.filter((t) => isOpenTask(t)),
+    recentTasks: all.slice(0, 5),
+    projects: Projects.listProjects().slice(0, 5),
+    recentNotes: Opportunities.listNotes({ kind: "text" }).slice(0, 5),
+  };
+}
+
+// ── Phase 4 (P0-C): notes + minimal review — facade ────────────────────
+
+export function getNotes(filter) {
+  return Opportunities.listNotes(filter || {});
+}
+
+export function addNote(input) {
+  const n = Opportunities.addNote(input);
+  if (n) {
+    logEvent("note_create", `记录了一条笔记`);
+    if (n.taskId) {
+      Repo.appendTimelineEvent(n.taskId, "note_linked", "关联了一条笔记", { noteId: n.id });
+    }
+  }
+  return n;
+}
+
+export function updateNote(id, patch) {
+  return Opportunities.updateNote(id, patch);
+}
+
+export function removeNote(id) {
+  return Opportunities.removeNote(id);
+}
+
+export function getProjectReview(projectId) {
+  return Opportunities.getProjectReview(projectId);
+}
+
+export function setProjectReview(projectId, patch) {
+  const r = Opportunities.setProjectReview(projectId, patch);
+  if (r) logEvent("project_review", `保存了项目复盘`);
+  return r;
 }
 
 // ── Phase 3: Task execution (deterministic router + skills) ────────────

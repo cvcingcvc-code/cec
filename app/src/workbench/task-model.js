@@ -14,6 +14,14 @@
 //   * makeTimelineEvent / makeStep / makeSource / makeResult — factories
 //   * migrateV1TasksToV2 — Phase-1 (draft/ready/completed) -> v2 schema (§8)
 //   * MAX_TIMELINE_EVENTS — §32 data boundary (cap, keep newest)
+//
+// PHASE 4 (AI 智能行动工作台 core loop) additions — all ADDITIVE:
+//   * task.dueAt          截止时间 (ISO string | null)
+//   * task.scheduledDate  计划执行日 ("YYYY-MM-DD" | null)
+//   * task.projectId      所属项目 (string | null)
+//   * pure date helpers: localDateStr / isTaskOnDate / isOpenTask / isOverdue
+//   Old records have none of these fields; normalizeTask fills them with
+//   null, so Phase-1/2/3 data keeps loading unchanged (§ compatibility).
 
 import { randomUUID } from "./uuid.js";
 
@@ -54,6 +62,16 @@ export const EXECUTION_EVENT_TYPES = [
   "task_execution_completed",
 ];
 
+// Phase-4 workbench-loop vocabulary (ADDITIVE — old types untouched):
+// scheduling, project links and the note/review surfaces record here so the
+// task timeline stays the single truthful history of what the USER did.
+export const WORKBENCH_EVENT_TYPES = [
+  "task_scheduled",     // dueAt / scheduledDate set or changed by the user
+  "project_linked",     // task attached to a project
+  "plan_saved_as_todos",// plan-skill output converted into editable steps
+  "note_linked",        // a note was attached to this task
+];
+
 // ── §5 legal transition table ─────────────────────────────────────────
 // created -> planning | ready (Phase-2 local shortcut) | failed | cancelled is NOT enabled (unused)
 export const TRANSITIONS = {
@@ -81,6 +99,67 @@ export class InvalidTransitionError extends Error {
 }
 
 const nowIso = () => new Date().toISOString();
+
+// ── Phase 4 — scheduling helpers (pure, no DOM) ───────────────────────
+
+/** Validate an ISO timestamp; return it normalized or null. */
+export function normIsoOrNull(v) {
+  if (typeof v !== "string" || !v) return null;
+  const t = Date.parse(v);
+  return Number.isFinite(t) ? new Date(t).toISOString() : null;
+}
+
+/** Validate a local "YYYY-MM-DD" date string; return it or null. */
+export function normDateStrOrNull(v) {
+  if (typeof v !== "string") return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v.trim());
+  if (!m) return null;
+  const [, y, mo, d] = m.map(Number);
+  const dt = new Date(y, mo - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null;
+  return v.trim();
+}
+
+/** Local-date "YYYY-MM-DD" of a Date (defaults to today). */
+export function localDateStr(date) {
+  const d = date instanceof Date ? date : new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Local-date string of a task's dueAt (or null when no due date). */
+export function dueDateStr(task) {
+  if (!task || !task.dueAt) return null;
+  const t = Date.parse(task.dueAt);
+  return Number.isFinite(t) ? localDateStr(new Date(t)) : null;
+}
+
+/** Open (not terminal) statuses — a task still on the board. */
+const OPEN_STATUSES = ["created", "planning", "ready", "running", "review_required"];
+
+export function isOpenTask(task) {
+  return !!task && OPEN_STATUSES.indexOf(task.status) >= 0;
+}
+
+/**
+ * Is this task scheduled for a given local date?
+ * Matches explicit scheduledDate first, else the dueAt's local date.
+ */
+export function isTaskOnDate(task, dateStr) {
+  if (!task || !dateStr) return false;
+  if (task.scheduledDate === dateStr) return true;
+  return dueDateStr(task) === dateStr;
+}
+
+/** Overdue: open, has a due time strictly before `now`. */
+export function isOverdue(task, now) {
+  if (!isOpenTask(task) || !task.dueAt) return false;
+  const due = Date.parse(task.dueAt);
+  const cur = Date.parse(now || nowIso());
+  return Number.isFinite(due) && Number.isFinite(cur) && due < cur;
+}
 
 // ── §9 timeline event factory ─────────────────────────────────────────
 export function makeTimelineEvent(type, message, metadata, timestamp) {
@@ -126,6 +205,11 @@ export function createTask(goal, opts = {}) {
     updatedAt: ts,
     startedAt: null,
     completedAt: null,
+
+    // Phase 4 — scheduling & project link (additive; null = not set).
+    dueAt: normIsoOrNull(opts.dueAt),
+    scheduledDate: normDateStrOrNull(opts.scheduledDate),
+    projectId: opts.projectId ? String(opts.projectId) : null,
 
     steps: [],
     result: null,
@@ -283,6 +367,10 @@ export function normalizeTask(t) {
     updatedAt: typeof t.updatedAt === "string" ? t.updatedAt : base.createdAt,
     startedAt: typeof t.startedAt === "string" ? t.startedAt : null,
     completedAt: typeof t.completedAt === "string" ? t.completedAt : null,
+    // Phase 4 additive fields — old records normalize to null (compatible).
+    dueAt: normIsoOrNull(t.dueAt),
+    scheduledDate: normDateStrOrNull(t.scheduledDate),
+    projectId: t.projectId ? String(t.projectId) : null,
     steps: Array.isArray(t.steps) ? t.steps.map(normalizeStep).filter(Boolean) : [],
     result: t.result && typeof t.result === "object" ? (makeResult(t.result) || null) : null,
     sources: Array.isArray(t.sources) ? t.sources.map((s) => makeSource(s) || s).filter(Boolean) : [],

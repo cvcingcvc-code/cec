@@ -21,6 +21,8 @@
 
 export const WORKBENCH_TABS = [
   { key: "home", label: "工作台", icon: "layout-dashboard" },
+  // Phase 4 (P0-A): the project hub — links activities/tasks/schedule/notes.
+  { key: "projects", label: "我的项目", icon: "folder-kanban" },
   { key: "tasks", label: "我的任务", icon: "list-todo" },
   { key: "search", label: "智能搜索", icon: "search" },
   { key: "review", label: "审核中心", icon: "shield-check" },
@@ -60,6 +62,7 @@ export const MOBILE_TABS = [
 ];
 
 export const MOBILE_MORE_TABS = [
+  { key: "projects", label: "我的项目", icon: "folder-kanban", workbench: true },
   { key: "smart", label: "智能找活动", icon: "sparkles", legacy: true },
   { key: "weekend", label: "我的周末", icon: "calendar-heart", legacy: true },
   { key: "map", label: "地图", icon: "map", legacy: true },

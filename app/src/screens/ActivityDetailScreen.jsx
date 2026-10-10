@@ -44,7 +44,15 @@ function SideCard({ title, children }) {
   );
 }
 
-export function ActivityDetailScreen({ view, synced, onSync, onBack, onShowMap, onToast }) {
+export function ActivityDetailScreen({
+  view, synced, onSync, onBack, onShowMap, onToast,
+  // ── Phase 4 (P0-A): project entry points. All optional — the screen keeps
+  // working exactly as before when the parent does not provide them.
+  projects = [], linkedProject = null,
+  onCreateProjectFromActivity = null, onLinkActivityToProject = null,
+  onOpenProject = null,
+  pickerOpen = false, onTogglePicker = null, onClosePicker = null,
+}) {
   const v = view;
   const [shareNote, setShareNote] = React.useState("");
 
@@ -115,6 +123,67 @@ export function ActivityDetailScreen({ view, synced, onSync, onBack, onShowMap, 
           </Button>
           {shareNote && <div style={{ fontSize: 11.5, color: "var(--text-muted)", textAlign: "center" }}>{shareNote}</div>}
         </div>
+      </SideCard>
+
+      <SideCard title="项目">
+        {linkedProject ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            <button data-testid="activity-project-linked" onClick={() => onOpenProject && onOpenProject(linkedProject.id)}
+              style={{
+                display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
+                border: "1px solid var(--border-subtle)", background: "var(--bg-sunken)", cursor: "pointer",
+                borderRadius: "var(--radius-md)", padding: "10px 12px", fontFamily: "var(--font-sans)",
+              }}>
+              <Icon name="folder-kanban" style={{ width: 17, height: 17, color: "var(--brand)", flex: "none" }} />
+              <span style={{ minWidth: 0, flex: 1 }}>
+                <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {linkedProject.title}
+                </span>
+                <span style={{ display: "block", fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>已关联此活动 · 点击查看项目</span>
+              </span>
+              <Icon name="chevron-right" style={{ width: 15, height: 15, color: "var(--text-faint)", flex: "none" }} />
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            <Button block variant="secondary" size="lg" data-testid="activity-create-project"
+              onClick={() => onCreateProjectFromActivity && onCreateProjectFromActivity({})}
+              leadingIcon={<Icon name="folder-plus" style={{ width: 17, height: 17 }} />}>
+              以此活动创建项目
+            </Button>
+            {projects.length > 0 && (
+              <>
+                <Button block variant="ghost" size="lg" data-testid="activity-link-project-toggle"
+                  onClick={onTogglePicker}
+                  leadingIcon={<Icon name="folder-kanban" style={{ width: 17, height: 17 }} />}>
+                  关联到已有项目
+                </Button>
+                {pickerOpen && (
+                  <div data-testid="activity-project-picker" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {projects.map((p) => (
+                      <button key={p.id} data-testid="activity-project-pick"
+                        onClick={() => onLinkActivityToProject && onLinkActivityToProject(p.id)}
+                        style={{
+                          border: "1px solid var(--border-subtle)", background: "var(--surface-card)", cursor: "pointer",
+                          borderRadius: "var(--radius-sm)", padding: "9px 12px", textAlign: "left",
+                          fontFamily: "var(--font-sans)", fontSize: 12.5, fontWeight: 600, color: "var(--text-body)",
+                        }}>
+                        {p.title}
+                      </button>
+                    ))}
+                    <button onClick={onClosePicker} aria-label="关闭项目选择"
+                      style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 12, color: "var(--text-faint)", padding: "4px 0" }}>
+                      取消
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+            <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.55 }}>
+              把活动变成项目后，报名、任务、日程、笔记和复盘都会挂在同一条主线上。
+            </div>
+          </div>
+        )}
       </SideCard>
 
       <SideCard title="可信状态">

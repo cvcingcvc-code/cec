@@ -14,12 +14,14 @@
 
 import React from "react";
 import {
-  ArrowLeft, ArrowRight, BadgeCheck, BatteryFull, Bell, Calendar, CalendarHeart, Check,
-  ChevronRight, Clock, Compass, ExternalLink, FileCheck, Flag, FlaskConical, GitBranch,
-  GitMerge, Globe, Heart, HeartOff, Hexagon, History, ImageOff, Info, LayoutDashboard,
-  Link, ListPlus, ListTodo, LocateFixed, Map, MapPin, MapPinOff, Menu, Navigation, Play,
-  Plus, PlugZap, Search, SearchX, Settings, Share2, ShieldAlert, ShieldCheck, Signal,
-  SlidersHorizontal, Sparkles, Ticket, TrendingUp, TriangleAlert, Users, Wifi,
+  ArrowLeft, ArrowRight, BadgeCheck, BatteryFull, Bell, Calendar, CalendarClock,
+  CalendarHeart, Check, ChevronRight, Clock, Compass, ExternalLink, FileCheck, Flag,
+  FlaskConical, FolderKanban, FolderPlus, GitBranch, GitMerge, Globe, Heart, HeartOff,
+  Hexagon, History, ImageOff, Info, LayoutDashboard, Link, ListPlus, ListTodo,
+  LocateFixed, Map, MapPin, MapPinOff, Menu, Navigation, NotebookPen, Pencil, Play,
+  Plus, PlugZap, RotateCcw, Search, SearchX, Settings, Share2, ShieldAlert, ShieldCheck,
+  Signal, SlidersHorizontal, Sparkles, Target, Ticket, Trash2, TrendingUp, TriangleAlert,
+  Users, Wifi, X,
 } from "lucide-react";
 
 const ICONS = {
@@ -76,6 +78,16 @@ const ICONS = {
   "play": Play,
   "users": Users,
   "wifi": Wifi,
+  // Phase 4 (workbench core loop)
+  "calendar-clock": CalendarClock,
+  "folder-kanban": FolderKanban,
+  "folder-plus": FolderPlus,
+  "notebook-pen": NotebookPen,
+  "pencil": Pencil,
+  "rotate-ccw": RotateCcw,
+  "target": Target,
+  "trash-2": Trash2,
+  "x": X,
 };
 
 /**

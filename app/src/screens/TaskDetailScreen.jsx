@@ -32,6 +32,11 @@ const EVENT_LABEL = {
   source_added: "添加来源",
   result_saved: "保存结果",
   task_failed: "任务失败",
+  // Phase 4 events.
+  task_scheduled: "调整排期",
+  project_linked: "项目关联",
+  plan_saved_as_todos: "规划建议已存为待办",
+  note_linked: "关联笔记",
 };
 
 const EVENT_ICON = {
@@ -49,6 +54,11 @@ const EVENT_ICON = {
   skill_completed: "check-circle",
   skill_failed: "alert-triangle",
   task_execution_completed: "flag",
+  // Phase 4 events.
+  task_scheduled: "calendar-clock",
+  project_linked: "folder-kanban",
+  plan_saved_as_todos: "list-todo",
+  note_linked: "notebook-pen",
 };
 
 // Phase 3 Router result rendering (§25): map skill ids / intent → labels.
@@ -86,6 +96,24 @@ function fmtTime(iso) {
   } catch (e) { return ""; }
 }
 
+/**
+ * Phase 4 (P0-B): extract the suggested steps from a plan-skill result.
+ * A plan result is {type:"plan", content:[...]} — content may be an array of
+ * strings/objects or a newline-delimited string. Returns clean titles.
+ */
+function extractPlanSteps(result) {
+  if (!result || result.type !== "plan") return [];
+  const c = result.content;
+  if (Array.isArray(c)) {
+    return c.map((x) => (x && typeof x === "object" ? (x.title || x.text || "") : String(x)))
+      .map((s) => s.trim()).filter(Boolean);
+  }
+  if (typeof c === "string") {
+    return c.split(/\r?\n/).map((s) => s.trim().replace(/^[\d.\-\s]+/, "")).filter(Boolean);
+  }
+  return [];
+}
+
 function Section({ title, testid, children, extra }) {
   return (
     <div style={{ marginTop: 20 }} data-testid={testid}>
@@ -103,12 +131,31 @@ const card = {
   borderRadius: "var(--radius-md)", padding: "12px 14px",
 };
 
-export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpdateStep, onSetResult, onAddSource, onRun }) {
+export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpdateStep, onSetResult, onAddSource, onRun,
+  // ── Phase 4 (P0-B): schedule editor, plan→todos, step title editing,
+  //    project link. All optional — the screen degrades gracefully.
+  onSetSchedule = null, onSavePlanTodos = null, onLinkProject = null, projects = [],
+  // ── Phase 4 (P0-C): task-linked notes (execution records).
+  notes = [], onAddNote = null }) {
   const [stepTitle, setStepTitle] = React.useState("");
   const [sourceTitle, setSourceTitle] = React.useState("");
   const [resultText, setResultText] = React.useState("");
+  const [noteDraft, setNoteDraft] = React.useState("");
   const [running, setRunning] = React.useState(false);
   const [runError, setRunError] = React.useState(null);
+  // Phase 4 — schedule editor local state (seeded from the task, re-seeded
+  // when a different task is opened).
+  const [schedDate, setSchedDate] = React.useState("");
+  const [dueInput, setDueInput] = React.useState("");
+  const [editingStepId, setEditingStepId] = React.useState(null);
+  const [editingStepTitle, setEditingStepTitle] = React.useState("");
+  const [planSavedFlash, setPlanSavedFlash] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!task) return;
+    setSchedDate(task.scheduledDate || "");
+    setDueInput(task.dueAt ? task.dueAt.slice(0, 16) : "");
+  }, [task && task.id, task && task.scheduledDate, task && task.dueAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const router = task.metadata && task.metadata.router;
   const routerHasSkills = !!(router && Array.isArray(router.skillIds) && router.skillIds.length > 0);
@@ -168,6 +215,51 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
     setResultText("");
   };
 
+  // ── Phase 4 (P0-C): task-linked notes ─────────────────────────────
+  const submitNote = () => {
+    const t = noteDraft.trim();
+    if (!t || !onAddNote) return;
+    onAddNote(t, task);
+    setNoteDraft("");
+  };
+
+  // ── Phase 4 (P0-B): schedule editor ────────────────────────────────
+  // The user sets the date/time; the engine never does. Empty input on a
+  // field means "clear it" — handled by setTaskSchedule via null.
+  const saveSchedule = () => {
+    if (!onSetSchedule) return;
+    const patch = {};
+    patch.scheduledDate = schedDate ? schedDate : null;
+    // datetime-local gives "YYYY-MM-DDTHH:mm"; convert to an ISO instant in
+    // local time. Empty = clear.
+    patch.dueAt = dueInput ? new Date(dueInput).toISOString() : null;
+    onSetSchedule(task.id, patch);
+  };
+
+  // ── Phase 4 (P0-B): plan → editable todos ──────────────────────────
+  // A plan skill result is {type:"plan", content:[...steps]}. We surface a
+  // button that turns those SUGGESTED steps into editable pending todos.
+  // Honesty rule: they are created as `pending` by the facade — never done.
+  // (Plain function, not a hook — this component has an early return.)
+  const planSteps = extractPlanSteps(task.result);
+
+  const alreadySavedAsTodos = task.timeline.some((e) => e.type === "plan_saved_as_todos");
+
+  const doSavePlanTodos = () => {
+    if (!onSavePlanTodos || planSteps.length === 0) return;
+    onSavePlanTodos(task.id, planSteps);
+    setPlanSavedFlash(true);
+    setTimeout(() => setPlanSavedFlash(false), 2000);
+  };
+
+  // Step title editing (P0-B: suggestions are editable, not fixed).
+  const startEditStep = (s) => { setEditingStepId(s.id); setEditingStepTitle(s.title); };
+  const commitEditStep = () => {
+    const t = editingStepTitle.trim();
+    if (t && onUpdateStep) onUpdateStep(editingStepId, { title: t });
+    setEditingStepId(null);
+  };
+
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }} data-gg-screen="workbench-task-detail">
       <div style={{ padding: "28px 16px 48px", maxWidth: 860, margin: "0 auto", width: "100%" }}>
@@ -208,6 +300,51 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
             )}
           </div>
         </div>
+
+        {/* ── Phase 4 (P0-B): schedule editor ─────────────────────────── */}
+        {onSetSchedule && (
+          <div style={{ ...card, marginTop: 14 }} data-testid="workbench-detail-schedule">
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-faint)", marginBottom: 9, letterSpacing: "0.03em" }}>
+              <Icon name="calendar-clock" style={{ width: 13, height: 13, verticalAlign: "-2px", marginRight: 5 }} />
+              排期（由你设置，引擎不会自动安排）
+            </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)" }}>
+                计划日期
+                <input type="date" aria-label="计划日期" data-testid="workbench-detail-schedule-date"
+                  value={schedDate} onChange={(e) => setSchedDate(e.target.value)}
+                  style={{ border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "8px 11px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--text-strong)" }} />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)" }}>
+                截止时间
+                <input type="datetime-local" aria-label="截止时间" data-testid="workbench-detail-schedule-due"
+                  value={dueInput} onChange={(e) => setDueInput(e.target.value)}
+                  style={{ border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "8px 11px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--text-strong)" }} />
+              </label>
+              <Button size="sm" data-testid="workbench-detail-schedule-save" onClick={saveSchedule}>保存排期</Button>
+              {(task.scheduledDate || task.dueAt) && (
+                <span data-testid="workbench-detail-schedule-current" style={{ fontSize: 12, color: "var(--text-faint)" }}>
+                  当前：{task.scheduledDate ? `计划 ${task.scheduledDate}` : ""}{task.scheduledDate && task.dueAt ? " · " : ""}{task.dueAt ? `截止 ${fmtTime(task.dueAt)}` : ""}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Phase 4 (P0-A): project link ─────────────────────────────── */}
+        {onLinkProject && projects.length > 0 && (
+          <div style={{ ...card, marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }} data-testid="workbench-detail-project-link">
+            <Icon name="folder-kanban" style={{ width: 15, height: 15, color: "var(--brand)", flex: "none" }} />
+            <span style={{ fontSize: 12.5, color: "var(--text-muted)", fontWeight: 600 }}>所属项目：</span>
+            <select aria-label="所属项目" data-testid="workbench-detail-project-select"
+              value={task.projectId || ""}
+              onChange={(e) => onLinkProject(task.id, e.target.value || null)}
+              style={{ border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "7px 10px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", fontSize: 12.5, color: "var(--text-strong)" }}>
+              <option value="">（不关联）</option>
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
+          </div>
+        )}
 
         {/* ── Phase 3: run / router / manual selection (§18/§24/§25/§27) ── */}
         <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }} data-testid="workbench-detail-runzone">
@@ -311,24 +448,60 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
         {/* steps */}
         <Section title={`步骤 (${task.steps.length})`} testid="workbench-detail-steps">
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {task.steps.map((s) => (
+            {task.steps.map((s) => {
+              const fromPlan = s.metadata && s.metadata.origin === "plan_suggestion";
+              return (
               <div key={s.id} data-testid="workbench-detail-step" style={{ ...card, display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ minWidth: 0, flex: 1, fontSize: 13.5, fontWeight: 600, color: "var(--text-strong)" }}>{s.title}</div>
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-muted)" }}>{STEP_LABEL[s.status] || s.status}</span>
-                {s.status === "pending" && onUpdateStep && (
-                  <button data-testid="workbench-detail-step-start" onClick={() => onUpdateStep(s.id, { status: "running" })}
-                    style={{ border: "1px solid var(--border-subtle)", background: "transparent", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "5px 10px", borderRadius: "var(--radius-sm)", color: "var(--text-body)" }}>
-                    开始
-                  </button>
-                )}
-                {(s.status === "running" || s.status === "pending") && onUpdateStep && (
-                  <button data-testid="workbench-detail-step-complete" onClick={() => onUpdateStep(s.id, { status: "completed" })}
-                    style={{ border: "1px solid var(--border-subtle)", background: "transparent", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "5px 10px", borderRadius: "var(--radius-sm)", color: "var(--text-body)" }}>
-                    完成
-                  </button>
+                {editingStepId === s.id ? (
+                  <>
+                    <input aria-label="编辑步骤标题" data-testid="workbench-detail-step-edit-input"
+                      value={editingStepTitle} onChange={(e) => setEditingStepTitle(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") commitEditStep(); if (e.key === "Escape") setEditingStepId(null); }}
+                      autoFocus
+                      style={{ flex: 1, minWidth: 0, border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "7px 10px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--text-strong)" }} />
+                    <button data-testid="workbench-detail-step-edit-save" onClick={commitEditStep}
+                      style={{ border: "1px solid var(--border-subtle)", background: "transparent", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "5px 10px", borderRadius: "var(--radius-sm)", color: "var(--text-body)" }}>
+                      保存
+                    </button>
+                    <button onClick={() => setEditingStepId(null)} aria-label="取消编辑步骤"
+                      style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--text-faint)" }}>
+                      <Icon name="x" style={{ width: 15, height: 15 }} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text-strong)" }}>{s.title}</span>
+                      {fromPlan && (
+                        <span data-testid="workbench-detail-step-plan-badge" style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: "var(--radius-pill)", background: "var(--bg-sunken)", color: "var(--text-muted)" }}>
+                          来自规划建议
+                        </span>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-muted)" }}>{STEP_LABEL[s.status] || s.status}</span>
+                    {onUpdateStep && (
+                      <button data-testid="workbench-detail-step-edit" onClick={() => startEditStep(s)} aria-label="编辑步骤标题"
+                        style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--brand)", display: "inline-flex", alignItems: "center", padding: 4 }}>
+                        <Icon name="pencil" style={{ width: 13, height: 13 }} />
+                      </button>
+                    )}
+                    {s.status === "pending" && onUpdateStep && (
+                      <button data-testid="workbench-detail-step-start" onClick={() => onUpdateStep(s.id, { status: "running" })}
+                        style={{ border: "1px solid var(--border-subtle)", background: "transparent", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "5px 10px", borderRadius: "var(--radius-sm)", color: "var(--text-body)" }}>
+                        开始
+                      </button>
+                    )}
+                    {(s.status === "running" || s.status === "pending") && onUpdateStep && (
+                      <button data-testid="workbench-detail-step-complete" onClick={() => onUpdateStep(s.id, { status: "completed" })}
+                        style={{ border: "1px solid var(--border-subtle)", background: "transparent", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "5px 10px", borderRadius: "var(--radius-sm)", color: "var(--text-body)" }}>
+                        完成
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
-            ))}
+              );
+            })}
             <div style={{ display: "flex", gap: 9 }}>
               <input aria-label="新步骤标题" data-testid="workbench-detail-step-input" placeholder="添加一个步骤，例如：收集本周活动列表"
                 value={stepTitle} onChange={(e) => setStepTitle(e.target.value)}
@@ -376,6 +549,26 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
               <div style={{ fontSize: 13.5, color: "var(--text-body)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
                 {typeof task.result.content === "string" ? task.result.content : JSON.stringify(task.result.content, null, 2)}
               </div>
+              {/* Phase 4 (P0-B): plan → editable pending todos. Honest copy:
+                  these are SUGGESTIONS; saving them creates pending steps, never
+                  completed ones. */}
+              {planSteps.length > 0 && onSavePlanTodos && (
+                <div data-testid="workbench-detail-plan-todos" style={{ marginTop: 12, paddingTop: 11, borderTop: "1px dashed var(--border-subtle)" }}>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6, marginBottom: 9 }}>
+                    这是一份本地规划<b style={{ color: "var(--text-strong)" }}>建议</b>（{planSteps.length} 步）。保存为待办后，它们会以「待执行」状态出现在上方步骤里，由你逐条手动推进 —— AI 不会替你标记完成。
+                  </div>
+                  <Button size="sm" variant="primary" data-testid="workbench-detail-save-plan"
+                    onClick={doSavePlanTodos} disabled={alreadySavedAsTodos}
+                    leadingIcon={<Icon name="list-todo" style={{ width: 14, height: 14 }} />}>
+                    {alreadySavedAsTodos ? "已保存为待办" : "保存为可编辑待办"}
+                  </Button>
+                  {planSavedFlash && (
+                    <span data-testid="workbench-detail-plan-saved-flash" style={{ marginLeft: 10, fontSize: 12, color: "var(--accent-strong, #047857)", fontWeight: 600 }}>
+                      已存入步骤（均为待执行）
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ fontSize: 12.5, color: "var(--text-faint)", padding: "4px 0 10px" }}>还没有保存结果。</div>
@@ -388,6 +581,28 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
             <Button onClick={saveResult} disabled={!resultText.trim()}>保存结果</Button>
           </div>
         </Section>
+
+        {/* Phase 4 (P0-C): task notes — the execution record channel. */}
+        {onAddNote && (
+          <Section title={`执行记录（笔记） (${notes.length})`} testid="workbench-detail-notes">
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {notes.map((n) => (
+                <div key={n.id} data-testid="workbench-detail-note" style={{ ...card, fontSize: 13, color: "var(--text-body)", lineHeight: 1.6 }}>
+                  <div style={{ whiteSpace: "pre-wrap" }}>{n.text}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 6 }}>{fmtTime(n.updatedAt)}{n.projectId ? " · 已关联项目" : ""}</div>
+                </div>
+              ))}
+              <div style={{ display: "flex", gap: 9 }}>
+                <input aria-label="任务笔记" data-testid="workbench-detail-note-input"
+                  placeholder="执行过程中记一笔，例如：已完成电话确认，对方要求带身份证"
+                  value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") submitNote(); }}
+                  style={{ flex: 1, minWidth: 0, border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-md)", padding: "10px 13px", background: "var(--surface-card)", fontFamily: "var(--font-sans)", fontSize: 13.5, color: "var(--text-strong)" }} />
+                <Button onClick={submitNote} disabled={!noteDraft.trim()}>记一笔</Button>
+              </div>
+            </div>
+          </Section>
+        )}
 
         {/* processing mode — Local vs AI Assisted, per skill (Phase 7).
             Read from the REAL skill metadata; never guessed. */}

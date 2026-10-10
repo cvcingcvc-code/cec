@@ -36,7 +36,11 @@ function fmtTime(iso) {
   } catch (e) { return ""; }
 }
 
-export function WorkbenchHome({ tasks, onCreateTask, onGoSearch, onGoTasks, onOpenTask }) {
+export function WorkbenchHome({ tasks, onCreateTask, onGoSearch, onGoTasks, onOpenTask,
+  // ── Phase 4 (P0-D): the home must show the whole loop, not just tasks.
+  //    All data comes from the parent (computed through the store facade).
+  todayTasks = [], openTaskCount = 0, projects = [], projectStats = {},
+  recentNotes = [], onOpenProject = null, onGoProjects = null }) {
   const { isMobile } = useResponsive();
   const [value, setValue] = React.useState("");
   const [notice, setNotice] = React.useState("");
@@ -143,6 +147,96 @@ export function WorkbenchHome({ tasks, onCreateTask, onGoSearch, onGoTasks, onOp
           </div>
         </div>
 
+        {/* C2. Phase 4 (P0-D): 今日待办 — real scheduled/due tasks for today. */}
+        <div style={{ marginTop: 26 }} data-testid="workbench-today">
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 9 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-muted)" }}>
+              今日待办{todayTasks.length > 0 ? `（${todayTasks.length}）` : ""}
+              {openTaskCount > 0 && <span style={{ fontWeight: 500, color: "var(--text-faint)" }}> · 待完成 {openTaskCount}</span>}
+            </div>
+            <button onClick={onGoTasks} style={{ border: "none", background: "transparent", color: "var(--brand)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>
+              任务页
+            </button>
+          </div>
+          {todayTasks.length === 0 ? (
+            <div style={{ fontSize: 13, color: "var(--text-faint)", padding: "12px 0", lineHeight: 1.6 }}>
+              今天没有安排。在任务详情里设置计划日期或截止时间，任务就会出现在这里。
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {todayTasks.slice(0, 5).map((t) => (
+                <div key={t.id} data-testid="workbench-today-item" onClick={() => onOpenTask && onOpenTask(t.id)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 12, padding: "11px 14px",
+                    background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
+                    borderRadius: "var(--radius-md)", minWidth: 0, cursor: onOpenTask ? "pointer" : "default",
+                  }}>
+                  <Icon name="calendar-clock" style={{ width: 16, height: 16, color: "var(--brand)", flex: "none" }} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {t.title}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 2 }}>
+                      {t.scheduledDate ? `计划 ${t.scheduledDate}` : ""}{t.dueAt ? `${t.scheduledDate ? " · " : ""}截止 ${fmtTime(t.dueAt)}` : ""}
+                    </div>
+                  </div>
+                  <span style={{ flex: "none", fontSize: 11.5, fontWeight: 700, color: t.status === "completed" ? "var(--accent-strong, #047857)" : "var(--text-muted)" }}>
+                    {SHARED_LABELS[t.status] || t.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* C3. Phase 4 (P0-D): 我的项目 — the loop hub. */}
+        <div style={{ marginTop: 26 }} data-testid="workbench-home-projects">
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 9 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-muted)" }}>我的项目</div>
+            <button onClick={onGoProjects} style={{ border: "none", background: "transparent", color: "var(--brand)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>
+              全部项目
+            </button>
+          </div>
+          {projects.length === 0 ? (
+            <div style={{ fontSize: 13, color: "var(--text-faint)", padding: "12px 0", lineHeight: 1.6 }}>
+              还没有项目。在项目页创建，或在活动详情页「以此活动创建项目」。
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {projects.slice(0, 4).map((p) => {
+                const st = projectStats[p.id] || { tasks: 0, openTasks: 0, notes: 0 };
+                const hasDemo = p.activities.some((a) => a.isDemo);
+                return (
+                  <div key={p.id} data-testid="workbench-home-project" onClick={() => onOpenProject && onOpenProject(p.id)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12, padding: "11px 14px",
+                      background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
+                      borderRadius: "var(--radius-md)", minWidth: 0, cursor: onOpenProject ? "pointer" : "default",
+                    }}>
+                    <Icon name="folder-kanban" style={{ width: 16, height: 16, color: "var(--brand)", flex: "none" }} />
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                        <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {p.title}
+                        </span>
+                        {hasDemo && (
+                          <span style={{ flex: "none", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: "var(--radius-pill)", background: "var(--warning-soft)", color: "#9A6300" }}>
+                            DEMO
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 2 }}>
+                        任务 {st.tasks}{st.openTasks ? `（进行中 ${st.openTasks}）` : ""} · 笔记 {st.notes} · 活动 {p.activities.length}
+                      </div>
+                    </div>
+                    <Icon name="chevron-right" style={{ width: 15, height: 15, color: "var(--text-faint)", flex: "none" }} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* D. Recent tasks — real engine data */}
         <div style={{ marginTop: 26 }} data-testid="workbench-recent">
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 9 }}>
@@ -180,6 +274,37 @@ export function WorkbenchHome({ tasks, onCreateTask, onGoSearch, onGoTasks, onOp
                   }}>
                     {SHARED_LABELS[t.status] || t.status}
                   </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* D2. Phase 4 (P0-D): 最近记录 — real notes from the data layer. */}
+        <div style={{ marginTop: 26 }} data-testid="workbench-recent-notes">
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-muted)", marginBottom: 9 }}>最近记录</div>
+          {recentNotes.length === 0 ? (
+            <div style={{ fontSize: 13, color: "var(--text-faint)", padding: "12px 0", lineHeight: 1.6 }}>
+              还没有记录。在项目详情里「记一笔」，笔记会出现在这里。
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {recentNotes.slice(0, 4).map((n) => (
+                <div key={n.id} data-testid="workbench-recent-note"
+                  style={{
+                    display: "flex", alignItems: "flex-start", gap: 11, padding: "10px 14px",
+                    background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
+                    borderRadius: "var(--radius-md)", minWidth: 0,
+                  }}>
+                  <Icon name="notebook-pen" style={{ width: 15, height: 15, color: "var(--text-faint)", flex: "none", marginTop: 2 }} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 13, color: "var(--text-body)", lineHeight: 1.55, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {n.text}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 3 }}>
+                      {fmtTime(n.updatedAt)}{n.taskId ? " · 关联任务" : ""}{n.projectId ? " · 关联项目" : ""}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

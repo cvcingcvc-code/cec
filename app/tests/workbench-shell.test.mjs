@@ -150,8 +150,15 @@ test("workbench nav maps 智能搜索 onto the legacy smart screen", () => {
 
 test("workbench tabs cover the shell surfaces", () => {
   const keys = Nav.WORKBENCH_TABS.map((t) => t.key);
-  assert.deepEqual(keys, ["home", "tasks", "search", "review", "history"]);
+  // Phase 4 (P0-A) adds "projects" — the project hub linking activities,
+  // tasks, schedule and notes. The rest of the contract is unchanged.
+  assert.deepEqual(keys, ["home", "projects", "tasks", "search", "review", "history"]);
   assert.equal(Nav.WORKBENCH_SETTINGS.key, "settings");
+});
+
+test("projects tab is reachable on mobile via the more drawer", () => {
+  const keys = Nav.MOBILE_MORE_TABS.map((t) => t.key);
+  assert.ok(keys.includes("projects"), "mobile more drawer must expose projects");
 });
 
 test("sidebar keeps the legacy capability entries reachable", () => {

@@ -115,6 +115,9 @@ function emptyEnvelope() {
     places: [],         // Module D place records
     notes: [],          // Module E note records
     reviews: {},        // activityId -> Module F review record
+    // Phase 4 (P0-C): projectId -> minimal project review record.
+    // Additive: old envelopes have no projectReviews and normalize to {}.
+    projectReviews: {},
   };
 }
 
@@ -146,6 +149,9 @@ function normalizePlace(p) {
     status,
     visits: Array.isArray(p.visits) ? p.visits : [],  // [{at,note,nextPlan}]
     nextPlan: p.nextPlan ? String(p.nextPlan) : null, // 复访计划
+    // Phase 4 (P0-A): optional project link. Old records normalize to null,
+    // so existing data keeps loading unchanged.
+    projectId: p.projectId ? String(p.projectId) : null,
     createdAt: p.createdAt || nowIso(),
     updatedAt: p.updatedAt || nowIso(),
   };
@@ -166,6 +172,9 @@ function normalizeNote(n) {
     activityId: n.activityId ? String(n.activityId) : null,
     placeId: n.placeId ? String(n.placeId) : null,
     taskId: n.taskId ? String(n.taskId) : null,
+    // Phase 4 (P0-A/P0-C): project link. Additive — null for all pre-Phase-4
+    // records, which keeps them readable and simply "unassigned".
+    projectId: n.projectId ? String(n.projectId) : null,
     createdAt: n.createdAt || nowIso(),
     updatedAt: n.updatedAt || nowIso(),
   };
@@ -175,6 +184,8 @@ function normalizeReview(rv) {
   if (!rv || typeof rv !== "object") return null;
   return {
     activityId: String(rv.activityId || ""),
+    // Phase 4 (P0-C): the minimal review can also hang off a project.
+    projectId: rv.projectId ? String(rv.projectId) : null,
     // Module F: ACTUAL outcome recorded by the user AFTER the event.
     actual: {
       outcome: rv.actual && rv.actual.outcome ? String(rv.actual.outcome) : "",
@@ -193,6 +204,32 @@ function normalizeReview(rv) {
     },
     followUps: Array.isArray(rv.followUps) ? rv.followUps : [], // [{id,title,done}]
     nextAction: rv.nextAction ? String(rv.nextAction) : "",
+    updatedAt: rv.updatedAt || nowIso(),
+  };
+}
+
+/**
+ * Phase 4 (P0-C) — the MINIMAL project review (复盘).
+ * Deliberately small: 实际结果 + 下一步行动 + 可选跟进清单. The user fills
+ * this in by hand after executing; nothing is auto-generated, and an empty
+ * review is honestly empty (never pre-filled with AI suggestions).
+ */
+function normalizeProjectReview(rv) {
+  if (!rv || typeof rv !== "object") return null;
+  const projectId = String(rv.projectId || "");
+  if (!projectId) return null;
+  return {
+    projectId,
+    outcome: rv.outcome ? String(rv.outcome) : "",
+    nextAction: rv.nextAction ? String(rv.nextAction) : "",
+    followUps: Array.isArray(rv.followUps)
+      ? rv.followUps.map((f) => ({
+          id: String((f && f.id) || randomUUID()),
+          title: String((f && f.title) || ""),
+          done: !!(f && f.done),
+        })).filter((f) => f.title)
+      : [],
+    createdAt: rv.createdAt || nowIso(),
     updatedAt: rv.updatedAt || nowIso(),
   };
 }
@@ -216,6 +253,12 @@ function normalizeEnvelope(parsed) {
     for (const [id, rec] of Object.entries(parsed.reviews)) {
       const n = normalizeReview(Object.assign({}, rec, { activityId: id }));
       if (n && n.activityId) env.reviews[n.activityId] = n;
+    }
+  }
+  if (parsed.projectReviews && typeof parsed.projectReviews === "object") {
+    for (const [id, rec] of Object.entries(parsed.projectReviews)) {
+      const n = normalizeProjectReview(Object.assign({}, rec, { projectId: id }));
+      if (n && n.projectId) env.projectReviews[n.projectId] = n;
     }
   }
   return env;
@@ -428,6 +471,7 @@ export function listNotes(filter = {}) {
   if (filter.activityId) notes = notes.filter((n) => n.activityId === String(filter.activityId));
   if (filter.placeId) notes = notes.filter((n) => n.placeId === String(filter.placeId));
   if (filter.taskId) notes = notes.filter((n) => n.taskId === String(filter.taskId));
+  if (filter.projectId) notes = notes.filter((n) => n.projectId === String(filter.projectId));
   if (filter.kind) notes = notes.filter((n) => n.kind === filter.kind);
   return notes;
 }
@@ -523,6 +567,41 @@ export function setFollowUps(activityId, followUps, nextAction) {
   env.reviews[id] = prev;
   save();
   return prev;
+}
+
+/* ── Phase 4 (P0-C): project review — the minimal 复盘 ─────────────── */
+
+export function getProjectReview(projectId) {
+  return load().projectReviews[String(projectId)] || null;
+}
+
+export function listProjectReviews() {
+  return Object.values(load().projectReviews);
+}
+
+/**
+ * Upsert the minimal review of a project: 实际结果 + 下一步行动.
+ * Only non-empty strings overwrite; passing "" keeps the previous value
+ * (an accidental clear must not wipe a recorded outcome).
+ */
+export function setProjectReview(projectId, { outcome, nextAction, followUps } = {}) {
+  const env = load();
+  const id = String(projectId);
+  if (!id) return null;
+  const prev = env.projectReviews[id] || normalizeProjectReview({ projectId: id });
+  const next = normalizeProjectReview({
+    projectId: id,
+    // Falsy ("") keeps the previous value: an accidental clear in the UI
+    // must not wipe a recorded outcome. Deletion is not a review-flow job.
+    outcome: outcome ? String(outcome) : prev.outcome,
+    nextAction: nextAction ? String(nextAction) : prev.nextAction,
+    followUps: Array.isArray(followUps) ? followUps : prev.followUps,
+    createdAt: prev.createdAt,
+    updatedAt: nowIso(),
+  });
+  env.projectReviews[id] = next;
+  save();
+  return next;
 }
 
 /* ── Reset (used by demo-reset and tests) ─────────────────────────── */

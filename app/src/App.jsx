@@ -26,6 +26,8 @@ import { NaturalSearchScreen } from "./screens/NaturalSearchScreen.jsx";
 import { MyWeekendScreen } from "./screens/MyWeekendScreen.jsx";
 import { MapScreen } from "./screens/MapScreen.jsx";
 import { WorkbenchHome } from "./screens/WorkbenchHome.jsx";
+import { ProjectsScreen } from "./screens/ProjectsScreen.jsx";
+import { ProjectDetailScreen } from "./screens/ProjectDetailScreen.jsx";
 import { TasksScreen } from "./screens/TasksScreen.jsx";
 import { TaskDetailScreen } from "./screens/TaskDetailScreen.jsx";
 import { ReviewCenterScreen } from "./screens/ReviewCenterScreen.jsx";
@@ -254,6 +256,18 @@ export default function App() {
   // Phase 6: REAL proposals backing the Review Center.
   const [wbProposals, setWbProposals] = React.useState(() => WBStore.getProposals());
 
+  // ── Phase 4 (P0-A/B/C): projects, notes and the minimal review ────────
+  // The project list is React state so the sidebar/tab surfaces re-render on
+  // every mutation; the detail bundle is read through the facade on demand so
+  // tasks/notes/places always come from the real repositories (cold restart
+  // safe). A "revision" counter forces the bundle to be recomputed after any
+  // write that does not change the projects array itself (notes, review).
+  const [wbProjects, setWbProjects] = React.useState(() => WBStore.getProjects());
+  const [detailProjectId, setDetailProjectId] = React.useState(null);
+  const [projectRev, setProjectRev] = React.useState(0);
+  // Which existing project an activity should be linked to (picker state).
+  const [projectPickerFor, setProjectPickerFor] = React.useState(null);
+
   const { isMobile } = useResponsive();
 
   const setDistrict = (d) => {
@@ -326,6 +340,141 @@ export default function App() {
     flash("任务已恢复执行");
   };
 
+  // ── Phase 4 (P0-A/B/C): project + note + review handlers ───────────
+  // Every mutation goes through the workbench-store facade (real engine /
+  // real repositories), then refreshes the React state that feeds the
+  // surfaces. Nothing here writes localStorage directly, and nothing marks
+  // an AI suggestion as done.
+
+  /** Re-read the project list and force bundle re-computation. */
+  const refreshProjects = () => {
+    setWbProjects(WBStore.getProjects());
+    setProjectRev((r) => r + 1);
+  };
+
+  const handleCreateProject = ({ title, goal }) => {
+    const p = WBStore.createProject({ title, goal, origin: WBStore.PROJECT_ORIGIN.MANUAL });
+    if (!p) return;
+    refreshProjects();
+    setWbLog(WBStore.getLog());
+    setDetailProjectId(p.id);
+    flash("项目已创建");
+  };
+
+  const handleCreateProjectFromActivity = (view, opts) => {
+    const p = WBStore.createProjectFromActivity(view, opts || {});
+    if (!p) return;
+    refreshProjects();
+    setWbLog(WBStore.getLog());
+    flash("已从活动创建项目");
+    return p;
+  };
+
+  const handleLinkActivityToProject = (projectId, view) => {
+    const p = WBStore.linkActivityToProject(projectId, view);
+    if (!p) return;
+    refreshProjects();
+    setWbLog(WBStore.getLog());
+    flash("活动已关联到项目");
+  };
+
+  const openProjectDetail = (id) => {
+    setDetail(null);
+    setDetailTaskId(null);
+    setWbTab("projects");
+    setTab(null);
+    setDetailProjectId(id);
+  };
+
+  const addProjectTask = (title, projectId) => {
+    setWbTasks(WBStore.addTask(title, { source: "项目内创建", projectId }));
+    setWbLog(WBStore.getLog());
+    setProjectRev((r) => r + 1);
+  };
+
+  const addProjectNote = (text, projectId) => {
+    const t = String(text || "").trim();
+    if (!t) return;
+    WBStore.addNote({ kind: "text", text: t, projectId });
+    setWbLog(WBStore.getLog());
+    setProjectRev((r) => r + 1);
+  };
+
+  const updateProjectNote = (id, text) => {
+    const t = String(text || "").trim();
+    if (!t) return;
+    WBStore.updateNote(id, { text: t });
+    setProjectRev((r) => r + 1);
+  };
+
+  const removeProjectNote = (id) => {
+    WBStore.removeNote(id);
+    setProjectRev((r) => r + 1);
+  };
+
+  const saveProjectReview = (projectId, patch) => {
+    const r = WBStore.setProjectReview(projectId, patch);
+    if (r) {
+      setWbLog(WBStore.getLog());
+      setProjectRev((rev) => rev + 1);
+      flash("复盘已保存");
+    }
+  };
+
+  const archiveProjectAndExit = (id) => {
+    const p = WBStore.archiveProject(id);
+    if (!p) return;
+    refreshProjects();
+    setWbLog(WBStore.getLog());
+    setDetailProjectId(null);
+    flash("项目已归档（数据保留）");
+  };
+
+  /** Task status change that also refreshes project surfaces. */
+  const changeTaskStatusEverywhere = (id, status) => {
+    changeTaskStatus(id, status);
+    setProjectRev((r) => r + 1);
+  };
+
+  /** P0-C: note attached to a task (inherits the task's project link). */
+  const addTaskNote = (text, task) => {
+    const t = String(text || "").trim();
+    if (!t || !task) return;
+    WBStore.addNote({ kind: "text", text: t, taskId: task.id, projectId: task.projectId || null });
+    setWbLog(WBStore.getLog());
+    setWbTasks(WBStore.getTasks()); // refresh the timeline (note_linked event)
+    setProjectRev((r) => r + 1);
+  };
+
+  /** P0-B: schedule editor → setTaskSchedule (invalid input is refused). */
+  const handleSetSchedule = (id, patch) => {
+    const out = WBStore.setTaskSchedule(id, patch);
+    if (!out) { flash("日期无效，未保存"); return; }
+    setWbTasks(WBStore.getTasks());
+    setWbLog(WBStore.getLog());
+    setProjectRev((r) => r + 1);
+    flash("排期已保存");
+  };
+
+  /** P0-B: plan suggestions → editable pending todos (never auto-completed). */
+  const handleSavePlanTodos = (taskId, steps) => {
+    const out = WBStore.savePlanStepsAsTodos(taskId, steps);
+    if (!out) return;
+    setWbTasks(WBStore.getTasks());
+    setWbLog(WBStore.getLog());
+    setProjectRev((r) => r + 1);
+  };
+
+  /** P0-A: task ↔ project link from the task detail. */
+  const handleLinkTaskToProject = (taskId, projectId) => {
+    const out = WBStore.linkTaskToProject(taskId, projectId);
+    if (!out) { flash("项目不存在，未关联"); return; }
+    setWbTasks(WBStore.getTasks());
+    setWbLog(WBStore.getLog());
+    setProjectRev((r) => r + 1);
+    flash(projectId ? "已关联项目" : "已移出项目");
+  };
+
   // --- My Weekend (persisted, snapshot-carrying) ---
   const toggleSync = (input) => {
     const view = asView(input);
@@ -347,11 +496,12 @@ export default function App() {
     flash(has ? "已取消收藏" : "已收藏");
   };
 
-  const openDetail = (x) => { const v = asView(x); if (v) setDetail(v); };
-  const showOnMap = (v) => { setMapFocus(v.id); setDetail(null); setDetailTaskId(null); setTab("map"); setWbTab(null); };
-  const changeTab = (t) => { setDetail(null); setDetailTaskId(null); setTab(t); setWbTab(null); setMoreOpen(false); };
+  const openDetail = (x) => { const v = asView(x); if (v) { setProjectPickerFor(null); setDetail(v); } };
+  const showOnMap = (v) => { setMapFocus(v.id); setDetail(null); setDetailTaskId(null); setDetailProjectId(null); setTab("map"); setWbTab(null); };
+  const changeTab = (t) => { setDetail(null); setDetailTaskId(null); setDetailProjectId(null); setTab(t); setWbTab(null); setMoreOpen(false); };
   const changeWbTab = (t) => {
-    setDetail(null); setMoreOpen(false);
+    setDetail(null); setDetailTaskId(null); setMoreOpen(false);
+    if (t !== "projects") setDetailProjectId(null);
     const legacy = WORKBENCH_TO_LEGACY[t];
     if (legacy) { setTab(legacy); setWbTab(t); return; }
     setTab(null); setWbTab(t);
@@ -371,12 +521,61 @@ export default function App() {
   // maps onto the existing NaturalSearchScreen with a Workbench heading.
   const detailTask = detailTaskId ? wbTasks.find((t) => t.id === detailTaskId) : null;
 
+  // ── Phase 4: project surfaces ─────────────────────────────────────
+  // The bundle is read through the facade every render so it always reflects
+  // the real repositories (tasks / notes / places / review). projectRev is in
+  // the dependency path implicitly: any bump re-renders App and re-reads it.
+  const projectBundle = detailProjectId ? WBStore.getProjectBundle(detailProjectId) : null;
+  void projectRev;
+  // Per-project counts for the list view AND the home summary (P0-D).
+  const projectStats = {};
+  for (const p of wbProjects) {
+    const ts = wbTasks.filter((t) => t.projectId === p.id);
+    projectStats[p.id] = {
+      tasks: ts.length,
+      openTasks: ts.filter((t) => t.status !== "completed" && t.status !== "failed").length,
+      notes: WBStore.getNotes({ projectId: p.id }).length,
+    };
+  }
+  // P0-D home data: today's tasks (scheduled/due today) + open count + recent notes.
+  const homeToday = WBStore.getTodayTasks();
+  const homeOpenCount = WBStore.getOpenTasks().length;
+  const homeRecentNotes = WBStore.getNotes({ kind: "text" }).slice(0, 4);
+
   const workbenchScreens = {
     home: (
       <WorkbenchHome tasks={wbTasks}
         onCreateTask={createTaskFromGoal}
         onGoSearch={() => changeWbTab("search")} onGoTasks={() => changeWbTab("tasks")}
-        onOpenTask={openTaskDetail} />
+        onOpenTask={openTaskDetail}
+        todayTasks={homeToday}
+        openTaskCount={homeOpenCount}
+        projects={wbProjects}
+        projectStats={projectStats}
+        recentNotes={homeRecentNotes}
+        onOpenProject={openProjectDetail}
+        onGoProjects={() => changeWbTab("projects")} />
+    ),
+    projects: projectBundle ? (
+      <ProjectDetailScreen
+        bundle={projectBundle}
+        onBack={() => setDetailProjectId(null)}
+        onOpenTask={openTaskDetail}
+        onTaskStatus={changeTaskStatusEverywhere}
+        onAddTask={addProjectTask}
+        onAddNote={addProjectNote}
+        onUpdateNote={updateProjectNote}
+        onRemoveNote={removeProjectNote}
+        onSaveReview={saveProjectReview}
+        onArchiveProject={archiveProjectAndExit}
+      />
+    ) : (
+      <ProjectsScreen
+        projects={wbProjects}
+        stats={projectStats}
+        onCreateProject={handleCreateProject}
+        onOpenProject={openProjectDetail}
+      />
     ),
     tasks: (
       detailTask ? (
@@ -387,7 +586,13 @@ export default function App() {
           onUpdateStep={(stepId, patch) => { setWbTasks(WBStore.updateTaskStep(detailTask.id, stepId, patch)); }}
           onSetResult={(r) => { setWbTasks(WBStore.setTaskResult(detailTask.id, r)); }}
           onAddSource={(s) => { setWbTasks(WBStore.addTaskSource(detailTask.id, s)); }}
-          onRun={runTaskEngine} />
+          onRun={runTaskEngine}
+          onSetSchedule={handleSetSchedule}
+          onSavePlanTodos={handleSavePlanTodos}
+          onLinkProject={handleLinkTaskToProject}
+          projects={wbProjects}
+          notes={detailTask ? WBStore.getNotes({ taskId: detailTask.id }) : []}
+          onAddNote={addTaskNote} />
       ) : (
         <TasksScreen tasks={wbTasks} onStatusChange={changeTaskStatus}
           onAddTask={(t) => addTaskLocal(t, { source: "任务页输入" })}
@@ -418,7 +623,21 @@ export default function App() {
       {detail && (
         <div className="gg-detail-overlay" style={{ animation: "gg-detail-in var(--dur-base) var(--ease-out)" }}>
           <ActivityDetailScreen view={detail} synced={!!weekend[detail.id]} onSync={() => toggleSync(detail)}
-            onBack={() => setDetail(null)} onShowMap={() => showOnMap(detail)} />
+            onBack={() => setDetail(null)} onShowMap={() => showOnMap(detail)}
+            projects={wbProjects}
+            linkedProject={WBStore.findProjectByActivity(detail.id)}
+            onCreateProjectFromActivity={(opts) => {
+              const p = handleCreateProjectFromActivity(detail, opts);
+              if (p) { setDetail(null); openProjectDetail(p.id); }
+            }}
+            onLinkActivityToProject={(projectId) => {
+              handleLinkActivityToProject(projectId, detail);
+              setProjectPickerFor(null);
+            }}
+            onOpenProject={(id) => { setDetail(null); openProjectDetail(id); }}
+            pickerOpen={projectPickerFor === detail.id}
+            onTogglePicker={() => setProjectPickerFor(projectPickerFor === detail.id ? null : detail.id)}
+            onClosePicker={() => setProjectPickerFor(null)} />
         </div>
       )}
       <Toast msg={toast} />

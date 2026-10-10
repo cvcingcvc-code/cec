@@ -31,7 +31,8 @@ const STATUS_TONE = {
   failed: { color: "var(--danger)", bg: "var(--danger-soft)" },
 };
 
-// §15 filter groups.
+// §15 filter groups. Phase 4 adds "today" / "open" as SPECIAL groups
+// (predicate-based, not status-list-based); existing keys are untouched.
 const FILTER_GROUPS = {
   all: null,
   active: ["created", "planning", "ready", "running"],
@@ -42,6 +43,8 @@ const FILTER_GROUPS = {
 
 const FILTERS = [
   { key: "all", label: "全部" },
+  { key: "today", label: "今日待办" },
+  { key: "open", label: "待完成" },
   { key: "active", label: "进行中" },
   { key: "review", label: "待审核" },
   { key: "completed", label: "已完成" },
@@ -67,8 +70,13 @@ export function TasksScreen({ tasks, onStatusChange, onAddTask, onOpenTask }) {
   const [value, setValue] = React.useState("");
   const [filter, setFilter] = React.useState("all");
 
+  // Phase 4: "today" / "open" are predicate filters; the rest stay status-list.
   const group = FILTER_GROUPS[filter];
-  const list = tasks.filter((t) => !group || group.indexOf(t.status) >= 0);
+  const list = React.useMemo(() => {
+    if (filter === "today") return tasks.filter((t) => WB.isTaskOnDate(t, WB.localDateStr(new Date())));
+    if (filter === "open") return tasks.filter((t) => WB.isOpenTask(t));
+    return tasks.filter((t) => !group || group.indexOf(t.status) >= 0);
+  }, [tasks, filter, group]);
 
   const submit = () => {
     const t = value.trim();
@@ -139,6 +147,7 @@ export function TasksScreen({ tasks, onStatusChange, onAddTask, onOpenTask }) {
               const tone = STATUS_TONE[t.status] || STATUS_TONE.created;
               const next = NEXT_ACTION[t.status] && canTransition(t.status, NEXT_ACTION[t.status].to)
                 ? NEXT_ACTION[t.status] : null;
+              const overdue = WB.isTaskOverdue(t);
               return (
                 <div key={t.id} data-testid="workbench-task-item" style={{
                   background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
@@ -156,6 +165,15 @@ export function TasksScreen({ tasks, onStatusChange, onAddTask, onOpenTask }) {
                       {t.sources && t.sources.length > 0 && <> · 来源 {t.sources.length}</>}
                       {t.result && <> · 已有结果</>}
                     </div>
+                    {(t.scheduledDate || t.dueAt) && (
+                      <div data-testid="workbench-task-schedule-line" style={{ fontSize: 11.5, marginTop: 3, color: overdue ? "var(--danger)" : "var(--brand)", fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
+                        <Icon name="calendar-clock" style={{ width: 12, height: 12 }} />
+                        {t.scheduledDate ? `计划 ${t.scheduledDate}` : ""}
+                        {t.scheduledDate && t.dueAt ? " · " : ""}
+                        {t.dueAt ? `截止 ${fmtTime(t.dueAt)}` : ""}
+                        {overdue && " · 已逾期"}
+                      </div>
+                    )}
                   </div>
                   <span data-testid="workbench-task-status" style={{
                     flex: "none", fontSize: 11.5, fontWeight: 700, padding: "4px 10px",
