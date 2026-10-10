@@ -141,6 +141,18 @@ export function ProjectDetailScreen({
                         {[a.dateText, a.venue].filter(Boolean).join(" · ") || "时间地点待定"}
                         {reg ? ` · 报名状态：${reg.status}` : ""}
                       </div>
+                      {/* PHASE 5 (P5-C): 来源可从项目详情追溯 — the snapshot
+                          keeps the sourceUrl it was retrieved with; render it
+                          as-is when present, and render NOTHING when it is
+                          missing (a missing source is never fabricated). */}
+                      {(a.sourceUrl || (a.raw && a.raw.sourceUrl)) ? (
+                        <a href={a.sourceUrl || (a.raw && a.raw.sourceUrl)} target="_blank" rel="noopener noreferrer"
+                          data-testid="workbench-project-activity-source"
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 5, fontSize: 11.5, fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
+                          <Icon name="external-link" style={{ width: 12, height: 12 }} />查看来源
+                        </a>
+                      ) : null}
                     </div>
                   </div>
                 );
