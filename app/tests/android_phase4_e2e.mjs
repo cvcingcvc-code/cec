@@ -285,12 +285,47 @@ async function main() {
   // render again (findProjectByActivity hits). keysBefore (step 9) is
   // captured AFTER this cleanup, so the no-destruction check still honestly
   // covers everything THIS run itself touches.
-  await evalJs(`localStorage.removeItem('gorgon_workbench_projects_v1'); return true;`);
+  //
+  // PHASE 5 fix (root-caused 2026-10-10 via CDP): a plain removeItem lost
+  // step2 on the second run. The wrapper's Preferences removal is
+  // fire-and-forget, and force-stop SIGKILLs the process before Chromium
+  // flushes the localStorage deletion to disk — verified state after the
+  // failed run: Preferences had NO projects key (native removal landed)
+  // while localStorage still held the 2 old projects (restored from disk
+  // on reboot), so the demo activity ids re-linked. Now: removeItem +
+  // AWAIT the native Preferences removal explicitly (kills the hydrate
+  // resurrection source) before the cold cycle; step0c guards against a
+  // disk resurrection after reboot.
+  await evalJs(`
+    const P = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences;
+    localStorage.removeItem('gorgon_workbench_projects_v1');
+    if (P) {
+      try {
+        await P.remove({ key: 'gorgon_workbench_projects_v1' });
+        await P.remove({ key: 'gorgon__rev_gorgon_workbench_projects_v1' });
+      } catch (e) { /* native removal failed — step0c guard will verify */ }
+    }
+    return true;
+  `);
   await adb("shell", "am", "force-stop", PKG);
   await sleep(3000);
   boot = await bootAppRetry();
   check("step0b: clean-baseline boot after artifact cleanup", boot.mounted, "pid=" + boot.pid);
   if (!boot.mounted) finishAndExit();
+
+  // step0c (PHASE 5): disk-resurrection guard. If the localStorage deletion
+  // did not reach disk before force-stop, the old projects come back from
+  // the WebView's own storage on reboot. Clear them again IN THE RUNNING
+  // WebView and move on — Preferences is already clean, so a later reboot
+  // (step 8) cannot resurrect them via hydrate, and this run's own writes
+  // will reflush the deletion to disk within the normal commit window.
+  const resurrected = await evalJs(`return localStorage.getItem('gorgon_workbench_projects_v1') != null;`);
+  if (resurrected) {
+    await evalJs(`localStorage.removeItem('gorgon_workbench_projects_v1'); return true;`);
+    check("step0c: stale projects resurrected from disk — re-cleared in the running WebView (P5 baseline guard)", true);
+  } else {
+    check("step0c: clean baseline holds after reboot (no disk resurrection)", true);
+  }
 
   // Capture the pre-run key set (step 9: old keys must survive untouched).
   const KEY_FILTER = `k => !k.startsWith('gorgon__rev_') && k !== 'setItem' && k !== 'removeItem' && k !== 'clear'`;
