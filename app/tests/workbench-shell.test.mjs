@@ -152,14 +152,20 @@ test("workbench tabs cover the shell surfaces", () => {
   const keys = Nav.WORKBENCH_TABS.map((t) => t.key);
   // Phase 4 (P0-A) adds "projects" — the project hub linking activities,
   // tasks, schedule and notes. Module D UI adds "places" — the field-visit
-  // screen closing the P1 loop. The rest of the contract is unchanged.
-  assert.deepEqual(keys, ["home", "projects", "tasks", "places", "search", "review", "history"]);
+  // screen closing the P1 loop. V2.2 (Stage 4) adds "progress" — the
+  // cross-project plain-language progress center. The rest is unchanged.
+  assert.deepEqual(keys, ["home", "projects", "progress", "tasks", "places", "search", "review", "history"]);
   assert.equal(Nav.WORKBENCH_SETTINGS.key, "settings");
 });
 
 test("projects tab is reachable on mobile via the more drawer", () => {
   const keys = Nav.MOBILE_MORE_TABS.map((t) => t.key);
   assert.ok(keys.includes("projects"), "mobile more drawer must expose projects");
+});
+
+test("progress center is reachable on mobile via the more drawer (V2.2)", () => {
+  const keys = Nav.MOBILE_MORE_TABS.map((t) => t.key);
+  assert.ok(keys.includes("progress"), "mobile more drawer must expose the progress center");
 });
 
 test("sidebar keeps the legacy capability entries reachable", () => {

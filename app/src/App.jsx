@@ -28,6 +28,7 @@ import { MapScreen } from "./screens/MapScreen.jsx";
 import { WorkbenchHome } from "./screens/WorkbenchHome.jsx";
 import { ProjectsScreen } from "./screens/ProjectsScreen.jsx";
 import { ProjectDetailScreen } from "./screens/ProjectDetailScreen.jsx";
+import { ProgressCenterScreen } from "./screens/ProgressCenterScreen.jsx";
 import { PlacesScreen } from "./screens/PlacesScreen.jsx";
 import { TasksScreen } from "./screens/TasksScreen.jsx";
 import { TaskDetailScreen } from "./screens/TaskDetailScreen.jsx";
@@ -647,6 +648,8 @@ export default function App() {
   const homeToday = WBStore.getTodayTasks();
   const homeOpenCount = WBStore.getOpenTasks().length;
   const homeRecentNotes = WBStore.getNotes({ kind: "text" }).slice(0, 4);
+  // V2.2 (Stage 4): progress center data — cross-project plain-language summary.
+  const progressCenterData = WBStore.getProgressCenterData();
 
   const workbenchScreens = {
     home: (
@@ -720,6 +723,9 @@ export default function App() {
       <PlacesScreen places={wbPlaces} projects={wbProjects}
         onCreate={handleCreatePlace} onStatus={handlePlaceStatus}
         onVisit={handlePlaceVisit} onRemove={handleRemovePlace} />
+    ),
+    progress: (
+      <ProgressCenterScreen data={progressCenterData} onOpenProject={openProjectDetail} />
     ),
     history: (
       <HistoryScreen tasks={wbTasks} log={wbLog} onOpenTask={openTaskDetail} />

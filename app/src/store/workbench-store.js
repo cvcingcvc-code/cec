@@ -23,6 +23,7 @@ import { searchActivities } from "../lib/api.js";
 import * as Proposals from "./proposal-repository.js";
 import * as Projects from "./project-repository.js";
 import * as Opportunities from "./opportunity-repository.js";
+import * as JobsRepo from "./job-repository.js";
 
 const K_TASKS_V2 = Repo.SCHEMA_VERSION ? "gorgon_workbench_tasks_v2" : "gorgon_workbench_tasks_v2";
 const K_V1_TASKS = "gorgon_workbench_tasks";
@@ -408,6 +409,77 @@ export function getProjectProgressBundle(projectId) {
   const taskEntries = ProgressRepo.listProgress({ subjectType: "task" })
     .filter((e) => taskIds.has(e.subjectId));
   return { entries, taskEntries };
+}
+
+// ── V2.2 (Stage 4): progress center — cross-project plain-language summary ──
+// One place that answers 「每个项目走到哪一步了」 for a normal person.
+// Reads ONLY real store data; every summary is derived, never invented.
+
+/**
+ * Cross-project progress summary for the 进度中心 screen.
+ * Per project: latest progress entry, open/total task counts, next scheduled
+ * date, latest note. Plus job pipeline stage counts (Stage 3 vocabulary).
+ */
+export function getProgressCenterData() {
+  const projects = Projects.listProjects().map((p) => {
+    const tasks = Repo.listTasks().filter((t) => t.projectId === p.id);
+    const open = tasks.filter((t) => isOpenTask(t));
+    const latestProgress = ProgressRepo.listProgress({ subjectType: "project", subjectId: p.id })[0] || null;
+    const taskProgressCount = ProgressRepo.listProgress({ subjectType: "task" })
+      .filter((e) => tasks.some((t) => t.id === e.subjectId)).length;
+    const latestNote = Opportunities.listNotes({ projectId: p.id })[0] || null;
+    const nextScheduled = tasks
+      .filter((t) => t.scheduledDate || t.dueAt)
+      .sort((a, b) => String(a.scheduledDate || a.dueAt).localeCompare(String(b.scheduledDate || b.dueAt)))[0] || null;
+    // Plain-language status line, derived honestly from real data:
+    //   completed tasks exist and none open → 「已完成」
+    //   open tasks exist → 「进行中 · N 个任务未完成」
+    //   no tasks → 「还没有任务」
+    let statusLine;
+    if (tasks.length === 0) statusLine = "还没有任务";
+    else if (open.length === 0) statusLine = "任务全部完成";
+    else statusLine = `进行中 · ${open.length} 个任务未完成`;
+    return {
+      project: p,
+      totalTasks: tasks.length,
+      openTasks: open.length,
+      completedTasks: tasks.length - open.length,
+      latestProgress,
+      taskProgressCount,
+      latestNote,
+      nextScheduled,
+      statusLine,
+    };
+  });
+  const jobCounts = JobsRepo.countByStage();
+  const jobTotal = Object.values(jobCounts).reduce((s, n) => s + n, 0);
+  return {
+    projects,
+    jobCounts,
+    jobTotal,
+    totalOpenTasks: Repo.listTasks().filter((t) => isOpenTask(t)).length,
+  };
+}
+
+// Facade passthrough for the job pipeline (Stage 3) — the progress center
+// and future UI surfaces go through here, never the repository directly.
+export function getJobApplications(filter) {
+  return JobsRepo.listApplications(filter || {});
+}
+
+export function addJobApplication(input) {
+  const a = JobsRepo.addApplication(input || {});
+  if (a) logEvent("job_create", `添加求职申请「${a.company} · ${a.role}」`);
+  return a;
+}
+
+export function setJobStage(id, stage) {
+  const prev = JobsRepo.getApplication(id);
+  const a = JobsRepo.transitionStage(id, stage); // null on illegal — safe no-op
+  if (a && prev && prev.stage !== stage) {
+    logEvent("job_stage", `「${a.company} · ${a.role}」→ ${JobsRepo.JOB_STAGE_LABEL[stage] || stage}`);
+  }
+  return a;
 }
 
 // ── Module D facade: field-visit places ─────────────────────────────────
