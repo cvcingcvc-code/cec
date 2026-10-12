@@ -30,3 +30,11 @@ desktop-selftest.json
 # Transient E2E logs / scratch artifacts.
 app/tests/.e2e-logs/
 *.log
+
+# Android release signing. The keystore and its credentials are MACHINE+USER
+# specific and must NEVER enter the repo — losing the keystore means the
+# installed release app can never be upgraded in place. A template
+# (keystore.properties.example) documents the expected shape.
+app/android/keystore.properties
+app/android/app/*.keystore
+app/android/app/*.jks
