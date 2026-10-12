@@ -20,12 +20,15 @@ const QUICK_ACTIONS = [
   { key: "search", label: "智能搜索", gotoSearch: true },
 ];
 
+// Issue #3 (readable results): every label and value reads as plain Chinese —
+// "Deterministic" / "Not connected" were developer strings, not information.
+// The meanings are unchanged (same keys, same ok flags); only the copy.
 const STATUS_ITEMS = [
-  { key: "engine", label: "任务引擎", value: "Ready", ok: true },
-  { key: "router", label: "任务路由", value: "Deterministic", ok: true },
+  { key: "engine", label: "任务引擎", value: "就绪", ok: true },
+  { key: "router", label: "任务路由", value: "规则确定", ok: true },
   { key: "skills", label: "技能", value: "5 个", ok: true },
-  { key: "ai", label: "AI Engine", value: "Not connected", ok: false },
-  { key: "review", label: "Human Review", value: "Ready / Planned", ok: true },
+  { key: "ai", label: "AI 引擎", value: "未连接", ok: false },
+  { key: "review", label: "人工确认", value: "就绪 / 按需", ok: true },
 ];
 
 function fmtTime(iso) {

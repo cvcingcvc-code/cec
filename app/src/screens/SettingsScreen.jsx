@@ -32,15 +32,15 @@ export function SettingsScreen() {
   const rows = [
     { k: "应用", v: "Gorgon Workbench（戈尔贡智能工作台）" },
     { k: "版本", v: "Phase 3 · Task Router + Skills" },
-    { k: "任务引擎", v: "Local / Ready（本地状态机 + 执行引擎）" },
-    { k: "任务路由", v: "Deterministic（关键词规则，零模型）" },
+    { k: "任务引擎", v: "本地引擎 / 就绪（本地状态机 + 执行引擎）" },
+    { k: "任务路由", v: "规则确定（关键词规则，零模型）" },
     { k: "技能", v: "5 个（搜索 / 摘要 / 提取 / 规划 / 模板写作）" },
     { k: "持久化", v: "LocalStorage（gorgon_workbench_tasks_v2）" },
     { k: "Schema Version", v: "2" },
     { k: "存储状态", v: HEALTH_LABEL[health.state] || health.state },
     { k: "搜索后端", v: "已接入 /api 同源代理（演示模式可用时自动连接）" },
     { k: "运行模式", v: "本地演示（浏览器内运行，无后端任务引擎）" },
-    { k: "AI Provider", v: "Not configured（将在 Phase 4 接入）", muted: true },
+    { k: "AI 引擎", v: "未配置（将在后续阶段接入）", muted: true },
   ];
 
   return (
@@ -58,7 +58,7 @@ export function SettingsScreen() {
           borderRadius: "var(--radius-md)", padding: "4px 16px", maxWidth: 640,
         }} data-testid="workbench-settings-list">
           {rows.map((r, i) => (
-            <div key={r.k} data-testid={"workbench-setting-" + (r.v.indexOf("Not ") === 0 ? "not-ready" : "info")} style={{
+            <div key={r.k} data-testid={"workbench-setting-" + (r.v.indexOf("未") === 0 || r.v.indexOf("Not ") === 0 ? "not-ready" : "info")} style={{
               display: "flex", alignItems: "baseline", gap: 14, padding: "12px 0",
               borderTop: i === 0 ? "none" : "1px solid var(--border-subtle)",
             }}>

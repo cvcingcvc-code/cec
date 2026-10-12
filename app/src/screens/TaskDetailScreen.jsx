@@ -10,6 +10,7 @@ import { Button } from "../lib/ds.js";
 import * as WB from "../store/workbench-store.js";
 import { TASK_STATUS, canTransition } from "../workbench/task-model.js";
 import * as SkillRegistry from "../workbench/skills/registry.js";
+import { summarizeResult, RESULT_TYPE_LABEL } from "../workbench/result-summary.js";
 import { Icon } from "../components/Icon.jsx";
 
 const STATUS_LABEL = {
@@ -76,6 +77,77 @@ function intentLabel(router) {
 
 // The 5 deterministic skills a user may pick manually (§27). Order matters.
 const MANUAL_SKILLS = ["search", "summarize", "extract", "plan", "write"];
+
+// Issue #3 (readable results): a plain <details> disclosure that keeps the
+// raw JSON reachable for anyone who needs it, without putting a wall of
+// code language in front of an ordinary reader.
+function RawJsonDisclosure({ content }) {
+  return (
+    <details data-testid="workbench-detail-result-raw" style={{ marginTop: 10 }}>
+      <summary style={{ fontSize: 11.5, color: "var(--text-faint)", cursor: "pointer", userSelect: "none" }}>
+        技术详情（原始数据）
+      </summary>
+      <pre style={{
+        marginTop: 8, padding: "10px 12px", borderRadius: "var(--radius-sm)",
+        background: "var(--bg-sunken)", color: "var(--text-muted)",
+        fontSize: 11.5, lineHeight: 1.6, overflowX: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all",
+      }}>
+        {JSON.stringify(content, null, 2)}
+      </pre>
+    </details>
+  );
+}
+
+// Issue #3: the human summary for ONE search-result item. Shows title /
+// description / when / where / price as plain Chinese lines — every field
+// is derived from the stored record; a missing field renders nothing.
+function SearchItemCard({ item }) {
+  const facts = [
+    { icon: "calendar", text: item.when },
+    { icon: "map-pin", text: item.where },
+    { icon: "ticket", text: [item.price, item.organizer].filter(Boolean).join(" · ") || null },
+  ].filter((f) => f.text);
+  return (
+    <div data-testid="workbench-detail-result-item" style={{
+      padding: "10px 0", borderTop: "1px dashed var(--border-subtle)",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text-strong)", minWidth: 0 }}>
+          {item.demo && (
+            <span data-testid="workbench-detail-result-demo-badge" style={{
+              marginRight: 6, fontSize: 10, fontWeight: 700, padding: "1px 6px",
+              borderRadius: "var(--radius-pill)", background: "var(--warning-soft)", color: "#9A6300",
+            }}>
+              DEMO
+            </span>
+          )}
+          {item.title}
+        </span>
+      </div>
+      {item.description && (
+        <div style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6, marginTop: 3 }}>
+          {item.description}
+        </div>
+      )}
+      {facts.length > 0 && (
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 5 }}>
+          {facts.map((f, i) => (
+            <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-faint)" }}>
+              <Icon name={f.icon} style={{ width: 12, height: 12 }} />
+              {f.text}
+            </span>
+          ))}
+        </div>
+      )}
+      {item.url && (
+        <a href={item.url} target="_blank" rel="noreferrer"
+          style={{ display: "inline-block", marginTop: 5, fontSize: 12, color: "var(--brand)", fontWeight: 600 }}>
+          查看来源链接 ↗
+        </a>
+      )}
+    </div>
+  );
+}
 
 // Simulation controls (§14): each maps to a LEGAL transition target; the
 // button only renders when canTransition(current, target) is true.
@@ -242,6 +314,13 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
   // Honesty rule: they are created as `pending` by the facade — never done.
   // (Plain function, not a hook — this component has an early return.)
   const planSteps = extractPlanSteps(task.result);
+
+  // Issue #3 (readable results): derive the human summary over the stored
+  // result. Pure function over task.result — the stored data is untouched;
+  // rendering falls back to the raw JSON disclosure when null.
+  const resultSummary = summarizeResult(task.result);
+  const resultTypeLabel = RESULT_TYPE_LABEL[task.result && task.result.type]
+    || (task.result && task.result.type) || "";
 
   const alreadySavedAsTodos = task.timeline.some((e) => e.type === "plan_saved_as_todos");
 
@@ -544,11 +623,75 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
           {task.result ? (
             <div style={card} data-testid="workbench-detail-result-view">
               <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-faint)", marginBottom: 6 }}>
-                {task.result.type} · {fmtTime(task.result.createdAt)}
+                {resultTypeLabel} · {fmtTime(task.result.createdAt)}
               </div>
-              <div style={{ fontSize: 13.5, color: "var(--text-body)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
-                {typeof task.result.content === "string" ? task.result.content : JSON.stringify(task.result.content, null, 2)}
-              </div>
+              {/* Issue #3: human summary first (activities / facts / workflow
+                  per-skill headlines); the raw JSON stays behind the
+                  技术详情 disclosure instead of filling the page. */}
+              {resultSummary && resultSummary.kind === "activities" && (
+                <div data-testid="workbench-detail-result-activities">
+                  <div style={{ fontSize: 13, color: "var(--text-body)", marginBottom: 2 }}>
+                    共找到 <b style={{ color: "var(--text-strong)" }}>{resultSummary.count}</b> 条相关结果{resultSummary.count === 0 ? "（没有匹配的内容，未猜测）" : ""}
+                  </div>
+                  {resultSummary.items.map((item, i) => <SearchItemCard key={i} item={item} />)}
+                </div>
+              )}
+              {resultSummary && resultSummary.kind === "facts" && (
+                <div data-testid="workbench-detail-result-facts" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {resultSummary.groups.map((g, i) => (
+                    <div key={i} style={{ fontSize: 13, color: "var(--text-body)", lineHeight: 1.7 }}>
+                      <span style={{ fontWeight: 700, color: "var(--text-strong)", marginRight: 6 }}>{g.label}</span>
+                      <span>{g.values.join("、")}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {resultSummary && resultSummary.kind === "workflow" && (
+                <div data-testid="workbench-detail-result-workflow" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {resultSummary.steps.map((st, i) => (
+                    <div key={i} data-testid="workbench-detail-result-workflow-step">
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-strong)", display: "flex", alignItems: "center", gap: 6 }}>
+                        <Icon name="check-circle" style={{ width: 14, height: 14, color: "var(--accent-strong, #047857)" }} />
+                        {st.skillId ? skillName(st.skillId) : "执行"}：{st.headline}
+                      </div>
+                      {st.items.length > 0 && (
+                        <div style={{ marginTop: 3, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 2 }}>
+                          {st.items.slice(0, 5).map((it, j) => (
+                            <div key={j} style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              · {it.title}
+                            </div>
+                          ))}
+                          {st.items.length > 5 && (
+                            <div style={{ fontSize: 11.5, color: "var(--text-faint)" }}>
+                              …等共 {st.items.length} 条
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {resultSummary && resultSummary.kind === "fields" && (
+                <div data-testid="workbench-detail-result-fields" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {resultSummary.lines.map((l, i) => (
+                    <div key={i} style={{ fontSize: 13, color: "var(--text-body)", lineHeight: 1.7 }}>
+                      <span style={{ fontWeight: 600, color: "var(--text-strong)", marginRight: 6 }}>{l.label}</span>
+                      <span>{l.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* string / plan-array content: rendered directly as before —
+                  it is already human text, no JSON is involved. */}
+              {!resultSummary && typeof task.result.content === "string" && (
+                <div style={{ fontSize: 13.5, color: "var(--text-body)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+                  {task.result.content}
+                </div>
+              )}
+              {typeof task.result.content !== "string" && (
+                <RawJsonDisclosure content={task.result.content} />
+              )}
               {/* Phase 4 (P0-B): plan → editable pending todos. Honest copy:
                   these are SUGGESTIONS; saving them creates pending steps, never
                   completed ones. */}
@@ -616,7 +759,9 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
                   const m = s.metadata || {};
                   const ai = m.aiAssisted === true;
                   const sim = m.simulated === true;
-                  const label = ai ? "AI Assisted" : "本地处理";
+                  // Issue #3: "AI Assisted" was English on a Chinese page —
+                  // the label is now AI 辅助（本地处理 unchanged）.
+                  const label = ai ? "AI 辅助" : "本地处理";
                   const reason = m.aiFallbackReason || m.aiReason || "";
                   const tokens = m.aiUsageTotal || 0;
                   return (
@@ -644,7 +789,7 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
                         </span>
                       )}
                       <span style={{ color: "var(--text-faint)" }}>
-                        Token/API：{tokens}
+                        模型调用次数：{tokens}
                       </span>
                       {reason && (
                         <span style={{ color: "var(--text-faint)" }} data-testid="workbench-detail-processing-reason">

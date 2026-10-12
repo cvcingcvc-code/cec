@@ -11,7 +11,7 @@
 //   * Tasks: add locally, list shows it, status transitions work
 //   * Review Center: demo card visible, approve flips local state
 //   * History: events recorded (task creation / approval)
-//   * Settings: truthful "Not configured" surfaces, no key inputs
+//   * Settings: truthful "未配置" surfaces, no key inputs
 //   * legacy compatibility contract intact (data-gg-nav discover -> cards)
 //   * mobile 390: tabbar present, no horizontal overflow, drawer opens
 //   * zero app console errors
@@ -171,8 +171,8 @@ async function desktopChain() {
     check("hero present", hero);
     const statusOk = await s.eval(`
       const el = document.querySelector('[data-testid="workbench-status-ai"]');
-      return !!el && el.innerText.includes('Not connected');`);
-    check("status strip truthfully shows AI Engine: Not connected", statusOk);
+      return !!el && el.innerText.includes('未连接');`);
+    check("status strip truthfully shows AI 引擎: 未连接", statusOk);
 
     // task creation from the home input -> REAL task + detail navigation
     await s.eval(TYPE_IN('[data-gg-screen="workbench-home"] textarea', "帮我寻找本周值得参加的 AI 活动"));
@@ -395,11 +395,11 @@ async function desktopChain() {
     check("settings has NO model key inputs", noKeyInput);
     const notConfigured = await s.eval(`
       const screen = document.querySelector('[data-gg-screen="workbench-settings"]');
-      return !!screen && screen.innerText.includes('Not configured');`);
-    check("settings truthfully shows AI Provider: Not configured", notConfigured);
+      return !!screen && screen.innerText.includes('未配置');`);
+    check("settings truthfully shows AI 引擎: 未配置", notConfigured);
     const engineInfo = await s.eval(`
       const screen = document.querySelector('[data-gg-screen="workbench-settings"]');
-      return !!screen && screen.innerText.includes('Local / Ready')
+      return !!screen && screen.innerText.includes('本地引擎 / 就绪')
         && screen.innerText.includes('2');`);
     check("Phase 2: settings shows Task Engine + schema v2", engineInfo);
 
@@ -506,7 +506,9 @@ async function phase3Chain() {
     check("§41: search+plan workflow runs to 已完成", done41);
     const step41 = await s.eval(`return [...document.querySelectorAll('[data-testid="workbench-detail-step"]')].filter(e=>e.innerText.includes('智能搜索')||e.innerText.includes('本地规划')).length;`);
     check("§41: both 智能搜索 + 本地规划 steps created", step41 >= 2, "steps=" + step41);
-    const wf = await s.eval(`return [...document.querySelectorAll('[data-testid="workbench-detail-result-view"]')].some(e=>e.innerText.includes('workflow_result'));`);
+    // Issue #3: the human summary renders per-skill headlines; the raw
+    // workflow_result envelope stays reachable inside the 技术详情 disclosure.
+    const wf = await s.eval(`return [...document.querySelectorAll('[data-testid="workbench-detail-result-view"]')].some(e=>e.innerText.includes('多步工作流结果') && e.innerText.includes('找到'));`);
     check("§41: multi-skill result wrapped in workflow_result envelope (§22)", wf);
     const tl41 = await s.eval(`return (()=>{const b=document.querySelector('[data-testid="workbench-detail-timeline-list"]');if(!b)return false;const t=b.innerText;return (t.match(/开始执行：/g)||[]).length>=2;})();`);
     check("§41: timeline records 2 skill_started events", tl41);
@@ -635,7 +637,7 @@ async function phase6Chain() {
 
 /* ── Phase 7: competition demo mode + Local/AI labelling ────────────────
    ?demo=1 must seed the exact competition task reproducibly, and Task Detail
-   must expose the processing mode (本地处理 / AI Assisted) plus token usage. */
+   must expose the processing mode (本地处理 / AI 辅助) plus model usage. */
 async function phase7Chain() {
   const s = new Session({ port: 9354 });
   await s.launch({ width: 1440, height: 900 });
@@ -708,15 +710,17 @@ async function phase7Chain() {
       routerTxt.replace(/\n/g, " ").slice(0, 90));
 
     // Processing mode panel: must show a Local/AI label per step + token usage.
+    // Issue #3: labels are now fully Chinese (本地处理 / AI 辅助); the token
+    // line reads 模型调用次数.
     const procUp = await s.waitFor(`!!document.querySelector('[data-testid="workbench-detail-processing-view"]')`, { timeout: 6000 })
       .catch(() => false);
     check("§72: 处理方式 panel renders", procUp);
     const labels = await s.eval(`return [...document.querySelectorAll('[data-testid="workbench-detail-processing-label"]')].map(e=>e.innerText);`);
-    check("§72: every step is labelled 本地处理 or AI Assisted",
-      labels.length > 0 && labels.every((l) => l === "本地处理" || l === "AI Assisted"),
+    check("§72: every step is labelled 本地处理 or AI 辅助",
+      labels.length > 0 && labels.every((l) => l === "本地处理" || l === "AI 辅助"),
       JSON.stringify(labels));
     const usageTxt = await s.eval(`return (document.querySelector('[data-testid="workbench-detail-processing-view"]')||{}).innerText || '';`);
-    check("§72: token/API usage is shown", /Token\/API：/.test(usageTxt));
+    check("§72: model usage is shown", /模型调用次数：/.test(usageTxt));
     check("§72: summary distinguishes local vs AI-assisted counts", /确定性本地处理/.test(usageTxt));
 
     // Timeline + sources still render in demo mode.
