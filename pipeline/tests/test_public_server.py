@@ -28,8 +28,9 @@ for p in (str(REPO_ROOT), str(PIPELINE_DIR)):
 
 from pipeline.api.server import (  # noqa: E402
     DISTRICT_WHITELIST, MAX_QUERY_CHARS, MAX_RESULTS_CAP, MAX_TOPICS,
-    GorgonRequestHandler, RateLimiter, client_identity, make_server,
-    peer_is_a_proxy, resolve_bind_defaults, validate_search_payload,
+    CAPACITOR_APP_ORIGIN, cors_headers_for, GorgonRequestHandler, RateLimiter,
+    RATE_LIMITER, client_identity, make_server, peer_is_a_proxy,
+    resolve_bind_defaults, validate_search_payload,
 )
 from pipeline.search.settings import SearchSettings  # noqa: E402
 
@@ -666,6 +667,127 @@ class ClientIdentityTest(unittest.TestCase):
         # as stand-ins for "a stranger on the internet" here.
         for peer in ("8.8.8.8", "93.184.216.34", "not-an-ip", ""):
             self.assertFalse(peer_is_a_proxy(peer, {}), repr(peer))
+
+
+class CorsAllowlistTest(unittest.TestCase):
+    """The native shell is the ONE legitimate cross-origin client.
+
+    Default posture is unchanged: no Origin -> no CORS headers (a curl or a
+    same-origin page sees exactly what it always saw). Only an allowlisted
+    origin (the Capacitor WebView's https://localhost, or whatever the
+    deployment adds via GORGON_CORS_ORIGINS) gets the header echoed back.
+    No wildcard, ever.
+    """
+
+    def _origin_get(self, origin, path="/api/health"):
+        """GET with an explicit Origin header, returning (status, headers)."""
+        request = urllib.request.Request(
+            self.base + path, method="GET",
+            headers={"Origin": origin} if origin else {})
+        try:
+            with OPENER.open(request, timeout=25) as response:
+                headers = {k.lower(): v for k, v in response.headers.items()}
+                return response.status, headers
+        except urllib.error.HTTPError as exc:
+            headers = {k.lower(): v for k, v in exc.headers.items()}
+            return exc.code, headers
+
+    @classmethod
+    def setUpClass(cls):
+        cls.server = make_server(
+            port=0, host="127.0.0.1", mode="demo",
+            settings=SearchSettings(mode="demo"))
+        GorgonRequestHandler.rate_limiter = RateLimiter(limit=10_000)
+        cls.base = "http://127.0.0.1:%d" % cls.server.server_address[1]
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        GorgonRequestHandler.rate_limiter = RATE_LIMITER
+        cls.server.shutdown()
+        cls.server.server_close()
+
+    def test_no_origin_header_keeps_the_no_cors_posture(self):
+        # A curl / same-origin request sees no ACAO — the historical behaviour.
+        _, headers = self._origin_get(None)
+        self.assertNotIn("access-control-allow-origin", headers)
+
+    def test_capacitor_origin_gets_the_header_echoed(self):
+        # The native shell's own origin (androidScheme https + localhost).
+        _, headers = self._origin_get(CAPACITOR_APP_ORIGIN)
+        self.assertEqual(headers.get("access-control-allow-origin"),
+                         CAPACITOR_APP_ORIGIN)
+
+    def test_a_foreign_web_origin_gets_nothing(self):
+        # A stranger's web page must be blocked by the browser: no ACAO.
+        for origin in ("https://evil.example.com", "https://localhost.evil.com",
+                       "http://localhost", "null"):
+            with self.subTest(origin=origin):
+                _, headers = self._origin_get(origin)
+                self.assertNotIn("access-control-allow-origin", headers)
+
+    def test_preflight_for_the_capacitor_origin_answers_methods_and_headers(self):
+        request = urllib.request.Request(
+            self.base + "/api/search", method="OPTIONS",
+            headers={"Origin": CAPACITOR_APP_ORIGIN,
+                     "Access-Control-Request-Method": "POST",
+                     "Access-Control-Request-Headers": "content-type"})
+        with OPENER.open(request, timeout=25) as response:
+            headers = {k.lower(): v for k, v in response.headers.items()}
+            status = response.status
+        self.assertEqual(status, 204)
+        self.assertEqual(headers.get("access-control-allow-origin"),
+                         CAPACITOR_APP_ORIGIN)
+        self.assertIn("POST", headers.get("access-control-allow-methods", ""))
+        # Header-name matching is exact on the server side; the echoed value
+        # is whatever the preflight requested ("Content-Type").
+        self.assertIn("Content-Type",
+                      headers.get("access-control-allow-headers", ""))
+
+    def test_preflight_for_a_foreign_origin_has_no_cors_headers(self):
+        request = urllib.request.Request(
+            self.base + "/api/search", method="OPTIONS",
+            headers={"Origin": "https://evil.example.com",
+                     "Access-Control-Request-Method": "POST"})
+        with OPENER.open(request, timeout=25) as response:
+            headers = {k.lower(): v for k, v in response.headers.items()}
+        self.assertNotIn("access-control-allow-origin", headers)
+
+    def test_env_var_can_add_origins_but_never_enables_a_wildcard(self):
+        self.assertEqual(
+            cors_headers_for("https://app.mine.com",
+                             {"GORGON_CORS_ORIGINS": "https://app.mine.com"}),
+            (("Access-Control-Allow-Origin", "https://app.mine.com"),))
+        # An origin NOT in the env list gets nothing even with the var set.
+        self.assertEqual(
+            cors_headers_for("https://other.com",
+                             {"GORGON_CORS_ORIGINS": "https://app.mine.com"}),
+            ())
+        # A literal "*" in the env list is a literal origin match — it can
+        # never become a wildcard because matching is exact equality.
+        self.assertEqual(cors_headers_for("https://anything.com",
+                                          {"GORGON_CORS_ORIGINS": "*"}), ())
+        # Empty/blank env values fall back to the default allowlist.
+        self.assertEqual(
+            cors_headers_for(CAPACITOR_APP_ORIGIN, {"GORGON_CORS_ORIGINS": ""}),
+            (("Access-Control-Allow-Origin", CAPACITOR_APP_ORIGIN),))
+
+    def test_cors_headers_for_without_an_origin_is_empty(self):
+        self.assertEqual(cors_headers_for(None), ())
+        self.assertEqual(cors_headers_for(""), ())
+
+    def test_health_with_capacitor_origin_still_leaks_nothing(self):
+        # The CORS echo must not quietly turn into a data leak: the response
+        # body stays the same 4-field health payload.
+        request = urllib.request.Request(
+            self.base + "/api/health", method="GET",
+            headers={"Origin": CAPACITOR_APP_ORIGIN})
+        with OPENER.open(request, timeout=25) as response:
+            body = response.read().decode("utf-8", "replace")
+        payload = json.loads(body)
+        self.assertEqual(set(payload),
+                         {"status", "providerMode", "demoData", "today"})
 
 
 if __name__ == "__main__":

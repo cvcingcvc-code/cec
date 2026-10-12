@@ -139,6 +139,53 @@ SECURITY_HEADERS = (
     ("Content-Security-Policy", CSP),
 )
 
+# --- controlled CORS for the native app shell -------------------------------
+#
+# The default remains NO CORS HEADERS AT ALL: the web UI is same-origin, and
+# `connect-src 'self'` keeps a compromised page from phoning home. The ONE
+# legitimate cross-origin client is the native app shell (Capacitor WebView),
+# which runs on its own origin (`https://localhost` under androidScheme) and
+# has no backend of its own — it must talk to this server or lose real
+# retrieval.
+#
+# So: an `Origin` that is NOT on this allowlist gets exactly what it always
+# got (no CORS headers; the browser blocks the fetch). An allowlisted origin
+# gets the origin echoed back and nothing more. The allowlist is read from
+# the environment (GORGON_CORS_ORIGINS, comma-separated) so a deployment can
+# add its own app origin without editing code; the DEFAULT contains only the
+# Capacitor WebView origin, which is not a secret and not browsable by
+# anyone else (it only exists inside the app's own WebView).
+CAPACITOR_APP_ORIGIN = "https://localhost"
+DEFAULT_CORS_ORIGINS = (CAPACITOR_APP_ORIGIN,)
+
+
+def _cors_allowlist(env=None):
+    env = os.environ if env is None else env
+    raw = str(env.get("GORGON_CORS_ORIGINS") or "").strip()
+    if not raw:
+        return DEFAULT_CORS_ORIGINS
+    parts = tuple(o.strip() for o in raw.split(",") if o.strip())
+    return parts or DEFAULT_CORS_ORIGINS
+
+
+_CORS_METHODS = "GET, POST, OPTIONS"
+_CORS_HEADERS_ALLOWED = "Content-Type"
+
+
+def cors_headers_for(origin, env=None):
+    """(name, value) pairs to send for this request's Origin header.
+
+    Empty tuple = keep the historical no-CORS behaviour. No wildcard, ever:
+    a bare `*` would let any web page read the API from its own JS, which
+    is the one thing the security posture forbids.
+    """
+    if not origin:
+        return ()
+    allow = _cors_allowlist(env)
+    if origin in allow:
+        return (("Access-Control-Allow-Origin", origin),)
+    return ()
+
 # Visitor-facing replacements for notices the service layer writes for the
 # operator. See public_notices().
 #
@@ -604,6 +651,11 @@ class GorgonRequestHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
         for name, value in SECURITY_HEADERS:
             self.send_header(name, value)
+        # Controlled CORS: only an allowlisted native-shell origin gets the
+        # header echoed back; every other request keeps the historical
+        # no-CORS behaviour (see cors_headers_for above).
+        for name, value in cors_headers_for(self.headers.get("Origin")):
+            self.send_header(name, value)
         super().end_headers()
 
     def _settings(self):
@@ -707,8 +759,20 @@ class GorgonRequestHandler(SimpleHTTPRequestHandler):
     # -- routes -------------------------------------------------------------
 
     def do_OPTIONS(self):
-        # No CORS headers on purpose: the UI is same-origin, so nothing
-        # legitimate needs cross-origin access to this API.
+        # No CORS headers by default: the UI is same-origin, so nothing
+        # legitimate needs cross-origin access to this API. An allowlisted
+        # native-shell origin (Capacitor WebView) gets the preflight answer
+        # it needs; a browser origin not on the list still gets nothing and
+        # the browser blocks the actual request.
+        origin = self.headers.get("Origin")
+        if cors_headers_for(origin):
+            self.send_response(204)
+            self.send_header("Allow", "GET, HEAD, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Methods", _CORS_METHODS)
+            self.send_header("Access-Control-Allow-Headers", _CORS_HEADERS_ALLOWED)
+            self.send_header("Access-Control-Max-Age", "600")
+            self.end_headers()
+            return
         self.send_response(204)
         self.send_header("Allow", "GET, HEAD, POST, OPTIONS")
         self.end_headers()
