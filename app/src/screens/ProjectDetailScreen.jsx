@@ -54,9 +54,9 @@ export function ProjectDetailScreen({
   bundle, onBack, onOpenTask, onTaskStatus, onAddTask,
   onAddNote, onUpdateNote, onRemoveNote,
   onSaveReview, onArchiveProject, onPlaceVisit,
-  onPrepToggle, onPrepAdd, onRegStatus,
+  onPrepToggle, onPrepAdd, onRegStatus, onAddProgress, onRemoveProgress,
 }) {
-  const { project, tasks, notes, places, review, registrations } = bundle;
+  const { project, tasks, notes, places, review, registrations, progress } = bundle;
 
   const [newTask, setNewTask] = React.useState("");
   const [noteDraft, setNoteDraft] = React.useState("");
@@ -65,6 +65,8 @@ export function ProjectDetailScreen({
   const [outcome, setOutcome] = React.useState((review && review.outcome) || "");
   const [nextAction, setNextAction] = React.useState((review && review.nextAction) || "");
   const [prepDraft, setPrepDraft] = React.useState("");
+  const [progDraft, setProgDraft] = React.useState("");
+  const [progKind, setProgKind] = React.useState("note");
 
   // Module C UI: the honest registration vocabulary (REG_LABEL mirror).
   const REG_LABEL = {
@@ -98,6 +100,16 @@ export function ProjectDetailScreen({
 
   const saveReview = () => {
     onSaveReview(project.id, { outcome: outcome.trim(), nextAction: nextAction.trim() });
+  };
+
+  // V2.2 Stage 2: progress entries — the user's own record, never auto-generated.
+  const KIND_LABEL = { note: "记录", milestone: "里程碑", blocked: "受阻", done: "完成" };
+  const addProgress = () => {
+    const t = progDraft.trim();
+    if (!t || !onAddProgress) return;
+    onAddProgress(project.id, t, progKind);
+    setProgDraft("");
+    setProgKind("note");
   };
 
   const scheduled = tasks.filter((t) => t.scheduledDate || t.dueAt);
@@ -332,6 +344,60 @@ export function ProjectDetailScreen({
             </div>
           </Section>
         )}
+
+        {/* ── progress (V2.2 Stage 2: unified progress concept) ──────── */}
+        <Section title={`进度记录 (${(progress || []).length})`} testid="workbench-project-progress">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {(progress || []).map((e) => (
+              <div key={e.id} data-testid="workbench-project-progress-entry" style={{ ...card }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span data-testid="workbench-project-progress-kind" style={{
+                    flex: "none", fontSize: 11, fontWeight: 700, padding: "3px 9px",
+                    borderRadius: "var(--radius-pill)",
+                    background: e.kind === "blocked" ? "var(--warning-soft)" : "var(--brand-soft)",
+                    color: e.kind === "blocked" ? "#9A6300" : "var(--brand)",
+                  }}>
+                    {KIND_LABEL[e.kind] || e.kind}
+                  </span>
+                  {e.subjectType === "task" && (
+                    <span style={{ fontSize: 11, color: "var(--text-faint)" }}>任务侧</span>
+                  )}
+                  <span style={{ fontSize: 11, color: "var(--text-faint)", marginLeft: "auto" }}>
+                    {fmtDay(e.createdAt)}
+                  </span>
+                </div>
+                <div data-testid="workbench-project-progress-text" style={{ fontSize: 13, color: "var(--text-body)", lineHeight: 1.6, marginTop: 6, whiteSpace: "pre-wrap" }}>
+                  {e.text}
+                </div>
+                {onRemoveProgress && (
+                  <div style={{ marginTop: 6 }}>
+                    <button data-testid="workbench-project-progress-delete" onClick={() => onRemoveProgress(e.id)}
+                      aria-label="删除进度记录"
+                      style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--danger)", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, padding: 0 }}>
+                      <Icon name="trash-2" style={{ width: 13, height: 13 }} />删除
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <select aria-label="进度类型" data-testid="workbench-project-progress-kind-select"
+                value={progKind} onChange={(e) => setProgKind(e.target.value)}
+                style={{ flex: "none", border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-md)", padding: "9px 10px", background: "var(--surface-card)", fontFamily: "var(--font-sans)", fontSize: 12.5, color: "var(--text-strong)" }}>
+                <option value="note">记录</option>
+                <option value="milestone">里程碑</option>
+                <option value="blocked">受阻</option>
+                <option value="done">完成</option>
+              </select>
+              <input aria-label="进度内容" data-testid="workbench-project-progress-input"
+                placeholder="记录一下进展：现在到哪一步了？"
+                value={progDraft} onChange={(e) => setProgDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") addProgress(); }}
+                style={{ flex: 1, minWidth: 120, border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-md)", padding: "10px 13px", background: "var(--surface-card)", fontFamily: "var(--font-sans)", fontSize: 13.5, color: "var(--text-strong)" }} />
+              <Button onClick={addProgress} disabled={!progDraft.trim()}>记录进度</Button>
+            </div>
+          </div>
+        </Section>
 
         {/* ── notes (P0-C) ───────────────────────────────────────────── */}
         <Section title={`项目笔记 (${notes.length})`} testid="workbench-project-notes">

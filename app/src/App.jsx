@@ -416,6 +416,25 @@ export default function App() {
     setProjectRev((r) => r + 1);
   };
 
+  // ── V2.2 Stage 2: unified progress handlers ────────────────────────
+  const addProjectProgress = (projectId, text, kind) => {
+    const t = String(text || "").trim();
+    if (!t) return;
+    WBStore.addProgress({
+      subjectType: "project", subjectId: projectId,
+      subjectTitle: (WBStore.getProject(projectId) || {}).title || "",
+      kind: kind || "note", text: t,
+    });
+    setWbLog(WBStore.getLog());
+    setProjectRev((r) => r + 1);
+    flash("进度已记录");
+  };
+
+  const removeProjectProgress = (id) => {
+    WBStore.removeProgress(id);
+    setProjectRev((r) => r + 1);
+  };
+
   const saveProjectReview = (projectId, patch) => {
     const r = WBStore.setProjectReview(projectId, patch);
     if (r) {
@@ -659,6 +678,8 @@ export default function App() {
         onPrepToggle={handlePrepToggle}
         onPrepAdd={handlePrepAdd}
         onRegStatus={handleRegStatus}
+        onAddProgress={addProjectProgress}
+        onRemoveProgress={removeProjectProgress}
       />
     ) : (
       <ProjectsScreen

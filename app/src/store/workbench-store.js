@@ -298,7 +298,15 @@ export function getProjectBundle(projectId) {
   const activityIds = project.activities.map((a) => a.activityId);
   const registrations = Opportunities.listRegistrations()
     .filter((r) => activityIds.includes(r.activityId));
-  return { project, tasks, notes, places, review, registrations };
+  // V2.2 Stage 2: unified progress — project entries + this project's task entries.
+  const taskIds = new Set(tasks.map((t) => t.id));
+  const progress = ProgressRepo.listProgress({ subjectType: "project", subjectId: projectId })
+    .concat(
+      ProgressRepo.listProgress({ subjectType: "task" })
+        .filter((e) => taskIds.has(e.subjectId))
+    )
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  return { project, tasks, notes, places, review, registrations, progress };
 }
 
 /** Today + open view data for the workbench home (P0-D). */
@@ -348,6 +356,58 @@ export function setProjectReview(projectId, patch) {
   const r = Opportunities.setProjectReview(projectId, patch);
   if (r) logEvent("project_review", `保存了项目复盘`);
   return r;
+}
+
+// ── V2.2 (Stage 2): unified progress — facade over progress-repository ──
+// One progress concept across projects / tasks / places / registrations.
+// ADDITIVE: the repository owns its own versioned key
+// (gorgon_workbench_progress_v1); no existing key or semantics change.
+// Screens go through this facade, never the repository directly.
+
+import * as ProgressRepo from "./progress-repository.js";
+
+export const PROGRESS_SUBJECT = ProgressRepo.PROGRESS_SUBJECT;
+export const PROGRESS_KIND = ProgressRepo.PROGRESS_KIND;
+export const PROGRESS_LABEL = ProgressRepo.PROGRESS_LABEL;
+
+export function getProgress(filter) {
+  return ProgressRepo.listProgress(filter || {});
+}
+
+/**
+ * Record a progress entry. The text is the USER's record — this never
+ * auto-generates progress. kind is descriptive (note/milestone/blocked/done)
+ * and does NOT change any real status; task state moves still go through
+ * the formal state machine.
+ */
+export function addProgress(input) {
+  const e = ProgressRepo.addProgress(input || {});
+  if (e) {
+    logEvent("progress_create", `记录了进度「${e.subjectTitle || e.subjectType}」`);
+    if (e.subjectType === "task") {
+      Repo.appendTimelineEvent(e.subjectId, "progress_logged", "记录了进度", { progressId: e.id });
+    }
+  }
+  return e;
+}
+
+export function updateProgress(id, patch) {
+  return ProgressRepo.updateProgress(id, patch || {});
+}
+
+export function removeProgress(id) {
+  return ProgressRepo.removeProgress(id);
+}
+
+/** Everything a progress surface needs: entries + per-subject counts. */
+export function getProjectProgressBundle(projectId) {
+  const project = Projects.getProject(projectId);
+  if (!project) return null;
+  const entries = ProgressRepo.listProgress({ subjectType: "project", subjectId: projectId });
+  const taskIds = new Set(Repo.listTasks().filter((t) => t.projectId === projectId).map((t) => t.id));
+  const taskEntries = ProgressRepo.listProgress({ subjectType: "task" })
+    .filter((e) => taskIds.has(e.subjectId));
+  return { entries, taskEntries };
 }
 
 // ── Module D facade: field-visit places ─────────────────────────────────
