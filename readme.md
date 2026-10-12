@@ -1,3 +1,18 @@
+# Gorgon Workbench — 个人智能行动工作台（产品发展方向）
+
+> **当前主线：Android V2.1 真实可用验收。** 本页下方保留早期 Demo MVP 与设计系统历史说明，不代表当前全部能力。
+
+Gorgon 的固定方向是为普通人提供一个**日常生活行动工作台**：将活动/机会检索、任务、日程、地点走访、笔记、报名进度、多个项目的执行记录和复盘组织为可追溯的行动闭环。未来预留经过授权的**手机安全派发任务到常开电脑 AI 智能体**的能力；当前尚未提供远程电脑控制。
+
+- **当前交付**：Android 修复版 APK 已更新 [GitHub Release v1.0.0](https://github.com/cvcingcvc-code/cec/releases/tag/v1.0.0)，公网检索和 WebView 网络层已验证；**物理安卓真机与 UI 完整流程仍为 NOT_TESTED**。
+- **固定开发路线**：[docs/ROADMAP.md](docs/ROADMAP.md)（V2.1 手机真机验收 → V2.2 生活工作台 → V2.3 项目进度 → V2.4 远程架构设计 → V3.0 安全远程 Agent → V3.1 视觉/UX 集中升级）。
+- **最新技术背景**：[项目总结](docs/PROJECT_FULL_SUMMARY.md)、[手机检索交接](docs/HANDOFF_PHONE_REAL_SEARCH.md)。正式开发必须核对实际代码、验收证据，不把 Demo/Mock 当真实数据。
+- **产品原则**：先功能真实可用，再逐阶段扩展；基本易用性同步保障，集中美术设计后置；外部高风险操作必须用户审批，进度与失败如实记录。
+
+---
+
+## 历史 Demo MVP / 设计系统资料（保留原文）
+
 # Gorgon Demo MVP
 
 > **发现你的周末** — 一个 3 分钟可以完整演示的交互原型。
