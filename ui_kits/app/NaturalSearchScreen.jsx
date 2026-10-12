@@ -62,9 +62,16 @@
   // and only a genuinely wedged connection gets aborted here.
   const REQUEST_TIMEOUT_MS = 45000;
 
-  async function fetchSearch(query, topics) {
+  async function fetchSearch(query, topics, district) {
     const body = { query: query, maxResults: 30 };
     if (topics && topics.length) body.topics = topics;
+    // The district travels IN THE REQUEST. It used to be validated by the
+    // server and then dropped, which left the browser filtering a list the
+    // pipeline had already ranked and cut to the city-wide top N — so a
+    // district hit that ranked just below the cut was reported as "该地区
+    // 暂无活动" even though retrieval had found it. The server now applies
+    // the constraint before dedupe / trust / ranking / maxResults.
+    if (district && !D.isAll(district)) body.district = district;
     const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
     const timer = controller ? setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS) : null;
     try {
@@ -345,12 +352,13 @@
           {failed.length > 0 && (
             <div style={{ color: "#9A6300" }}>部分来源暂时不可用：{failed.map((p) => p.name).join("、")}</div>
           )}
-          {/* The numbers above describe the RETRIEVAL; the list below is
-              narrowed by the district. Saying so is what keeps the panel from
-              contradicting the cards. */}
+          {/* The numbers above now describe a DISTRICT-SCOPED retrieval, not
+              the whole city: the server applies the district before dedupe,
+              trust, ranking and the maxResults cut. Saying which one it is
+              keeps the panel from contradicting the cards. */}
           {filtered && (
             <div style={{ color: "var(--brand)", fontWeight: 600 }}>
-              已按地区筛选：仅显示 {district} 的活动（{shown} 个），合计 {summary.canonical} 个活动来自整个上海
+              已按 {district} 检索：地区约束在去重与排序前生效，共 {summary.canonical} 个活动
             </div>
           )}
         </div>
@@ -368,6 +376,9 @@
     const [data, setData] = React.useState(null);
     const [error, setError] = React.useState(null);
     const [stage, setStage] = React.useState(0);
+    // Which district the CURRENT `data` was actually retrieved for.
+    const [fetchedDistrict, setFetchedDistrict] = React.useState(district);
+    const requestSeq = React.useRef(0);
 
     React.useEffect(() => { window.lucide && window.lucide.createIcons(); }, [phase, data, stage, topic, error]);
 
@@ -385,15 +396,27 @@
       return () => clearInterval(timer);
     }, [phase]);
 
-    const submit = async (text) => {
+    // `quiet` is the district-switch path: the screen keeps showing the list
+    // it already has (re-filtered instantly by the picker) while the new,
+    // server-scoped answer is on its way. A brand-new question still blanks
+    // into the staged loader — it has nothing to show yet.
+    const submit = async (text, overrideDistrict, quiet) => {
       const query = (text == null ? q : text).trim();
       if (!query) return;
       const t = TOPICS.find((x) => x.key === topic);
       const topics = t && t.topic ? [t.topic] : [];
+      const wanted = overrideDistrict || district;
+      // Two district switches in a row put two searches in flight; only the
+      // newest answer may write, or a slow 徐汇 reply can overwrite a 浦东
+      // one and the screen would contradict its own picker.
+      const seq = ++requestSeq.current;
       setQ(query);
-      setPhase("loading");
-      setError(null);
-      const result = await fetchSearch(query, topics);
+      if (!quiet) {
+        setPhase("loading");
+        setError(null);
+      }
+      const result = await fetchSearch(query, topics, wanted);
+      if (seq !== requestSeq.current) return;
       if (!result) {
         setPhase("unavailable");
         setData(null);
@@ -406,18 +429,32 @@
         return;
       }
       setData(result);
+      setFetchedDistrict(wanted);
       setPhase("done");
     };
+
+    // Switching district stays INSTANT — the cards re-filter from what is on
+    // screen — but the list a picker can only subtract from is not a
+    // correctness argument. So the change also re-runs the search with the
+    // new district inside the request, and the server-scoped answer replaces
+    // what the instant filter guessed. Without this, switching to a district
+    // whose hits ranked below the previous top N could only ever show less.
+    const rescoping = phase === "done" && district !== fetchedDistrict;
+    React.useEffect(() => {
+      if (phase !== "done" || !q) return;
+      if (district === fetchedDistrict) return;
+      submit(q, district, true);
+    }, [district, phase]);   // eslint-disable-line react-hooks/exhaustive-deps
 
     const backToAsk = () => { setPhase("idle"); setData(null); setError(null); };
 
     const allResults = (data && data.results) || [];
-    // The retrieval is district-agnostic; the LIST is not. Filtering happens on
-    // the already-fetched results through the same predicate every other screen
-    // uses — the search provider, the request and trust scoring are untouched.
-    // A degraded provider therefore never switches the district off: the filter
-    // still runs, the "部分来源暂时不可用" notice still shows, and no other
-    // district's rows ever leak into this list.
+    // The payload is ALREADY district-scoped — the server applied the
+    // constraint before dedupe / trust / ranking / maxResults. This filter is
+    // only the instant layer that makes the picker feel immediate: it narrows
+    // on the same predicate every other screen uses, and the quiet re-search
+    // above then replaces the guess with what the server really found. It can
+    // never widen, which is why it must not be the only thing running.
     const results = React.useMemo(() => {
       if (D.isAll(district)) return allResults;
       return allResults.filter((r) => D.matches(r.activity || {}, district));
@@ -593,6 +630,16 @@
                     title="没有找到符合条件的活动"
                     body={"真实检索没有返回可用结果。可以换一个说法，或稍后重试 —— Gorgon 不会用演示数据冒充检索结果。"}
                     action={<button onClick={backToAsk} className="gg-chip">修改问题</button>}
+                  />
+                ) : rescoping ? (
+                  /* The picker moved. The cards on screen were retrieved for
+                     another district, so an empty list here is a stale
+                     answer — not a fact about this one. Say what is
+                     happening instead of declaring the district empty. */
+                  <C.NoticeBlock
+                    icon="search" tone="neutral"
+                    title={"正在检索 " + district + " 的活动…"}
+                    body={"已切换地区，正在向服务端重新检索；这次的地区约束会在去重与排序前生效。"}
                   />
                 ) : districtActive && allResults.length > 0 ? (
                   /* The retrieval DID find things — just none in this district.

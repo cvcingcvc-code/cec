@@ -445,6 +445,10 @@ def nearby_search_payload(request, *, today=None, settings=None,
             radius_km=radius,
             date_start=(date_range["start"] if date_range else None),
             date_end=(date_range["end"] if date_range else None),
+            # PHASE 5: past events never come back by default — "附近有什么
+            # 活动" must not recommend something that already ended.
+            include_past=False,
+            today=today,
             limit=NEARBY_CANDIDATE_LIMIT,
         )
     finally:
