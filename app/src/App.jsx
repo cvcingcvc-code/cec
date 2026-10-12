@@ -582,6 +582,33 @@ export default function App() {
     flash(projectId ? "已关联项目" : "已移出项目");
   };
 
+  /** V2.3 (Phase 1): task priority from the task detail (invalid refused). */
+  const handleSetPriority = (taskId, priority) => {
+    const out = WBStore.setTaskPriority(taskId, priority);
+    if (!out) { flash("优先级无效，未保存"); return; }
+    setWbTasks(WBStore.getTasks());
+    setWbLog(WBStore.getLog());
+    flash("优先级已更新");
+  };
+
+  /** V2.3 (Phase 1): task title edit (empty refused). */
+  const handleSetTitle = (taskId, title) => {
+    const out = WBStore.setTaskTitle(taskId, title);
+    if (!out) { flash("标题不能为空"); return; }
+    setWbTasks(WBStore.getTasks());
+    setWbLog(WBStore.getLog());
+    flash("标题已更新");
+  };
+
+  /** V2.3 (Phase 1): task ↔ place link (unknown place refused). */
+  const handleLinkTaskToPlace = (taskId, placeId) => {
+    const out = WBStore.linkTaskToPlace(taskId, placeId);
+    if (!out) { flash("地点不存在，未关联"); return; }
+    setWbTasks(WBStore.getTasks());
+    setWbLog(WBStore.getLog());
+    flash(placeId ? "已关联地点" : "已移除地点关联");
+  };
+
   // --- My Weekend (persisted, snapshot-carrying) ---
   const toggleSync = (input) => {
     const view = asView(input);
@@ -705,6 +732,10 @@ export default function App() {
           onSetSchedule={handleSetSchedule}
           onSavePlanTodos={handleSavePlanTodos}
           onLinkProject={handleLinkTaskToProject}
+          onSetPriority={handleSetPriority}
+          onSetTitle={handleSetTitle}
+          onLinkPlace={handleLinkTaskToPlace}
+          places={wbPlaces}
           projects={wbProjects}
           notes={detailTask ? WBStore.getNotes({ taskId: detailTask.id }) : []}
           onAddNote={addTaskNote} />

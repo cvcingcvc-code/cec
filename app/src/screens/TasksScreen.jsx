@@ -10,7 +10,6 @@ import { Button } from "../lib/ds.js";
 import * as WB from "../store/workbench-store.js";
 import { canTransition } from "../workbench/task-model.js";
 import { Icon } from "../components/Icon.jsx";
-
 const STATUS_LABEL = {
   created: "已创建",
   planning: "规划中",
@@ -56,6 +55,15 @@ const NEXT_ACTION = {
   created: { label: "准备就绪", to: "ready" },
   ready: { label: "开始执行", to: "running" },
   review_required: { label: "继续任务", to: "running" },
+  // V2.3 (Phase 1): failed -> ready is the retry path ("重新就绪再执行").
+  failed: { label: "重新就绪", to: "ready" },
+};
+
+// V2.3 (Phase 1): priority badge labels/colors. "normal" renders nothing —
+// an unmarked task is the default, not worth a badge.
+const PRIORITY_BADGE = {
+  high: { label: "高优先", color: "var(--danger)", bg: "var(--danger-soft)" },
+  low: { label: "低优先", color: "var(--text-muted)", bg: "var(--bg-sunken)" },
 };
 
 function fmtTime(iso) {
@@ -69,14 +77,19 @@ function fmtTime(iso) {
 export function TasksScreen({ tasks, onStatusChange, onAddTask, onOpenTask }) {
   const [value, setValue] = React.useState("");
   const [filter, setFilter] = React.useState("all");
+  // V2.3 (Phase 1 gap #5): cross-field search (title/goal, case-insensitive).
+  const [query, setQuery] = React.useState("");
 
   // Phase 4: "today" / "open" are predicate filters; the rest stay status-list.
+  // V2.3: the search box narrows whatever the current filter already selected.
   const group = FILTER_GROUPS[filter];
   const list = React.useMemo(() => {
-    if (filter === "today") return tasks.filter((t) => WB.isTaskOnDate(t, WB.localDateStr(new Date())));
-    if (filter === "open") return tasks.filter((t) => WB.isOpenTask(t));
-    return tasks.filter((t) => !group || group.indexOf(t.status) >= 0);
-  }, [tasks, filter, group]);
+    let out;
+    if (filter === "today") out = tasks.filter((t) => WB.isTaskOnDate(t, WB.localDateStr(new Date())));
+    else if (filter === "open") out = tasks.filter((t) => WB.isOpenTask(t));
+    else out = tasks.filter((t) => !group || group.indexOf(t.status) >= 0);
+    return WB.searchTasks(out, query);
+  }, [tasks, filter, group, query]);
 
   const submit = () => {
     const t = value.trim();
@@ -138,6 +151,23 @@ export function TasksScreen({ tasks, onStatusChange, onAddTask, onOpenTask }) {
           })}
         </div>
 
+        {/* V2.3 (Phase 1): cross-field search over title/goal */}
+        <div style={{ marginBottom: 14 }}>
+          <input
+            aria-label="搜索任务"
+            data-testid="workbench-task-search-input"
+            placeholder="搜索任务（标题或目标），例如：比赛"
+            enterKeyHint="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            style={{
+              width: "100%", boxSizing: "border-box", border: "1px solid var(--border-subtle)", outline: "none",
+              borderRadius: "var(--radius-md)", padding: "10px 13px", background: "var(--surface-card)",
+              fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--text-strong)", minHeight: 44,
+            }}
+          />
+        </div>
+
         {list.length === 0 ? (
           <div style={{ fontSize: 13.5, color: "var(--text-faint)", padding: "30px 0", lineHeight: 1.7 }}>
             这里还没有任务。新建一个，或回到工作台输入一个目标。
@@ -149,6 +179,7 @@ export function TasksScreen({ tasks, onStatusChange, onAddTask, onOpenTask }) {
               const next = NEXT_ACTION[t.status] && canTransition(t.status, NEXT_ACTION[t.status].to)
                 ? NEXT_ACTION[t.status] : null;
               const overdue = WB.isTaskOverdue(t);
+              const prio = PRIORITY_BADGE[t.priority] || null;
               return (
                 <div key={t.id} data-testid="workbench-task-item" style={{
                   background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
@@ -157,7 +188,15 @@ export function TasksScreen({ tasks, onStatusChange, onAddTask, onOpenTask }) {
                 }}>
                   <div style={{ minWidth: 0, flex: 1, cursor: onOpenTask ? "pointer" : "default" }}
                     onClick={() => onOpenTask && onOpenTask(t.id)}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)", lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)", lineHeight: 1.5, display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                      {prio && (
+                        <span data-testid="workbench-task-priority" style={{
+                          flex: "none", fontSize: 10.5, fontWeight: 700, padding: "2px 7px",
+                          borderRadius: "var(--radius-pill)", background: prio.bg, color: prio.color,
+                        }}>
+                          {prio.label}
+                        </span>
+                      )}
                       {t.title}
                     </div>
                     <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 3 }}>

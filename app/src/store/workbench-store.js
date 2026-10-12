@@ -16,7 +16,7 @@
 import * as Repo from "./task-repository.js";
 import {
   TASK_STATUS, canTransition, InvalidTransitionError,
-  normIsoOrNull, normDateStrOrNull, localDateStr, isTaskOnDate, isOpenTask, isOverdue,
+  normIsoOrNull, normDateStrOrNull, normPriorityOrNull, localDateStr, isTaskOnDate, isOpenTask, isOverdue,
 } from "../workbench/task-model.js";
 import { runTask as runTaskEngine } from "../workbench/task-runner.js";
 import { searchActivities } from "../lib/api.js";
@@ -73,11 +73,13 @@ export function getTask(id) {
  * it (§16). Kept for Phase-1 call sites — returns the stored list.
  * Phase 4: opts may carry dueAt / scheduledDate / projectId (all optional;
  * createTask normalizes them, invalid values degrade to null).
+ * V2.3 (Phase 1): opts may also carry priority ("high"|"normal"|"low";
+ * invalid values degrade to "normal").
  */
-export function addTask(goal, { source = "手动输入", dueAt = null, scheduledDate = null, projectId = null } = {}) {
+export function addTask(goal, { source = "手动输入", dueAt = null, scheduledDate = null, projectId = null, priority = null } = {}) {
   const text = String(goal || "").trim();
   if (!text) return Repo.listTasks();
-  const next = Repo.createTaskEntry(text, { source, dueAt, scheduledDate, projectId });
+  const next = Repo.createTaskEntry(text, { source, dueAt, scheduledDate, projectId, priority });
   logEvent("task_create", `创建任务「${next[0] ? next[0].title : text}」`);
   return next;
 }
@@ -182,6 +184,79 @@ export function linkTaskToProject(taskId, projectId) {
     eventMetadata: { projectId: projectId || null },
   });
   return Repo.getTask(taskId);
+}
+
+// ── V2.3 (Phase 1 gap #1): task priority ───────────────────────────────
+//
+// The user sets the priority; the engine never does. Invalid values are
+// refused (never guess); a no-change call returns the task untouched.
+const PRIORITY_LABELS = { high: "高", normal: "普通", low: "低" };
+
+export function setTaskPriority(id, priority) {
+  const task = Repo.getTask(id);
+  if (!task) return null;
+  const v = priority === null || priority === undefined ? "normal" : normPriorityOrNull(priority);
+  if (!v) return null; // invalid input — refuse, never guess
+  if (v === task.priority) return task;
+  const updated = Repo.updateTask(id, { priority: v }, {
+    eventType: "priority_changed",
+    eventMessage: `优先级：${PRIORITY_LABELS[task.priority] || task.priority} → ${PRIORITY_LABELS[v]}`,
+    eventMetadata: { from: task.priority, to: v },
+  });
+  return updated ? Repo.getTask(id) : null;
+}
+
+// ── V2.3 (Phase 1 gap #3): task title editing ──────────────────────────
+//
+// The user renames the task; empty/whitespace is refused (never guess).
+// Same-title is a no-op (no timeline noise).
+
+export function setTaskTitle(id, title) {
+  const task = Repo.getTask(id);
+  if (!task) return null;
+  const t = String(title == null ? "" : title).trim();
+  if (!t) return null; // empty title — refuse
+  if (t === task.title) return task;
+  const updated = Repo.updateTask(id, { title: t }, {
+    eventType: "task_title_changed",
+    eventMessage: `标题：「${task.title}」→「${t}」`,
+    eventMetadata: { from: task.title, to: t },
+  });
+  return updated ? Repo.getTask(id) : null;
+}
+
+// ── V2.3 (Phase 1 gap #4): task ↔ place link ───────────────────────────
+//
+// Additive task.placeId. The place must exist in the Places store; null
+// clears the link. Invalid place ids are refused (never guess).
+
+export function linkTaskToPlace(taskId, placeId) {
+  const task = Repo.getTask(taskId);
+  if (!task) return null;
+  const place = placeId ? Opportunities.getPlace(placeId) : null;
+  if (placeId && !place) return null; // unknown place — refuse
+  if ((task.placeId || null) === (placeId || null)) return task;
+  const updated = Repo.updateTask(taskId, { placeId: placeId || null }, {
+    eventType: "place_linked",
+    eventMessage: place ? `关联到地点「${place.name || place.title || placeId}」` : "已移除地点关联",
+    eventMetadata: { placeId: placeId || null },
+  });
+  return updated ? Repo.getTask(taskId) : null;
+}
+
+// ── V2.3 (Phase 1 gap #5): cross-field task search ─────────────────────
+//
+// PURE HELPER. Query matches task title and goal (case-insensitive
+// substring). No match = empty list — never guess.
+
+export function searchTasks(tasks, query) {
+  const q = String(query == null ? "" : query).trim().toLowerCase();
+  if (!q) return Array.isArray(tasks) ? tasks.slice() : [];
+  return (Array.isArray(tasks) ? tasks : []).filter((t) => {
+    const title = String(t.title || "").toLowerCase();
+    const goal = String(t.goal || "").toLowerCase();
+    return title.includes(q) || goal.includes(q);
+  });
 }
 
 /**

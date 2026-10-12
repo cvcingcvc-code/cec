@@ -70,10 +70,15 @@ export const WORKBENCH_EVENT_TYPES = [
   "project_linked",     // task attached to a project
   "plan_saved_as_todos",// plan-skill output converted into editable steps
   "note_linked",        // a note was attached to this task
+  "priority_changed",   // V2.3 (Phase 1 gap #1): priority set by the user
+  "task_title_changed", // V2.3 (Phase 1 gap #3): task renamed by the user
+  "place_linked",       // V2.3 (Phase 1 gap #4): task attached to a place
 ];
 
 // ── §5 legal transition table ─────────────────────────────────────────
 // created -> planning | ready (Phase-2 local shortcut) | failed | cancelled is NOT enabled (unused)
+// V2.3 (Phase 1 gap #2): failed -> ready is the RETRY path ("重新就绪再执行").
+// failed -> running / completed stay illegal — a retry must pass through ready.
 export const TRANSITIONS = {
   created:         ["planning", "ready", "failed"],
   planning:        ["ready", "failed"],
@@ -81,8 +86,23 @@ export const TRANSITIONS = {
   running:         ["completed", "failed", "review_required"],
   review_required: ["running"],
   completed:       [],
-  failed:          [],
+  failed:          ["ready"],
 };
+
+// V2.3 (Phase 1 gap #1): task priority vocabulary. Additive — old records
+// normalize to "normal", so pre-V2.3 data loads unchanged.
+export const TASK_PRIORITY = Object.freeze({
+  HIGH: "high",
+  NORMAL: "normal",
+  LOW: "low",
+});
+
+export const ALL_TASK_PRIORITIES = ["high", "normal", "low"];
+
+/** Validate a priority; invalid/missing values degrade to "normal" (never guess). */
+export function normPriorityOrNull(v) {
+  return ALL_TASK_PRIORITIES.indexOf(v) >= 0 ? v : null;
+}
 
 export function canTransition(from, to) {
   const allowed = TRANSITIONS[from];
@@ -210,6 +230,11 @@ export function createTask(goal, opts = {}) {
     dueAt: normIsoOrNull(opts.dueAt),
     scheduledDate: normDateStrOrNull(opts.scheduledDate),
     projectId: opts.projectId ? String(opts.projectId) : null,
+    // V2.3 (Phase 1 gap #4) — place link (additive; null = not set).
+    placeId: opts.placeId ? String(opts.placeId) : null,
+
+    // V2.3 (Phase 1 gap #1) — priority (additive; "normal" = default).
+    priority: normPriorityOrNull(opts.priority) || TASK_PRIORITY.NORMAL,
 
     steps: [],
     result: null,
@@ -371,6 +396,9 @@ export function normalizeTask(t) {
     dueAt: normIsoOrNull(t.dueAt),
     scheduledDate: normDateStrOrNull(t.scheduledDate),
     projectId: t.projectId ? String(t.projectId) : null,
+    // V2.3 additive — old records normalize to null / "normal" (compatible).
+    placeId: t.placeId ? String(t.placeId) : null,
+    priority: normPriorityOrNull(t.priority) || TASK_PRIORITY.NORMAL,
     steps: Array.isArray(t.steps) ? t.steps.map(normalizeStep).filter(Boolean) : [],
     result: t.result && typeof t.result === "object" ? (makeResult(t.result) || null) : null,
     sources: Array.isArray(t.sources) ? t.sources.map((s) => makeSource(s) || s).filter(Boolean) : [],

@@ -38,6 +38,10 @@ const EVENT_LABEL = {
   project_linked: "项目关联",
   plan_saved_as_todos: "规划建议已存为待办",
   note_linked: "关联笔记",
+  // V2.3 events.
+  priority_changed: "优先级调整",
+  task_title_changed: "标题修改",
+  place_linked: "地点关联",
 };
 
 const EVENT_ICON = {
@@ -60,6 +64,10 @@ const EVENT_ICON = {
   project_linked: "folder-kanban",
   plan_saved_as_todos: "list-todo",
   note_linked: "notebook-pen",
+  // V2.3 events.
+  priority_changed: "flag",
+  task_title_changed: "pencil",
+  place_linked: "map-pin",
 };
 
 // Phase 3 Router result rendering (§25): map skill ids / intent → labels.
@@ -207,6 +215,8 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
   // ── Phase 4 (P0-B): schedule editor, plan→todos, step title editing,
   //    project link. All optional — the screen degrades gracefully.
   onSetSchedule = null, onSavePlanTodos = null, onLinkProject = null, projects = [],
+  // ── V2.3 (Phase 1): priority selector + title edit + place link.
+  onSetPriority = null, onSetTitle = null, onLinkPlace = null, places = [],
   // ── Phase 4 (P0-C): task-linked notes (execution records).
   notes = [], onAddNote = null }) {
   const [stepTitle, setStepTitle] = React.useState("");
@@ -222,6 +232,9 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
   const [editingStepId, setEditingStepId] = React.useState(null);
   const [editingStepTitle, setEditingStepTitle] = React.useState("");
   const [planSavedFlash, setPlanSavedFlash] = React.useState(false);
+  // V2.3 (Phase 1 gap #3): title editing local state.
+  const [editingTitle, setEditingTitle] = React.useState(false);
+  const [titleDraft, setTitleDraft] = React.useState("");
 
   React.useEffect(() => {
     if (!task) return;
@@ -339,6 +352,14 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
     setEditingStepId(null);
   };
 
+  // V2.3 (Phase 1 gap #3): task title editing (click the title to rename).
+  const startEditTitle = () => { setTitleDraft(task.title); setEditingTitle(true); };
+  const commitEditTitle = () => {
+    const t = titleDraft.trim();
+    setEditingTitle(false);
+    if (t && t !== task.title && onSetTitle) onSetTitle(task.id, t);
+  };
+
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }} data-gg-screen="workbench-task-detail">
       <div style={{ padding: "28px 16px 48px", maxWidth: 860, margin: "0 auto", width: "100%" }}>
@@ -363,9 +384,27 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
               <span style={{ fontSize: 12, color: "var(--text-faint)" }}>等待任务引擎 · 尚未开始执行</span>
             )}
           </div>
-          <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 23, color: "var(--text-strong)", margin: "10px 0 0", lineHeight: 1.4 }}>
-            {task.title}
-          </h1>
+          {editingTitle && onSetTitle ? (
+            <div style={{ display: "flex", gap: 9, marginTop: 10, alignItems: "center" }}>
+              <input aria-label="编辑任务标题" data-testid="workbench-detail-title-input"
+                value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") commitEditTitle(); if (e.key === "Escape") setEditingTitle(false); }}
+                autoFocus
+                style={{ flex: 1, minWidth: 0, border: "1px solid var(--brand)", outline: "none", borderRadius: "var(--radius-sm)", padding: "9px 12px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", fontSize: 15, color: "var(--text-strong)" }} />
+              <Button size="sm" data-testid="workbench-detail-title-save" onClick={commitEditTitle}>保存标题</Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditingTitle(false)}>取消</Button>
+            </div>
+          ) : (
+            <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 23, color: "var(--text-strong)", margin: "10px 0 0", lineHeight: 1.4, display: "flex", alignItems: "baseline", gap: 9, flexWrap: "wrap" }}>
+              <span>{task.title}</span>
+              {onSetTitle && (
+                <button data-testid="workbench-detail-title-edit" onClick={startEditTitle} aria-label="编辑任务标题"
+                  style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--brand)", display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 34, minHeight: 34, borderRadius: "var(--radius-sm)" }}>
+                  <Icon name="pencil" style={{ width: 14, height: 14 }} />
+                </button>
+              )}
+            </h1>
+          )}
           <div style={{ marginTop: 10, ...card, fontSize: 13.5, color: "var(--text-body)", lineHeight: 1.7 }} data-testid="workbench-detail-goal">
             {task.goal}
           </div>
@@ -422,6 +461,49 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
               <option value="">（不关联）</option>
               {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
             </select>
+          </div>
+        )}
+
+        {/* ── V2.3 (Phase 1): priority selector ────────────────────────── */}
+        {onSetPriority && (
+          <div style={{ ...card, marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }} data-testid="workbench-detail-priority">
+            <Icon name="flag" style={{ width: 15, height: 15, color: "var(--brand)", flex: "none" }} />
+            <span style={{ fontSize: 12.5, color: "var(--text-muted)", fontWeight: 600 }}>优先级：</span>
+            <select aria-label="任务优先级" data-testid="workbench-detail-priority-select"
+              value={task.priority || "normal"}
+              onChange={(e) => onSetPriority(task.id, e.target.value)}
+              style={{ border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "7px 10px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", fontSize: 12.5, color: "var(--text-strong)" }}>
+              <option value="high">高</option>
+              <option value="normal">普通</option>
+              <option value="low">低</option>
+            </select>
+            {(task.priority === "high" || task.priority === "low") && (
+              <span data-testid="workbench-detail-priority-current" style={{
+                fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: "var(--radius-pill)",
+                background: task.priority === "high" ? "var(--danger-soft)" : "var(--bg-sunken)",
+                color: task.priority === "high" ? "var(--danger)" : "var(--text-muted)",
+              }}>
+                {task.priority === "high" ? "高优先级" : "低优先级"}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* ── V2.3 (Phase 1 gap #4): place link ────────────────────────── */}
+        {onLinkPlace && places.length > 0 && (
+          <div style={{ ...card, marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }} data-testid="workbench-detail-place-link">
+            <Icon name="map-pin" style={{ width: 15, height: 15, color: "var(--brand)", flex: "none" }} />
+            <span style={{ fontSize: 12.5, color: "var(--text-muted)", fontWeight: 600 }}>关联地点：</span>
+            <select aria-label="关联地点" data-testid="workbench-detail-place-select"
+              value={task.placeId || ""}
+              onChange={(e) => onLinkPlace(task.id, e.target.value || null)}
+              style={{ border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "7px 10px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", fontSize: 12.5, color: "var(--text-strong)" }}>
+              <option value="">（不关联）</option>
+              {places.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            {task.placeId && (
+              <span data-testid="workbench-detail-place-current" style={{ fontSize: 11, color: "var(--text-faint)" }}>已关联地点</span>
+            )}
           </div>
         )}
 
