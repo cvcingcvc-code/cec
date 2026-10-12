@@ -5,9 +5,10 @@
 
 ## 当前状态
 
-- **阶段进度**：Stage 1 ✅ → Stage 2 进行中
+- **阶段进度**：Stage 1-7 ✅ 全部完成 → Stage 8 收尾中
 - **当前分支**：`feature/gorgon-opportunity-v2`
 - **起始 HEAD**：`395d0a2`（基线测试 298/298 PASS）
+- **当前 HEAD**：见 git log（merge cec 远端后推送 `1b3f8f8`）
 - **时间盒**：最多 8 小时，起始 2026-10-10
 
 ## 阶段台账
@@ -15,25 +16,31 @@
 | # | 阶段 | 状态 | 交付物 | 关键 commit |
 |---|---|---|---|---|
 | 1 | 初始审计 | ✅ 完成 | `reports/V22_INITIAL_AUDIT.md` | `a92bbf6` |
-| 2 | 统一工作台核心能力 | 🔄 进行中 | `reports/V22_CORE_MODEL_REPORT.md` | — |
-| 3 | 三个真实生活场景 | ⏳ 待开始 | `reports/V22_LIFE_SCENARIOS.md` | — |
-| 4 | 多项目进度中心 | ⏳ 待开始 | `reports/V22_PROJECT_PROGRESS_REPORT.md` | — |
-| 5 | Android 验收与稳定性 | ⏳ 待开始 | `reports/V22_ANDROID_ACCEPTANCE.md` | — |
-| 6 | Git 提交与交接 | ⏳ 待开始 | push + Issues 更新 | — |
-| 7 | 远程 Agent 架构预留（可选） | ⏳ 待开始 | `docs/REMOTE_AGENT_ARCHITECTURE.md` | — |
-| 8 | 执行状态与最终报告 | ⏳ 待开始 | `reports/GORGON_V22_LONG_RUN_FINAL.md` | — |
+| 2 | 统一工作台核心能力 | ✅ 完成 | `reports/V22_CORE_MODEL_REPORT.md` | `6ec3756` |
+| 3 | 三个真实生活场景 | ✅ 完成 | `reports/V22_LIFE_SCENARIOS.md` | `e12c5c3` |
+| 4 | 多项目进度中心 | ✅ 完成 | `reports/V22_PROJECT_PROGRESS_REPORT.md` | `8d69d2d` |
+| 5 | Android 验收与稳定性 | ✅ 完成 | `reports/V22_ANDROID_ACCEPTANCE.md` | `1fdf7c1` |
+| 6 | Git 提交与交接 | ✅ 完成 | push 双远端 + Issues #1/#2 评论 + Release 更新 | `1b3f8f8` |
+| 7 | 远程 Agent 架构预留 | ✅ 完成 | `docs/REMOTE_AGENT_ARCHITECTURE.md` | 收尾 commit |
+| 8 | 执行状态与最终报告 | 🔄 收尾中 | `reports/GORGON_V22_LONG_RUN_FINAL.md` | 收尾 commit |
 
-## Stage 1 结论摘要（2026-10-10）
+## 交付摘要（2026-10-13 长跑）
 
-- 工作树干净；基线 298/298 全绿；V2.1 修复（CORS + API 地址）已提交，无需重做。
-- 本地领先远端 11 个提交（未推送）；`docs/ROADMAP.md` 本地缺失（仅远端有），Stage 6 处理。
-- **真实缺口三点**：① Progress 统一概念不存在（仅 REG_STATUS 的 `in_progress` 标签）；② 求职场景状态词汇未建模；③ 多项目进度中心摘要 UI 未建。
-- 全部新能力以 ADDITIVE 方式实现（新键 + schemaVersion 迁移），不破坏旧数据。
+- **代码**：progress-repository（统一进度）+ job-model/job-repository（求职八态状态机）+ ProgressCenterScreen（进度中心）+ ProjectDetailScreen 进度区块 + facade 聚合（getProgressCenterData/getProjectProgressBundle）
+- **测试**：323/323 PASS（基线 298 + 新增 25：core 13 + scenarios 6 + progress-center 5 + 导航 1 更新/1 新增）；pipeline 55/55；Vite 构建 PASS
+- **APK**：重建 sha256 `63e7181d…`（V2.2 新包），bundle 仅含新域名零残留；模拟器冷启动/install/am start/WebView origin PASS ×2；WebView fetch + UI 徽标 NOT_TESTED（qemu 窗口）
+- **交接**：双远端（origin/geergong + cec）推送至 `1b3f8f8`；Issues #1/#2 进度评论（均保持 OPEN，真机 NOT_TESTED）；Release v1.0.0 附件 + 说明更新（远端下载 sha256 核对一致）
 
-## 纪律提醒（长跑期间持续有效）
+## 遗留（交接给用户）
+
+1. 真机九步验收（Issue #1，SHA256 校验 `63e7181d…`）——通过后两个 Issue 可关。
+2. WebView 内 fetch / UI 徽标断言的模拟器新证据（qemu 探针窗口不稳定，环境问题）。
+3. 求职管线无专用管理屏（进度中心只读摘要已就绪，可按需增加）。
+
+## 纪律提醒（后续长跑持续有效）
 
 1. 不重复开发已通过功能；不无限重构。
-2. 真机未验收项必须标 NOT_TESTED；无真机不关 Issue #1。
-3. 不破坏旧用户数据；报名诚实规则（opened_registration ≠ registered）。
+2. 真机未验收项必须标 NOT_TESTED；无真机不关 Issue #1/#2。
+3. 不破坏旧用户数据；报名诚实规则（opened_registration ≠ registered）；求职诚实规则（offered/accepted 仅显式确认）。
 4. 模拟器最多两次受控启动尝试；失败如实记录。
-5. 破坏性 git 操作禁止；GitHub 访问走 Clash 代理 127.0.0.1:7890。
+5. 破坏性 git 操作禁止；GitHub 访问走 Clash 代理 127.0.0.1:7890；本地 curl 加 `--noproxy '*'`。
