@@ -5,6 +5,20 @@
 > 基线：Android V2.1 报告 `reports/GORGON_ANDROID_V21_ACCEPTANCE.md`（本地报告；仓库中以实际存在路径为准）
 > 执行规则：上一阶段验收未通过，不把下一阶段标记 DONE；禁止无限开发或把模拟测试充当真机通过。
 
+## 最新进展：V2.2 代码交付完成（2026-10-13）
+
+> **状态区分：代码与自动化测试已交付；物理 Android 真机完整验收尚未通过，不得标记产品 DONE。**
+
+- 新增统一进度仓库、ProjectDetail 进度记录、求职八态状态机、跨项目中文进度中心。
+- App 323/323 单测、pipeline 55/55、Vite/Gradle 构建通过。详见 [V2.2 最终报告](../reports/GORGON_V22_LONG_RUN_FINAL.md)。
+- 新 APK 已据交付报告更新至 [Release v1.0.0](https://github.com/cvcingcvc-code/cec/releases/tag/v1.0.0)，SHA256：`63e7181dcaabed5dfa7b436e7c239497e2dec4650306f3be1b7a5e2d56b4d172`（不同于 V2.1 旧包）。
+- 模拟器安装与 WebView origin PASS；本轮 WebView fetch/UI 实测 NOT_TESTED；物理真机完整使用 NOT_TESTED。
+- 用户已报告：手机可以执行部分操作，但**输出几乎是代码语言、结果不明确**。把它视为实际体验缺口，而不是笼统地宣称“已经易用”。
+- 下一动作以 [Issue #1](https://github.com/cvcingcvc-code/cec/issues/1) 真机验收、[Issue #2](https://github.com/cvcingcvc-code/cec/issues/2) 三场景真实验收和 [Issue #3](https://github.com/cvcingcvc-code/cec/issues/3) 结果中文化为准；优先真实使用闭环与说明清晰度，**不启动 V3.0 远程执行**。
+- V2.4 远程 Agent 已有[架构设计文档](REMOTE_AGENT_ARCHITECTURE.md)，仅设计，未开发远程控制。
+
+---
+
 ## 一句话定位
 
 **Gorgon Workbench 是面向普通人的 Android 个人智能行动工作台**：把活动检索、生活日程、任务、地点、笔记、项目进度、人工确认和行动复盘放到一个地方。未来可由手机安全地将任务派发给用户本人常开电脑上的 AI 智能体，查看运行进度、审查高风险操作和取得结果。
@@ -90,4 +104,4 @@
 - 结束：单测 + 真实使用证据 + P0 清单 + commit/Release（适用时）+ 更新 Issue 与 ROADMAP 进展；未测试如实写 NOT_TESTED。
 - 所有未来功能先进入 Issue/里程碑，不得提前干扰当前手机修复与验收。
 
-**当前 NEXT ACTION：V2.1 真机九步验收；发现的失败优先修。完成后进入 V2.2 生活行动工作台的首个垂直场景，不启动 V3.0 远程控制开发。**
+**当前 NEXT ACTION：下载安装 V2.2 新版 APK，完成真机九步及三场景验收；针对真实反馈整改结果中文化（Issue #3）；再评估 V2.2 是否达到退出门槛。尚不启动 V3.0 远程控制。**
