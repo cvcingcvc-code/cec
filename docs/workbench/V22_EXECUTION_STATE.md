@@ -5,11 +5,11 @@
 
 ## 当前状态
 
-- **阶段进度**：Stage 1-7 ✅ 全部完成 → Stage 8 收尾中
+- **阶段进度**：Stage 1-8 ✅ 代码/文档交付全部完成；真机产品验收仍 OPEN
 - **当前分支**：`feature/gorgon-opportunity-v2`
 - **起始 HEAD**：`395d0a2`（基线测试 298/298 PASS）
-- **当前 HEAD**：见 git log（merge cec 远端后推送 `1b3f8f8`）
-- **时间盒**：最多 8 小时，起始 2026-10-10
+- **当前 HEAD**：最终报告记录 `6a2738e`；实际最新 HEAD 请以 `git log -1` 为准
+- **时间盒**：最多 8 小时；V2.2 交付日期 2026-10-13
 
 ## 阶段台账
 
@@ -22,7 +22,7 @@
 | 5 | Android 验收与稳定性 | ✅ 完成 | `reports/V22_ANDROID_ACCEPTANCE.md` | `1fdf7c1` |
 | 6 | Git 提交与交接 | ✅ 完成 | push 双远端 + Issues #1/#2 评论 + Release 更新 | `1b3f8f8` |
 | 7 | 远程 Agent 架构预留 | ✅ 完成 | `docs/REMOTE_AGENT_ARCHITECTURE.md` | 收尾 commit |
-| 8 | 执行状态与最终报告 | 🔄 收尾中 | `reports/GORGON_V22_LONG_RUN_FINAL.md` | 收尾 commit |
+| 8 | 执行状态与最终报告 | ✅ 完成 | `reports/GORGON_V22_LONG_RUN_FINAL.md` | 收尾 commit |
 
 ## 交付摘要（2026-10-13 长跑）
 
@@ -44,3 +44,11 @@
 3. 不破坏旧用户数据；报名诚实规则（opened_registration ≠ registered）；求职诚实规则（offered/accepted 仅显式确认）。
 4. 模拟器最多两次受控启动尝试；失败如实记录。
 5. 破坏性 git 操作禁止；GitHub 访问走 Clash 代理 127.0.0.1:7890；本地 curl 加 `--noproxy '*'`。
+
+## 当前下一动作（2026-10-13 更新）
+
+- 代码长跑已经结束，**不要重跑 Stage 1–8**。
+- 产品验收未结束：Issue #1 真机完整链路 NOT_TESTED，Issue #2 V2.2 生活场景真机 NOT_TESTED。
+- 新增 Issue #3：手机输出代码语言过多、结果不易理解；先调查具体页面，再分离面向普通人的中文摘要与技术详情。
+- 最新 V2.2 APK SHA256：`63e7181dcaabed5dfa7b436e7c239497e2dec4650306f3be1b7a5e2d56b4d172`（替代 V2.1 旧包）。
+- 不进入远程 Agent 实施；相关内容目前仅是 `docs/REMOTE_AGENT_ARCHITECTURE.md` 设计稿。
