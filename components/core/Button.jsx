@@ -1,7 +1,8 @@
 import React from "react";
 
 const SIZES = {
-  sm: { fontSize: "var(--text-sm)", padding: "8px 14px", height: 36, radius: "var(--radius-sm)", gap: 6 },
+  // sm/md reach the Android touch floor (44px); never below it (A2 audit).
+  sm: { fontSize: "var(--text-sm)", padding: "10px 16px", height: 44, radius: "var(--radius-sm)", gap: 6 },
   md: { fontSize: "var(--text-base)", padding: "11px 20px", height: 44, radius: "var(--radius-md)", gap: 8 },
   lg: { fontSize: "var(--text-md)", padding: "14px 26px", height: 54, radius: "var(--radius-md)", gap: 10 },
 };
@@ -58,12 +59,15 @@ export function Button({
         opacity: disabled ? 0.45 : 1,
         transition: "transform var(--dur-fast) var(--ease-out), filter var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out)",
         whiteSpace: "nowrap",
+        // Touch: removes the 300ms tap delay and stops scroll-gesture hijacking.
+        touchAction: "manipulation",
         ...v,
         ...style,
       }}
-      onMouseDown={(e) => { if (!disabled) e.currentTarget.style.transform = "scale(0.97)"; }}
-      onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+      onPointerDown={(e) => { if (!disabled) e.currentTarget.style.transform = "scale(0.97)"; }}
+      onPointerUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+      onPointerCancel={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+      onPointerLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
       {...rest}
     >
       {leadingIcon}

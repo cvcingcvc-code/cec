@@ -1,12 +1,13 @@
 /* ── Gorgon typography ────────────────────────────────────────────
    Display = Space Grotesk (Latin/numerals)
-   Sans    = Plus Jakarta Sans (Latin) → Noto Sans SC (CJK fallback)
-   CJK text always resolves to Noto Sans SC. */
+   Sans    = Plus Jakarta Sans (Latin) → system CJK fallback
+   CJK text always resolves to the system Chinese stack, which is
+   available offline (see tokens/fonts.css for why). */
 
 :root {
-  --font-display: "Space Grotesk", "Noto Sans SC", system-ui, sans-serif;
-  --font-sans: "Plus Jakarta Sans", "Noto Sans SC", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-  --font-cjk: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-display: "Space Grotesk", var(--font-cjk-system);
+  --font-sans: "Plus Jakarta Sans", var(--font-cjk-system);
+  --font-cjk: var(--font-cjk-system);
   --font-mono: "Space Grotesk", ui-monospace, "SF Mono", Menlo, monospace;
 
   /* Type scale (1.25 major-third-ish, tuned) */

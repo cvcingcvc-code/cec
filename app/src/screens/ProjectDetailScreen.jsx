@@ -119,7 +119,7 @@ export function ProjectDetailScreen({
       <div style={{ padding: "28px 16px 48px", maxWidth: 860, margin: "0 auto", width: "100%" }}>
         {onBack && (
           <button onClick={onBack} data-testid="workbench-project-back"
-            style={{ border: "none", background: "transparent", color: "var(--brand)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0, marginBottom: 14, display: "inline-flex", alignItems: "center", gap: 5 }}>
+            style={{ border: "none", background: "transparent", color: "var(--brand)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "10px 4px", minHeight: 44, marginBottom: 8, display: "inline-flex", alignItems: "center", gap: 5 }}>
             <Icon name="arrow-left" style={{ width: 15, height: 15 }} />返回项目列表
           </button>
         )}
@@ -157,7 +157,7 @@ export function ProjectDetailScreen({
                       <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text-strong)" }}>{a.title}</span>
                         {a.isDemo && (
-                          <span data-testid="workbench-project-activity-demo" style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: "var(--radius-pill)", background: "var(--warning-soft)", color: "#9A6300" }}>
+                          <span data-testid="workbench-project-activity-demo" style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: "var(--radius-pill)", background: "var(--warning-soft)", color: "var(--warning-ink)" }}>
                             DEMO 数据
                           </span>
                         )}
@@ -200,7 +200,7 @@ export function ProjectDetailScreen({
                   <button data-testid="workbench-project-prep-seed" onClick={() => onPrepAdd(a.activityId, null)}
                     style={{
                       border: "1px solid var(--border-subtle)", background: "var(--surface-card)", cursor: "pointer",
-                      borderRadius: "var(--radius-sm)", padding: "6px 11px", fontFamily: "var(--font-sans)",
+                      borderRadius: "var(--radius-sm)", padding: "10px 12px", minHeight: 44, fontFamily: "var(--font-sans)",
                       fontSize: 12, fontWeight: 600, color: "var(--brand)",
                     }}>
                     生成默认清单
@@ -209,17 +209,25 @@ export function ProjectDetailScreen({
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {prep.map((p) => (
-                    <div key={p.id} data-testid="workbench-project-prep-item" style={{ ...card, padding: "8px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+                    <div key={p.id} data-testid="workbench-project-prep-item" style={{ ...card, padding: "4px 12px", display: "flex", alignItems: "center", gap: 10 }}>
                       <button aria-label={p.done ? "取消勾选" : "勾选完成"}
                         data-testid="workbench-project-prep-toggle"
+                        role="checkbox" aria-checked={p.done}
                         onClick={() => onPrepToggle(a.activityId, p.id, !p.done)}
                         style={{
-                          flex: "none", width: 18, height: 18, borderRadius: "var(--radius-sm)", cursor: "pointer",
+                          flex: "none", width: 44, height: 44, cursor: "pointer",
+                          border: "none", background: "transparent",
+                          display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0, touchAction: "manipulation",
+                        }}>
+                        {/* 44px hit area; the visible box stays 20px (A2.3). */}
+                        <span style={{
+                          width: 20, height: 20, borderRadius: "var(--radius-sm)",
                           border: "1px solid " + (p.done ? "var(--brand)" : "var(--border-strong, var(--border-subtle))"),
                           background: p.done ? "var(--brand)" : "var(--surface-card)",
-                          display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0,
+                          display: "inline-flex", alignItems: "center", justifyContent: "center",
                         }}>
-                        {p.done && <Icon name="check" style={{ width: 12, height: 12, color: "#fff" }} />}
+                          {p.done && <Icon name="check" style={{ width: 12, height: 12, color: "#fff" }} />}
+                        </span>
                       </button>
                       <span style={{
                         minWidth: 0, flex: 1, fontSize: 12.5, lineHeight: 1.5, color: "var(--text-body)",
@@ -265,7 +273,7 @@ export function ProjectDetailScreen({
                   {next && !done && (
                     <button data-testid="workbench-project-task-next"
                       onClick={() => onTaskStatus(t.id, next)}
-                      style={{ flex: "none", border: "1px solid var(--border-subtle)", background: "transparent", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "6px 11px", borderRadius: "var(--radius-sm)", color: "var(--text-body)" }}>
+                      style={{ flex: "none", border: "1px solid var(--border-subtle)", background: "transparent", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "10px 12px", minHeight: 44, borderRadius: "var(--radius-sm)", color: "var(--text-body)" }}>
                       {NEXT_LABEL[next]}
                     </button>
                   )}
@@ -328,7 +336,7 @@ export function ProjectDetailScreen({
                         style={{
                           marginLeft: "auto", border: "1px solid var(--border-subtle)", background: "transparent",
                           color: "var(--text-body)", fontSize: 11.5, fontWeight: 600, cursor: "pointer",
-                          padding: "4px 10px", borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
+                          padding: "10px 12px", minHeight: 44, borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
                         }}>
                         记录到访
                       </button>
@@ -355,7 +363,7 @@ export function ProjectDetailScreen({
                     flex: "none", fontSize: 11, fontWeight: 700, padding: "3px 9px",
                     borderRadius: "var(--radius-pill)",
                     background: e.kind === "blocked" ? "var(--warning-soft)" : "var(--brand-soft)",
-                    color: e.kind === "blocked" ? "#9A6300" : "var(--brand)",
+                    color: e.kind === "blocked" ? "var(--warning-ink)" : "var(--brand)",
                   }}>
                     {KIND_LABEL[e.kind] || e.kind}
                   </span>
@@ -373,7 +381,7 @@ export function ProjectDetailScreen({
                   <div style={{ marginTop: 6 }}>
                     <button data-testid="workbench-project-progress-delete" onClick={() => onRemoveProgress(e.id)}
                       aria-label="删除进度记录"
-                      style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--danger)", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, padding: 0 }}>
+                      style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--danger)", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, padding: "10px 6px", minHeight: 44 }}>
                       <Icon name="trash-2" style={{ width: 13, height: 13 }} />删除
                     </button>
                   </div>
@@ -479,7 +487,7 @@ export function ProjectDetailScreen({
         {/* archive (soft delete — data is never destroyed) */}
         <div style={{ marginTop: 26, paddingTop: 14, borderTop: "1px solid var(--border-subtle)" }}>
           <button onClick={() => onArchiveProject(project.id)} data-testid="workbench-project-archive"
-            style={{ border: "1px solid var(--border-subtle)", background: "transparent", color: "var(--text-muted)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: "8px 14px", borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)" }}>
+            style={{ border: "1px solid var(--border-subtle)", background: "transparent", color: "var(--text-muted)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: "11px 16px", minHeight: 44, borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)" }}>
             归档项目（不删除任何数据）
           </button>
         </div>

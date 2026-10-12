@@ -284,7 +284,12 @@ body {
   flex-direction: column;
   gap: var(--gg-gap);
 }
-.gg-smart-aside { order: -1; }
+/* Mobile: the results come FIRST. Internal context panels (search
+   understanding / retrieval plan / summary) used to be pushed above the
+   results with order:-1, so a user had to scroll past engine internals to
+   reach the activities they asked for (A2.10 / A1.2 in the UI audit).
+   Desktop keeps its explicit two-column placement below. */
+.gg-smart-aside { order: 1; }
 @media (min-width: 1200px) {
   .gg-smart-grid {
     display: grid;
@@ -579,13 +584,22 @@ body {
   background: var(--surface-card);
   color: var(--text-body);
   font-family: var(--font-sans); font-weight: 600; font-size: 12.5px;
-  padding: 7px 14px; border-radius: var(--radius-pill);
-  cursor: pointer; white-space: nowrap;
+  /* min-height 40px keeps the visual density but lifts the tap target well
+     above the 29px it measured at before (see A2 in the UI audit). */
+  padding: 7px 14px; min-height: 40px; border-radius: var(--radius-pill);
+  cursor: pointer; white-space: nowrap; touch-action: manipulation;
   transition: all var(--dur-fast) var(--ease-out);
 }
 .gg-chip:hover { border-color: var(--brand); color: var(--brand); }
 .gg-chip.is-on { background: var(--brand); border-color: var(--brand); color: #fff; }
 .gg-chip:disabled { opacity: 0.5; cursor: default; }
+
+/* ── Touch press feedback ─────────────────────────────────────────────
+   Hover never fires on a touch screen, so every tappable surface also
+   needs an :active state. Apply .gg-pressable to card-like click targets
+   that are not <button> elements (a card may contain its own buttons). */
+.gg-pressable { touch-action: manipulation; transition: transform var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out); }
+.gg-pressable:active { transform: scale(0.985); background: var(--bg-sunken); }
 
 /* ── Staged loading ───────────────────────────────────────────────── */
 .gg-stage-list { display: flex; flex-direction: column; gap: 11px; }
@@ -638,6 +652,8 @@ body {
   transition: box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 .gg-disc-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+/* Touch: hover never fires on a phone — give the card a press state too. */
+.gg-disc-card:active { box-shadow: var(--shadow-md); transform: scale(0.985); }
 
 /* ── My Weekend timeline ──────────────────────────────────────────── */
 .gg-weekend-day { margin-bottom: 26px; }

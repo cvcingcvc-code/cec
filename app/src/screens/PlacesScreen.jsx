@@ -151,7 +151,7 @@ export function PlacesScreen({ places, projects, onCreate, onStatus, onVisit, on
                   background: on ? "var(--brand)" : "var(--surface-card)",
                   color: on ? "#fff" : "var(--text-body)",
                   fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 12.5,
-                  padding: "7px 13px", borderRadius: "var(--radius-pill)", cursor: "pointer",
+                  padding: "7px 13px", minHeight: 40, borderRadius: "var(--radius-pill)", cursor: "pointer", touchAction: "manipulation",
                 }}>
                 {f.label}
               </button>
@@ -182,7 +182,7 @@ export function PlacesScreen({ places, projects, onCreate, onStatus, onVisit, on
                       flex: "none", fontSize: 11.5, fontWeight: 700, padding: "4px 10px",
                       borderRadius: "var(--radius-pill)", background: tone.bg, color: tone.color,
                     }}>
-                      {PLACE_LABEL[p.status] || p.status}
+                      {PLACE_LABEL[p.status] || "状态未知"}
                     </span>
                   </div>
                   {p.address && (
@@ -207,7 +207,7 @@ export function PlacesScreen({ places, projects, onCreate, onStatus, onVisit, on
                         style={{
                           border: "1px solid var(--border-subtle)", background: "transparent",
                           color: "var(--text-body)", fontSize: 12, fontWeight: 600, cursor: "pointer",
-                          padding: "6px 11px", borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
+                          padding: "10px 12px", minHeight: 44, borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
                           display: "inline-flex", alignItems: "center", gap: 4,
                         }}>
                         <Icon name="check" style={{ width: 13, height: 13 }} />记录到访
@@ -218,7 +218,7 @@ export function PlacesScreen({ places, projects, onCreate, onStatus, onVisit, on
                         style={{
                           border: "1px solid var(--border-subtle)", background: "transparent",
                           color: "var(--text-faint)", fontSize: 12, fontWeight: 600, cursor: "pointer",
-                          padding: "6px 11px", borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
+                          padding: "10px 12px", minHeight: 44, borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
                         }}>
                         标记不适合
                       </button>
@@ -228,7 +228,7 @@ export function PlacesScreen({ places, projects, onCreate, onStatus, onVisit, on
                         style={{
                           border: "1px solid var(--border-subtle)", background: "transparent",
                           color: "var(--text-body)", fontSize: 12, fontWeight: 600, cursor: "pointer",
-                          padding: "6px 11px", borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
+                          padding: "10px 12px", minHeight: 44, borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
                         }}>
                         需复访
                       </button>
@@ -239,7 +239,7 @@ export function PlacesScreen({ places, projects, onCreate, onStatus, onVisit, on
                         aria-label={"删除地点：" + p.name}
                         style={{
                           border: "none", background: "transparent", color: "var(--danger)",
-                          fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "6px 8px",
+                          fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "10px 10px", minHeight: 44,
                           display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--font-sans)",
                         }}>
                         <Icon name="trash-2" style={{ width: 13, height: 13 }} />删除
@@ -277,7 +277,7 @@ export function PlacesScreen({ places, projects, onCreate, onStatus, onVisit, on
                         />
                         <Button size="sm" variant="primary" onClick={submitVisit}>保存到访</Button>
                         <button onClick={() => { setVisitFor(null); setVisitNote(""); setVisitPlan(""); }} aria-label="取消记录到访"
-                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--text-faint)", padding: "6px 8px" }}>
+                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--text-faint)", padding: "10px 10px", minHeight: 44 }}>
                           <Icon name="x" style={{ width: 16, height: 16 }} />
                         </button>
                       </div>

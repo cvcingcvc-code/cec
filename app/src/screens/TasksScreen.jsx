@@ -103,13 +103,14 @@ export function TasksScreen({ tasks, onStatusChange, onAddTask, onOpenTask }) {
             aria-label="新建任务目标"
             data-testid="workbench-task-new-input"
             placeholder="新建一个任务，例如：整理比赛资料"
+            enterKeyHint="done"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
             style={{
               flex: 1, minWidth: 0, border: "1px solid var(--border-subtle)", outline: "none",
               borderRadius: "var(--radius-md)", padding: "11px 14px", background: "var(--surface-card)",
-              fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--text-strong)",
+              fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--text-strong)", minHeight: 44,
             }}
           />
           <Button variant="primary" onClick={submit} disabled={!value.trim()}
@@ -186,7 +187,7 @@ export function TasksScreen({ tasks, onStatusChange, onAddTask, onOpenTask }) {
                       style={{
                         flex: "none", border: "1px solid var(--border-subtle)", background: "transparent",
                         color: "var(--text-body)", fontSize: 12, fontWeight: 600, cursor: "pointer",
-                        padding: "6px 11px", borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
+                        padding: "11px 13px", minHeight: 44, borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
                       }}>
                       {next.label}
                     </button>
@@ -196,7 +197,8 @@ export function TasksScreen({ tasks, onStatusChange, onAddTask, onOpenTask }) {
                       aria-label={"打开任务详情：" + t.title}
                       style={{
                         flex: "none", border: "none", background: "transparent", color: "var(--brand)",
-                        fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "6px 8px", fontFamily: "var(--font-sans)",
+                        fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "11px 8px", minHeight: 44,
+                        fontFamily: "var(--font-sans)",
                         display: "inline-flex", alignItems: "center", gap: 4,
                       }}>
                       详情<Icon name="chevron-right" style={{ width: 13, height: 13 }} />

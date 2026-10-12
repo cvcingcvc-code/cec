@@ -127,7 +127,7 @@ function FavRow({ v, onOpen, onRemove }) {
         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.title}</div>
         <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>{v.venue || v.district || "地点待定"}</div>
       </div>
-      <button onClick={() => onRemove(v.id)} aria-label="取消收藏" title="取消收藏" style={{ flex: "none", width: 38, height: 38, borderRadius: "50%", border: "none", background: "var(--danger-soft)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+      <button onClick={() => onRemove(v.id)} aria-label="取消收藏" title="取消收藏" style={{ flex: "none", width: 44, height: 44, borderRadius: "50%", border: "none", background: "var(--danger-soft)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", touchAction: "manipulation" }}>
         <Icon name="heart-off" style={{ width: 18, height: 18, color: "var(--danger)" }} />
       </button>
     </div>
@@ -176,7 +176,7 @@ export function MyWeekendScreen({ weekend, onSync, onOpen, onDiscover, favorites
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflowY: "auto", scrollbarWidth: "none" }} data-gg-screen="weekend">
       <div style={{ padding: "22px var(--gg-gutter) 14px" }}>
-        <div className="gorgon-kicker" style={{ marginBottom: 5 }}>{isFav ? "Saved" : "My Weekend"}</div>
+        <div className="gorgon-kicker" style={{ marginBottom: 5 }}>{isFav ? "已收藏" : "我的周末"}</div>
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 700, color: "var(--text-strong)", margin: "0 0 14px", letterSpacing: "-0.02em" }}>
           {isFav ? "我的收藏" : "我的周末"}
         </h1>

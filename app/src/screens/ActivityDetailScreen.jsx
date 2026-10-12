@@ -57,6 +57,7 @@ export function ActivityDetailScreen({
 }) {
   const v = view;
   const [shareNote, setShareNote] = React.useState("");
+  const [icsNote, setIcsNote] = React.useState("");
 
   if (!v) return null;
 
@@ -92,7 +93,8 @@ export function ActivityDetailScreen({
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-    } catch (e) { /* download blocked — stay silent, the toast lives in App */ }
+      setIcsNote("日历文件已生成");
+    } catch (e) { setIcsNote("导出日历失败，请稍后重试"); }
   };
 
   const doShare = async () => {
@@ -201,10 +203,13 @@ export function ActivityDetailScreen({
           )}
 
           {onExportICS && (
-            <Button block variant="ghost" size="lg" onClick={handleExportICS}
-              leadingIcon={<Icon name="calendar-heart" style={{ width: 17, height: 17 }} />}>
-              导出日历（.ics）
-            </Button>
+            <>
+              <Button block variant="ghost" size="lg" onClick={handleExportICS}
+                leadingIcon={<Icon name="calendar-heart" style={{ width: 17, height: 17 }} />}>
+                导出日历文件
+              </Button>
+              {icsNote && <div style={{ fontSize: 11.5, color: "var(--text-muted)", textAlign: "center" }}>{icsNote}</div>}
+            </>
           )}
 
           <Button block variant="ghost" size="lg" onClick={doShare}
@@ -296,7 +301,7 @@ export function ActivityDetailScreen({
           </div>
         )}
         {v.trust === "pending" && (
-          <div style={{ marginTop: 10, fontSize: 11.5, color: "#9A6300", lineHeight: 1.55 }}>
+          <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--warning-ink)", lineHeight: 1.55 }}>
             该活动尚未通过人工核验，信息可能不完整。
           </div>
         )}

@@ -228,7 +228,7 @@ export function DiscoverScreen({ synced, onSync, onOpen, onGoSearch, onGoSmart, 
       {/* Mobile keeps the signature gradient strip */}
       <div className="gg-hero-mobile" style={{ margin: "0 var(--gg-gutter) 16px", padding: "16px 18px", borderRadius: "var(--radius-lg)", background: "var(--grad-sync)", color: "#fff", boxShadow: "var(--shadow-brand)" }}>
         <div>
-          <div style={{ fontFamily: "var(--font-display)", textTransform: "uppercase", letterSpacing: "0.12em", fontSize: 11, fontWeight: 600, opacity: 0.9 }}>This Weekend</div>
+          <div style={{ fontFamily: "var(--font-display)", textTransform: "uppercase", letterSpacing: "0.12em", fontSize: 11, fontWeight: 600, opacity: 0.9 }}>本周末推荐</div>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 26, marginTop: 2 }}>就在你附近 {views.length} 场</div>
         </div>
         <Icon name="sparkles" style={{ width: 30, height: 30, opacity: 0.95 }} />

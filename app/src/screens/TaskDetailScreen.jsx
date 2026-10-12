@@ -116,9 +116,9 @@ function SearchItemCard({ item }) {
           {item.demo && (
             <span data-testid="workbench-detail-result-demo-badge" style={{
               marginRight: 6, fontSize: 10, fontWeight: 700, padding: "1px 6px",
-              borderRadius: "var(--radius-pill)", background: "var(--warning-soft)", color: "#9A6300",
+              borderRadius: "var(--radius-pill)", background: "var(--warning-soft)", color: "var(--warning-ink)",
             }}>
-              DEMO
+              演示
             </span>
           )}
           {item.title}
@@ -344,7 +344,7 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
       <div style={{ padding: "28px 16px 48px", maxWidth: 860, margin: "0 auto", width: "100%" }}>
         {onBack && (
           <button onClick={onBack} data-testid="workbench-detail-back"
-            style={{ border: "none", background: "transparent", color: "var(--brand)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0, marginBottom: 14, display: "inline-flex", alignItems: "center", gap: 5 }}>
+            style={{ border: "none", background: "transparent", color: "var(--brand)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "10px 4px", minHeight: 44, marginBottom: 8, display: "inline-flex", alignItems: "center", gap: 5 }}>
             <Icon name="arrow-left" style={{ width: 15, height: 15 }} />返回任务列表
           </button>
         )}
@@ -512,7 +512,7 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
               style={{
                 border: "1px solid var(--border-subtle)", background: "var(--surface-card)",
                 color: "var(--text-body)", fontSize: 12.5, fontWeight: 600, cursor: "pointer",
-                padding: "8px 13px", borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
+                padding: "10px 14px", minHeight: 44, borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
               }}>
               {a.label}
             </button>
@@ -539,11 +539,11 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
                       autoFocus
                       style={{ flex: 1, minWidth: 0, border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "7px 10px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--text-strong)" }} />
                     <button data-testid="workbench-detail-step-edit-save" onClick={commitEditStep}
-                      style={{ border: "1px solid var(--border-subtle)", background: "transparent", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "5px 10px", borderRadius: "var(--radius-sm)", color: "var(--text-body)" }}>
+                      style={{ border: "1px solid var(--border-subtle)", background: "transparent", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "10px 12px", minHeight: 44, borderRadius: "var(--radius-sm)", color: "var(--text-body)" }}>
                       保存
                     </button>
                     <button onClick={() => setEditingStepId(null)} aria-label="取消编辑步骤"
-                      style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--text-faint)" }}>
+                      style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--text-faint)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "var(--radius-sm)" }}>
                       <Icon name="x" style={{ width: 15, height: 15 }} />
                     </button>
                   </>
@@ -560,19 +560,19 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
                     <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-muted)" }}>{STEP_LABEL[s.status] || s.status}</span>
                     {onUpdateStep && (
                       <button data-testid="workbench-detail-step-edit" onClick={() => startEditStep(s)} aria-label="编辑步骤标题"
-                        style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--brand)", display: "inline-flex", alignItems: "center", padding: 4 }}>
+                        style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--brand)", display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 44, minHeight: 44, borderRadius: "var(--radius-sm)" }}>
                         <Icon name="pencil" style={{ width: 13, height: 13 }} />
                       </button>
                     )}
                     {s.status === "pending" && onUpdateStep && (
                       <button data-testid="workbench-detail-step-start" onClick={() => onUpdateStep(s.id, { status: "running" })}
-                        style={{ border: "1px solid var(--border-subtle)", background: "transparent", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "5px 10px", borderRadius: "var(--radius-sm)", color: "var(--text-body)" }}>
+                        style={{ border: "1px solid var(--border-subtle)", background: "transparent", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "10px 12px", minHeight: 44, borderRadius: "var(--radius-sm)", color: "var(--text-body)" }}>
                         开始
                       </button>
                     )}
                     {(s.status === "running" || s.status === "pending") && onUpdateStep && (
                       <button data-testid="workbench-detail-step-complete" onClick={() => onUpdateStep(s.id, { status: "completed" })}
-                        style={{ border: "1px solid var(--border-subtle)", background: "transparent", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "5px 10px", borderRadius: "var(--radius-sm)", color: "var(--text-body)" }}>
+                        style={{ border: "1px solid var(--border-subtle)", background: "transparent", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "10px 12px", minHeight: 44, borderRadius: "var(--radius-sm)", color: "var(--text-body)" }}>
                         完成
                       </button>
                     )}
@@ -601,10 +601,9 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
                   {s.url ? <a href={s.url} target="_blank" rel="noreferrer" style={{ color: "var(--brand)" }}>{s.title}</a> : s.title}
                 </div>
                 {s.demo && (
-                  <span data-testid="workbench-detail-demo-badge" style={{ flex: "none", fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: "var(--radius-pill)", background: "var(--warning-soft)", color: "#9A6300" }}>
-                    DEMO 数据
-                  </span>
-                )}
+                  <span data-testid="workbench-detail-demo-badge" style={{ flex: "none", fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: "var(--radius-pill)", background: "var(--warning-soft)", color: "var(--warning-ink)" }}>
+                    演示数据
+                  </span>                )}
                 <span style={{ fontSize: 11.5, color: "var(--text-faint)", flex: "none" }}>{s.type}</span>
               </div>
             ))}
@@ -783,7 +782,7 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
                       {sim && (
                         <span data-testid="workbench-detail-processing-simulated" style={{
                           fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: "var(--radius-pill)",
-                          background: "var(--warning-soft)", color: "#9A6300",
+                          background: "var(--warning-soft)", color: "var(--warning-ink)",
                         }}>
                           模拟输出
                         </span>

@@ -88,12 +88,17 @@ export function WorkbenchHome({ tasks, onCreateTask, onGoSearch, onGoTasks, onOp
           </h1>
         </div>
 
-        {/* B. Main task input — the visual core of the home */}
+        {/* B. Main task input — the visual core of the home.
+            The whole card is a tap target for the textarea: tapping the
+            title or the card padding used to do nothing, so the soft
+            keyboard never appeared (A3.1 in the UI audit). */}
         <div style={{ marginTop: 22 }} data-testid="workbench-task-input">
-          <div style={{
-            background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
-            borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-md)", padding: "18px 20px 14px",
-          }}>
+          <div onClick={() => { if (inputRef.current && inputRef.current.focus) inputRef.current.focus(); }}
+            style={{
+              background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-md)", padding: "18px 20px 14px",
+              cursor: "text",
+            }}>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15.5, color: "var(--text-strong)", marginBottom: 10 }}>
               今天想完成什么？
             </div>
@@ -101,6 +106,7 @@ export function WorkbenchHome({ tasks, onCreateTask, onGoSearch, onGoTasks, onOp
               aria-label="描述一个目标"
               placeholder={"描述一个目标，例如：\n帮我寻找本周值得参加的 AI 活动……"}
               rows={isMobile ? 2 : 3}
+              enterKeyHint="send"
               value={value}
               ref={inputRef}
               onChange={(e) => setValue(e.target.value)}
@@ -114,7 +120,7 @@ export function WorkbenchHome({ tasks, onCreateTask, onGoSearch, onGoTasks, onOp
             />
             <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginTop: 10, gap: 10 }}>
               <span style={{ fontSize: 11.5, color: "var(--text-faint)", marginRight: "auto" }}>
-                Enter 提交 · Shift + Enter 换行
+                {isMobile ? "点这里输入 · 回车即可开始" : "Enter 提交 · Shift + Enter 换行"}
               </span>
               <Button variant="primary" onClick={submit} disabled={!value.trim()}
                 leadingIcon={<Icon name="arrow-right" style={{ width: 16, height: 16 }} />}>

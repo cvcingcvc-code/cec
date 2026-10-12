@@ -128,8 +128,9 @@ export function MapScreen({ synced, onSync, onOpen, focusId, district, onDistric
       {/* Floating search + the shared district picker */}
       <div className="gg-map-search">
         <div style={{ flex: 1 }}><SearchField placeholder="在地图上找活动" readOnly /></div>
-        <button style={{ width: 48, height: 48, borderRadius: "var(--radius-pill)", border: "1px solid var(--border-subtle)", background: "var(--surface-card)", boxShadow: "var(--shadow-sm)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flex: "none" }}>
-          <Icon name="locate-fixed" style={{ width: 20, height: 20, color: "var(--brand)" }} />
+        <button disabled aria-label="定位（规划中）" title="定位能力规划中，尚未接入"
+          style={{ width: 48, height: 48, borderRadius: "var(--radius-pill)", border: "1px solid var(--border-subtle)", background: "var(--surface-card)", boxShadow: "var(--shadow-sm)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "default", flex: "none", opacity: 0.5 }}>
+          <Icon name="locate-fixed" style={{ width: 20, height: 20, color: "var(--text-faint)" }} />
         </button>
       </div>
 

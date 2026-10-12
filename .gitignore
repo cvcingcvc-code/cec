@@ -38,3 +38,8 @@ app/tests/.e2e-logs/
 app/android/keystore.properties
 app/android/app/*.keystore
 app/android/app/*.jks
+
+# V2.2 UI before/after evidence: the BEFORE APK is a 3.7MB binary that is
+# rebuildable from commit 9f05f9d; only its SHA256 is recorded in
+# docs/screenshots/ui-v22-touch/README.md.
+docs/screenshots/ui-v22-touch/BEFORE-app-release.apk

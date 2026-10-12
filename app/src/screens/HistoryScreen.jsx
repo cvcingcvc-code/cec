@@ -60,7 +60,7 @@ export function HistoryScreen({ tasks, log, onOpenTask }) {
           工作记录
         </h1>
         <p style={{ fontSize: 13, color: "var(--text-faint)", lineHeight: 1.7, margin: "8px 0 0" }}>
-          最近活动读取每个任务的真实时间线（Task.timeline）。本地浏览器内数据，不含后端执行历史。
+          最近活动按时间汇总你本机的任务记录（创建、排期、执行、记录）。数据只保存在本机。
         </p>
 
         {/* A. aggregated task timelines */}
@@ -78,6 +78,7 @@ export function HistoryScreen({ tasks, log, onOpenTask }) {
                 const meta = EVENT_META[e.type] || { icon: "info", label: "事件" };
                 return (
                   <div key={(e.id || "") + "-" + i} data-testid="workbench-history-item"
+                    className="gg-pressable"
                     onClick={() => onOpenTask && e.taskId && onOpenTask(e.taskId)}
                     style={{
                       display: "flex", alignItems: "center", gap: 12, padding: "11px 14px",

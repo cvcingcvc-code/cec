@@ -135,9 +135,9 @@ export function TrustChip({ status, size, withIcon }) {
 /* ── Honest data-origin badge ────────────────────────────────────── */
 
 const MODE_STYLE = {
-  real: { bg: "var(--success-soft)", fg: "var(--accent-strong, #047857)", label: "REAL SEARCH", icon: "globe" },
-  hybrid: { bg: "var(--brand-soft)", fg: "var(--brand)", label: "HYBRID", icon: "git-merge" },
-  demo: { bg: "var(--warning-soft)", fg: "#9A6300", label: "DEMO DATA", icon: "flask-conical" },
+  real: { bg: "var(--real-bg)", fg: "var(--real-ink)", label: "真实来源", icon: "globe" },
+  hybrid: { bg: "var(--hybrid-bg)", fg: "var(--hybrid-ink)", label: "混合来源", icon: "git-merge" },
+  demo: { bg: "var(--demo-bg)", fg: "var(--demo-ink)", label: "演示数据", icon: "flask-conical" },
 };
 
 export function ProviderBadge({ mode, size }) {
@@ -148,6 +148,7 @@ export function ProviderBadge({ mode, size }) {
       style={{
         display: "inline-flex", alignItems: "center", gap: 5,
         background: s.bg, color: s.fg,
+        border: "1px solid " + (mode === "real" ? "var(--real-border)" : mode === "demo" ? "var(--demo-border)" : "transparent"),
         fontSize: sm ? 9.5 : 10.5, fontWeight: 800, letterSpacing: "0.06em",
         padding: sm ? "2px 7px" : "4px 9px", borderRadius: "var(--radius-sm)",
         whiteSpace: "nowrap",
@@ -231,7 +232,7 @@ export function MapPlaceholder({ venue, address, onShowMap }) {
         }} />
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 7 }}>
           <Icon name="map-pin" style={{ width: 26, height: 26, color: "var(--brand)" }} />
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: "var(--text-faint)" }}>MAP PLACEHOLDER</span>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: "var(--text-faint)" }}>地图占位</span>
         </div>
       </div>
       {venue && (

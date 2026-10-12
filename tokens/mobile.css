@@ -1,0 +1,49 @@
+/* ── Gorgon mobile & semantic completion layer ────────────────────────
+   ADDITIVE ONLY. This file never redefines an existing token — it only
+   adds the ones the codebase was already referencing (or compensating
+   for with hard-coded hex), so no screen changes meaning silently.
+
+   Why each group exists (evidence: docs/workbench/ui-redesign/A_UI_AUDIT.md):
+   * *-ink colours — success/warning TEXT colours had no token, so 4 call
+     sites hard-coded #9A6300. Small text needs a darker ink than
+     --accent (mint-500), which is a surface colour.
+   * --brand-ink / --surface-sunken — these two names were already used by
+     TaskDetailScreen but were never defined, so they silently fell back
+     to an off-brand blue (#1D4ED8) and the card surface. Defining them
+     fixes that without touching the screen.
+   * --demo-* / --real-* — one place to express "this data is a demo" /
+     "this data came from a real source", so every screen marks its data
+     origin with the same colours (the badges themselves already exist).
+   * --touch-* — Android's minimum reliable touch target. Used to document
+     the 44/48px floor the mobile audit measured against.
+*/
+
+:root {
+  /* ── Ink colours for small coloured text (WCAG AA on light surfaces) */
+  --success-ink: #046A4A;
+  --warning-ink: #8A5600;
+  --info-ink:    #3F31A8;
+
+  /* ── Names the screens already referenced but that were undefined ─── */
+  --brand-ink:      var(--indigo-700);
+  --surface-sunken: var(--bg-sunken);
+
+  /* ── Demo vs. real data-origin markers (badges keep their testids) ── */
+  --demo-bg:     #FFF4D6;
+  --demo-ink:    #8A5600;
+  --demo-border: #F0D9A0;
+  --real-bg:     #E6FBF5;
+  --real-ink:    #046A4A;
+  --real-border: #A7E6D2;
+  --hybrid-bg:   var(--brand-soft);
+  --hybrid-ink:  var(--brand);
+
+  /* ── Touch target floor (Android: 48dp recommended, 44px minimum) ── */
+  --touch-min:         44px;
+  --touch-comfortable: 48px;
+
+  /* ── Mobile page rhythm (single source for the 16px side gutter) ──── */
+  --page-gutter-mobile: 16px;
+  --tabbar-height: 56px;
+  --safe-bottom-pad: 22px;
+}

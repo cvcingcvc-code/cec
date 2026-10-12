@@ -304,14 +304,14 @@ function SummaryPanel({ summary, providers, providerMode, source, district, show
         <Metric value={summary.rawResults} label="条原始信息" />
         <Metric value={summary.canonical} label="个活动" />
         <Metric value={summary.approved} label="已确认" accent="var(--accent-strong, #00A277)" />
-        <Metric value={summary.needsReview} label="待核验" accent="#9A6300" />
+        <Metric value={summary.needsReview} label="待核验" accent="var(--warning-ink)" />
         <Metric value={summary.withImage} label="有真实图片" />
       </div>
       <div style={{ marginTop: 13, fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.7 }}>
         <div>去重合并 {summary.duplicates || 0} 条 · 疑似重复 {summary.duplicateCandidates || 0} 个</div>
         <div>数据来源：{source === "api" ? "实时检索接口" : "离线演示结果"}</div>
         {failed.length > 0 && (
-          <div style={{ color: "#9A6300" }}>部分来源暂时不可用：{failed.map((p) => p.name).join("、")}</div>
+          <div style={{ color: "var(--warning-ink)" }}>部分来源暂时不可用：{failed.map((p) => p.name).join("、")}</div>
         )}
         {/* The numbers above describe the RETRIEVAL; the list below is
             narrowed by the district. Saying so is what keeps the panel from
@@ -518,8 +518,8 @@ export function NaturalSearchScreen({ synced, onSync, onOpen, district, onDistri
         <div style={{ padding: "0 var(--gg-gutter) 40px" }}>
           <C.NoticeBlock
             icon="triangle-alert" tone="danger"
-            title={"检索失败（HTTP " + (error && error.status) + "）"}
-            body={(error && error.detail) || "服务端返回了错误，请查看服务端日志。"}
+            title="暂时没连上检索服务"
+            body="网络波动或服务暂时不可用都会这样。请稍后重试，也可以先用「精选」浏览本机已有的内容。"
             action={<button onClick={() => submit()} className="gg-chip">重试</button>}
           />
         </div>
@@ -541,7 +541,7 @@ export function NaturalSearchScreen({ synced, onSync, onOpen, district, onDistri
             <div style={{ padding: "0 var(--gg-gutter) 12px", display: "flex", flexDirection: "column", gap: 10 }}>
               {notices.map((n, i) => (
                 <C.NoticeBlock key={i} icon={n.level === "warning" ? "triangle-alert" : "info"}
-                  tone={n.level === "warning" ? "warning" : "neutral"} title={n.code || "提示"} body={n.message} />
+                  tone={n.level === "warning" ? "warning" : "neutral"} title="提示" body={n.message} />
               ))}
             </div>
           )}
@@ -608,7 +608,7 @@ export function NaturalSearchScreen({ synced, onSync, onOpen, district, onDistri
 
                   {pending.length > 0 && (
                     <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <Icon name="shield-alert" style={{ width: 15, height: 15, color: "#9A6300" }} />
+                      <Icon name="shield-alert" style={{ width: 15, height: 15, color: "var(--warning-ink)" }} />
                       <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-strong)" }}>
                         待核验 {pending.length} 个
                       </span>

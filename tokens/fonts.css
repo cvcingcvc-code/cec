@@ -1,9 +1,25 @@
-/* ── Gorgon webfonts ──────────────────────────────────────────────
-   Brand fonts loaded from Google Fonts CDN.
-   - Space Grotesk : display headings, large numerals, times/dates
-   - Plus Jakarta Sans : Latin UI + body
-   - Noto Sans SC : Chinese (primary script for the product)
-   NOTE: These are loaded from the Google CDN rather than self-hosted
-   binaries. Swap in licensed/self-hosted files for production. */
+/* ── Gorgon webfonts ──────────────────────────────────────────────────
+   Brand fonts loaded from Google Fonts CDN (Latin scripts only):
+   - Space Grotesk      : display headings, large numerals, times/dates
+   - Plus Jakarta Sans  : Latin UI + body
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
+   CJK is deliberately NOT taken from the CDN. Chinese resolves to an
+   on-device system font first, so the APK renders identically online and
+   offline (the previous stack listed "Noto Sans SC" from the CDN ahead of
+   any system font, which meant Chinese silently changed face whenever the
+   CDN was unreachable — i.e. inside the Android app).
+
+   This file only declares the system CJK stack + loads the Latin webfonts.
+   The font-family tokens themselves live in typography.css (loaded after
+   this file) so there is exactly ONE definition site.
+
+   NOTE: the Latin CDN files are still not self-hosted; swap them for
+   licensed/self-hosted woff2 when that becomes a requirement. */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* System-first Chinese stack: always present on Android / iOS / desktop */
+  --font-cjk-system: "PingFang SC", "HarmonyOS Sans SC", "Noto Sans CJK SC",
+                     "Source Han Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+}

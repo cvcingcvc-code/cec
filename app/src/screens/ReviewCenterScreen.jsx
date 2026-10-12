@@ -6,7 +6,7 @@
 //      These lead the page and support 批准 / 修改 / 拒绝 for real.
 //   2. REAL tasks with status === "review_required", resumed through the Task
 //      State Machine (Phase 2 contract, unchanged).
-//   3. The Phase-1 DEMO / PREVIEW cards, kept last and still labelled DEMO so
+//   3. The Phase-1 演示 / 预览 cards, kept last and still labelled DEMO so
 //      nothing is ever passed off as a real reviewed action.
 
 import React from "react";
@@ -48,6 +48,25 @@ function fmtTime(iso) {
   } catch (e) { return ""; }
 }
 
+// A edited payload used to be printed with JSON.stringify (A4.2 in the UI
+// audit). Ordinary users only need the plain fields; anything nested is
+// summarised rather than dumped as code.
+const PAYLOAD_KEY_LABEL = {
+  goal: "目标", title: "标题", text: "内容", note: "备注", reason: "原因",
+  scheduledDate: "计划日期", dueAt: "截止时间", projectId: "所属项目", url: "链接",
+};
+
+function payloadSummary(payload) {
+  if (!payload || typeof payload !== "object") return "已修改内容";
+  const parts = [];
+  for (const [k, v] of Object.entries(payload)) {
+    if (v === null || v === undefined || v === "") continue;
+    if (typeof v === "object") continue;
+    parts.push(`${PAYLOAD_KEY_LABEL[k] || k}：${v}`);
+  }
+  return parts.length ? parts.slice(0, 4).join(" · ") : "已修改内容";
+}
+
 export function ReviewCenterScreen({ cards, onDecide, reviewTasks, onResumeTask, proposals, onProposal }) {
   const pending = cards.filter((c) => c.decision === "pending");
   const decided = cards.filter((c) => c.decision !== "pending");
@@ -67,7 +86,7 @@ export function ReviewCenterScreen({ cards, onDecide, reviewTasks, onResumeTask,
           审核中心
         </h1>
         <p style={{ fontSize: 13.5, color: "var(--text-muted)", lineHeight: 1.7, margin: "10px 0 0", maxWidth: 640 }}>
-          任何会产生外部副作用的动作，都会先生成一条真实建议（Proposal），等待你批准后才执行。
+          会改变外部状态的动作（例如替你报名、替你发出申请）会先生成一条建议，等你批准后才执行。
           只读能力（搜索 / 总结 / 提取 / 规划 / 写作）默认不需要审核。
         </p>
 
@@ -90,8 +109,8 @@ export function ReviewCenterScreen({ cards, onDecide, reviewTasks, onResumeTask,
                   <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap", marginBottom: 8 }}>
                     <span style={{
                       fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", padding: "3px 9px",
-                      borderRadius: "var(--radius-pill)", background: "var(--brand-soft, var(--warning-soft))",
-                      color: "var(--brand-ink, #9A6300)",
+                      borderRadius: "var(--radius-pill)", background: "var(--brand-soft)",
+                      color: "var(--brand-ink)",
                     }}>
                       {ACTION_KIND_LABEL[p.kind] || p.kind}
                     </span>
@@ -109,7 +128,7 @@ export function ReviewCenterScreen({ cards, onDecide, reviewTasks, onResumeTask,
                   )}
                   {p.editedPayload && (
                     <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 8, lineHeight: 1.6 }} data-testid="workbench-proposal-edited">
-                      已修改为：{p.editedPayload.goal || p.editedPayload.title || JSON.stringify(p.editedPayload)}
+                      已修改为：{payloadSummary(p.editedPayload)}
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 9, marginTop: 14, flexWrap: "wrap" }}>
@@ -117,7 +136,7 @@ export function ReviewCenterScreen({ cards, onDecide, reviewTasks, onResumeTask,
                       style={{
                         display: "inline-flex", alignItems: "center", gap: 6, border: "none", cursor: "pointer",
                         background: "var(--accent)", color: "#06241B", fontWeight: 700, fontSize: 13,
-                        padding: "9px 16px", borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
+                        padding: "11px 16px", minHeight: 44, borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
                       }}>
                       <Icon name="check" style={{ width: 14, height: 14 }} />批准
                     </button>
@@ -125,8 +144,8 @@ export function ReviewCenterScreen({ cards, onDecide, reviewTasks, onResumeTask,
                       style={{
                         display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer",
                         border: "1px solid var(--border-subtle)", background: "var(--surface-card)",
-                        color: "var(--text-body)", fontWeight: 600, fontSize: 13, padding: "9px 16px",
-                        borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
+                        color: "var(--text-body)", fontWeight: 600, fontSize: 13, padding: "11px 16px",
+                        minHeight: 44, borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
                       }}>
                       拒绝
                     </button>
@@ -197,7 +216,7 @@ export function ReviewCenterScreen({ cards, onDecide, reviewTasks, onResumeTask,
                         style={{
                           display: "inline-flex", alignItems: "center", gap: 6, border: "none", cursor: "pointer",
                           background: "var(--brand)", color: "#fff", fontWeight: 700, fontSize: 13,
-                          padding: "9px 16px", borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
+                          padding: "11px 16px", minHeight: 44, borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
                         }}>
                         <Icon name="play" style={{ width: 14, height: 14 }} />继续任务
                       </button>
@@ -228,9 +247,9 @@ export function ReviewCenterScreen({ cards, onDecide, reviewTasks, onResumeTask,
                   <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap", marginBottom: 8 }}>
                     <span style={{
                       fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", padding: "3px 9px",
-                      borderRadius: "var(--radius-pill)", background: "var(--warning-soft)", color: "#9A6300",
+                      borderRadius: "var(--radius-pill)", background: "var(--warning-soft)", color: "var(--warning-ink)",
                     }}>
-                      DEMO / PREVIEW
+                      演示 / 预览
                     </span>
                     <span style={{ fontSize: 12, color: "var(--text-faint)" }}>演示卡片 · {fmtTime(c.createdAt)}</span>
                   </div>
@@ -247,14 +266,14 @@ export function ReviewCenterScreen({ cards, onDecide, reviewTasks, onResumeTask,
                       style={{
                         display: "inline-flex", alignItems: "center", gap: 6, border: "none", cursor: "pointer",
                         background: "var(--accent)", color: "#06241B", fontWeight: 700, fontSize: 13,
-                        padding: "9px 16px", borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
+                        padding: "11px 16px", minHeight: 44, borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
                       }}>
                       <Icon name="check" style={{ width: 14, height: 14 }} />批准
                     </button>
                     <button data-testid="workbench-review-edit" onClick={() => onDecide(c.id, "edited")}
                       style={{
                         border: "1px solid var(--border-subtle)", background: "var(--surface-card)",
-                        color: "var(--text-body)", fontWeight: 600, fontSize: 13, padding: "9px 16px",
+                        color: "var(--text-body)", fontWeight: 600, fontSize: 13, padding: "11px 16px", minHeight: 44,
                         borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "var(--font-sans)",
                       }}>
                       修改
@@ -262,7 +281,7 @@ export function ReviewCenterScreen({ cards, onDecide, reviewTasks, onResumeTask,
                     <button data-testid="workbench-review-reject" onClick={() => onDecide(c.id, "rejected")}
                       style={{
                         border: "1px solid var(--danger-soft)", background: "transparent",
-                        color: "var(--danger)", fontWeight: 600, fontSize: 13, padding: "9px 16px",
+                        color: "var(--danger)", fontWeight: 600, fontSize: 13, padding: "11px 16px", minHeight: 44,
                         borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "var(--font-sans)",
                       }}>
                       拒绝
