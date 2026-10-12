@@ -2,6 +2,10 @@
 
 > 生成时间：2026-10-10（V2.2 长周期自主开发 · Stage 1）
 > 审计方式：只读盘点（git / docs / reports / src / tests 全量结构 + 核心文件精读 + 测试基线实跑），零代码改动。
+>
+> **【2026-10-13 续跑更新】** 本报告初版对应 V2.2 长周期开发起点（HEAD `395d0a2`）。此后 V2.2 Stage 1–8 已在
+> 前一长跑中全部完成（代码/文档交付收尾于 `2ca89bc`，APK versionCode 5 已发布）。本次续跑重跑本阶段审计，
+> 仅做状态恢复与基线复验（零代码改动），结果见文末「附录：续跑复验」。
 
 ---
 
@@ -103,3 +107,75 @@ WorkbenchHome（工作台首页）、ProjectsScreen（项目列表）、ProjectD
 ## 结论
 
 工作树干净、基线 298/298 全绿、V2.1 修复已提交无需重做；核心数据模型（Project/Task/Place/Note/Review + 状态机 + 诚实规则）已成型可直接复用。**真实缺口收敛为三点：Progress 统一概念、求职场景状态词汇、多项目进度中心摘要 UI**——分别对应 Stage 2/3/4，全部以 ADDITIVE 方式实现。审计通过，自动进入第二阶段。
+
+---
+
+## 附录：续跑复验（2026-10-13，V2.2 长跑续会话 · Stage 1 重跑）
+
+> 性质：状态恢复 + 基线复验，零代码改动。前一长跑已完成全部 Stage 1–8 交付（见
+> `reports/GORGON_V22_LONG_RUN_FINAL.md`），本次不重跑开发，仅确认真实状态。
+
+### A.1 版本与工作树
+
+| 项 | 值 |
+|---|---|
+| 分支 | `feature/gorgon-opportunity-v2` |
+| HEAD | `2ca89bc` — `docs: checkpoint V2.2 delivery, updated APK and readable-results acceptance` |
+| 工作树 | 干净（0 改动） |
+| 与远端关系 | 已 `git pull --ff-only` 快进同步到 `2ca89bc`（此前本地与远端分叉 2 个 docs commit：`2ca89bc`、`b4d9d34`，均为 ROADMAP/EXECUTION_STATE 更新） |
+| APK | `app/android/app/build/outputs/apk/release/app-release.apk`，3.78 MB，versionCode 5，SHA256 `63e7181dcaabed5dfa7b436e7c239497e2dec4650306f3be1b7a5e2d56b4d172` **与 V2.2 预期逐字节匹配（本地实测）** |
+| GitHub Release | v1.0.0 附件 `app-release.apk`（3783233 B）与说明完整（V2.2 新增 / 真实检索修复 / 诚实声明） |
+
+### A.2 测试基线复验（本轮实跑）
+
+| 套件 | 结果 |
+|---|---|
+| app 单测 `node --test tests/*.test.mjs` | **323/323 全部通过**（前一长跑从 298 增至 323，+25 个 V2.2 新测试） |
+| pipeline `python -m unittest discover -s pipeline/tests -p "test_*.py"` | **461 用例全部 OK**（注：先前报告中「55/55」指公网服务子集；全量 unittest 为 461） |
+| build-smoke | 18/18 通过 |
+| Vite 构建 | 通过（生产 bundle 正常） |
+
+副作用说明：Vite 构建会在 `pipeline/data/approved/activities.json` 等文件刷新 `collectedAt`/`crawledAt`
+时间戳（9 个文件），已用 `git checkout --` 还原，工作树恢复干净。
+
+### A.3 公网 API 实测（三项全过）
+
+| 检查 | 结果 |
+|---|---|
+| health | 200，`providerMode: "real"` |
+| CORS 预检 | 204，全响应头齐全 |
+| POST search | 返回真实 meetup.com 结果 |
+
+### A.4 剩余工作收敛（续跑视角）
+
+前一长跑交付后，真实缺口已不是「开发」，而是「验收」：
+
+| 项 | 状态 | 说明 |
+|---|---|---|
+| Issue #1 真机九步验收 | OPEN，NOT_TESTED | 无物理真机，不得关单 |
+| Issue #2 V2.2 生活场景真机验收 | OPEN，NOT_TESTED | 同上 |
+| **Issue #3 结果中文化**（新增） | **可推进** | 手机输出代码语言过多、结果不易理解；根因已定位（见 A.5） |
+| WebView fetch/徽标模拟器新证据 | 可选 | qemu 窗口不稳定，最多两次受控启动 |
+| 求职管线专用管理屏 | 记录在案 | 未排入本轮 |
+
+**Stage 1–8 代码开发明确不重跑**（`docs/workbench/V22_EXECUTION_STATE.md` 原文指示）。
+
+### A.5 Issue #3 代码级根因定位
+
+手机端「输出几乎都是代码语言」的具体来源已定位到三处（均为前端渲染层，不涉及状态机/数据层）：
+
+1. **`app/src/screens/TaskDetailScreen.jsx` 第 550 行**（主根因）：
+   `{typeof task.result.content === "string" ? task.result.content : JSON.stringify(task.result.content, null, 2)}`
+   — task-runner 检索成功后 `task.result = { type: "search_results", content: results }`，content 非字符串，
+   直接 JSON.stringify 渲染成大段 JSON。需改为：对 `search_results`/`workflow_result` 类型输出面向普通人的
+   中文摘要（标题/地点/时间卡片），技术详情收进可展开区。
+2. **`app/src/screens/WorkbenchHome.jsx` 第 23-29 行 STATUS_ITEMS**：英文技术值
+   `"Deterministic"` / `"Not connected"` / `"Ready / Planned"`，标签「AI Engine」「Human Review」。
+3. **`TaskDetailScreen.jsx` 处理方式区**（第 619/647 行附近）：「AI Assisted」「Token/API」英文标签。
+
+已有良好中文基础（无需改动）：STATUS_LABEL/EVENT_LABEL/STEP_LABEL 已中文化；
+NaturalSearchScreen 的 headline/NoticeBlock/DEMO 徽标；技能层错误消息
+（SEARCH_EMPTY_GOAL/SEARCH_NOT_CONFIGURED/SEARCH_OFFLINE/SEARCH_API_ERROR）均有中文 message。
+
+改造纪律：全部 ADDITIVE、不触碰 task-model.js 状态机与 TRANSITIONS 白名单、不改变
+`task.result` 数据结构（仅改渲染层），改造后跑 app 单测 + build-smoke + Vite build 确认全绿。
