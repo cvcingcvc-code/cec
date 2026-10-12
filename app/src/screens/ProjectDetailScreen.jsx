@@ -15,6 +15,7 @@ import { Button } from "../lib/ds.js";
 import { Icon } from "../components/Icon.jsx";
 import { canTransition } from "../workbench/task-model.js";
 import { STATUS_LABELS } from "../workbench/task-status-labels.js";
+import { PLACE_LABEL } from "../store/opportunity-repository.js";
 
 const card = {
   background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
@@ -52,7 +53,7 @@ const NEXT_LABEL = { ready: "准备就绪", running: "开始执行", completed: 
 export function ProjectDetailScreen({
   bundle, onBack, onOpenTask, onTaskStatus, onAddTask,
   onAddNote, onUpdateNote, onRemoveNote,
-  onSaveReview, onArchiveProject,
+  onSaveReview, onArchiveProject, onPlaceVisit,
 }) {
   const { project, tasks, notes, places, review, registrations } = bundle;
 
@@ -230,9 +231,33 @@ export function ProjectDetailScreen({
           <Section title={`走访地点 (${places.length})`} testid="workbench-project-places">
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {places.map((pl) => (
-                <div key={pl.id} style={{ ...card, padding: "9px 13px", fontSize: 12.5, color: "var(--text-body)" }}>
-                  <b style={{ color: "var(--text-strong)" }}>{pl.name}</b>
-                  {pl.address ? ` · ${pl.address}` : ""} · {pl.status}
+                <div key={pl.id} data-testid="workbench-project-place" style={{ ...card, padding: "9px 13px", fontSize: 12.5, color: "var(--text-body)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <Icon name="map-pin" style={{ width: 14, height: 14, color: "var(--brand)", flex: "none" }} />
+                    <b style={{ color: "var(--text-strong)" }}>{pl.name}</b>
+                    {pl.address ? <span style={{ color: "var(--text-faint)" }}>· {pl.address}</span> : null}
+                    <span style={{
+                      flex: "none", fontSize: 11, fontWeight: 700, padding: "3px 9px",
+                      borderRadius: "var(--radius-pill)", background: "var(--brand-soft)", color: "var(--brand)",
+                    }}>
+                      {PLACE_LABEL[pl.status] || pl.status}
+                    </span>
+                    {onPlaceVisit && pl.status !== "visited" && (
+                      <button data-testid="workbench-project-place-visit" onClick={() => onPlaceVisit(pl.id, {})}
+                        style={{
+                          marginLeft: "auto", border: "1px solid var(--border-subtle)", background: "transparent",
+                          color: "var(--text-body)", fontSize: 11.5, fontWeight: 600, cursor: "pointer",
+                          padding: "4px 10px", borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
+                        }}>
+                        记录到访
+                      </button>
+                    )}
+                  </div>
+                  {pl.nextPlan && (
+                    <div style={{ fontSize: 11.5, color: "var(--text-body)", marginTop: 4 }}>
+                      复访计划：{pl.nextPlan}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

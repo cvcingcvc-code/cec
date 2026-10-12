@@ -350,6 +350,51 @@ export function setProjectReview(projectId, patch) {
   return r;
 }
 
+// ── Module D facade: field-visit places ─────────────────────────────────
+// The repository (opportunity-repository.js) owns persistence + the status
+// vocabulary; this facade only adds the activity-log trail so History keeps
+// a single place to see what happened. Screens never touch the repository
+// directly.
+
+export function getPlaces(statusFilter) {
+  return Opportunities.listPlaces(statusFilter);
+}
+
+export function getPlace(id) {
+  return Opportunities.getPlace(id);
+}
+
+export function upsertPlace(input) {
+  const prev = input && input.id ? Opportunities.getPlace(input.id) : null;
+  const p = Opportunities.upsertPlace(input);
+  if (p) {
+    logEvent(prev ? "place_update" : "place_create",
+      prev ? `更新走访地点「${p.name}」` : `添加走访地点「${p.name}」`);
+  }
+  return p;
+}
+
+/** Status changes go through the repository's vocabulary check (safe no-op on illegal). */
+export function setPlaceStatus(id, status) {
+  const p = Opportunities.setPlaceStatus(id, status);
+  if (p) logEvent("place_status", `「${p.name}」→ ${p.status}`);
+  return p;
+}
+
+/** Record a REAL visit (time/note/next plan). The repository stamps at=now when absent. */
+export function addPlaceVisit(id, visit) {
+  const p = Opportunities.addVisit(id, visit || {});
+  if (p) logEvent("place_visit", `记录了「${p.name}」的到访`);
+  return p;
+}
+
+export function removePlace(id) {
+  const prev = Opportunities.getPlace(id);
+  const ok = Opportunities.removePlace(id);
+  if (ok && prev) logEvent("place_remove", `删除走访地点「${prev.name}」`);
+  return ok;
+}
+
 // ── Phase 3: Task execution (deterministic router + skills) ────────────
 //
 // runTask drives the real Task Runner: it routes the goal, builds steps, runs

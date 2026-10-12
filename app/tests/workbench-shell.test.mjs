@@ -151,8 +151,9 @@ test("workbench nav maps 智能搜索 onto the legacy smart screen", () => {
 test("workbench tabs cover the shell surfaces", () => {
   const keys = Nav.WORKBENCH_TABS.map((t) => t.key);
   // Phase 4 (P0-A) adds "projects" — the project hub linking activities,
-  // tasks, schedule and notes. The rest of the contract is unchanged.
-  assert.deepEqual(keys, ["home", "projects", "tasks", "search", "review", "history"]);
+  // tasks, schedule and notes. Module D UI adds "places" — the field-visit
+  // screen closing the P1 loop. The rest of the contract is unchanged.
+  assert.deepEqual(keys, ["home", "projects", "tasks", "places", "search", "review", "history"]);
   assert.equal(Nav.WORKBENCH_SETTINGS.key, "settings");
 });
 

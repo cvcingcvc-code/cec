@@ -28,6 +28,7 @@ import { MapScreen } from "./screens/MapScreen.jsx";
 import { WorkbenchHome } from "./screens/WorkbenchHome.jsx";
 import { ProjectsScreen } from "./screens/ProjectsScreen.jsx";
 import { ProjectDetailScreen } from "./screens/ProjectDetailScreen.jsx";
+import { PlacesScreen } from "./screens/PlacesScreen.jsx";
 import { TasksScreen } from "./screens/TasksScreen.jsx";
 import { TaskDetailScreen } from "./screens/TaskDetailScreen.jsx";
 import { ReviewCenterScreen } from "./screens/ReviewCenterScreen.jsx";
@@ -267,6 +268,9 @@ export default function App() {
   const [projectRev, setProjectRev] = React.useState(0);
   // Which existing project an activity should be linked to (picker state).
   const [projectPickerFor, setProjectPickerFor] = React.useState(null);
+  // Module D UI (places): React state so the list re-renders on mutation;
+  // persistence lives in the opportunities repository via the facade.
+  const [wbPlaces, setWbPlaces] = React.useState(() => WBStore.getPlaces());
 
   const { isMobile } = useResponsive();
 
@@ -430,6 +434,47 @@ export default function App() {
     flash("项目已归档（数据保留）");
   };
 
+  // ── Module D UI (places): field-visit handlers ─────────────────────
+  // Every mutation goes through the workbench-store facade (real
+  // repository), then refreshes the React state feeding the screen.
+
+  const refreshPlaces = () => {
+    setWbPlaces(WBStore.getPlaces());
+    setProjectRev((r) => r + 1); // project detail's places section re-reads
+  };
+
+  const handleCreatePlace = ({ name, address, projectId }) => {
+    const p = WBStore.upsertPlace({ name, address, projectId });
+    if (!p) return;
+    refreshPlaces();
+    setWbLog(WBStore.getLog());
+    flash("走访地点已添加");
+  };
+
+  const handlePlaceStatus = (id, status) => {
+    const p = WBStore.setPlaceStatus(id, status);
+    if (!p) { flash("非法状态，已阻止"); return; }
+    refreshPlaces();
+    setWbLog(WBStore.getLog());
+    flash(`已标记为${{ todo: "待走访", visited: "已走访", revisit: "需复访", unsuitable: "不适合" }[status] || status}`);
+  };
+
+  const handlePlaceVisit = (id, visit) => {
+    const p = WBStore.addPlaceVisit(id, visit);
+    if (!p) return;
+    refreshPlaces();
+    setWbLog(WBStore.getLog());
+    flash("到访已记录");
+  };
+
+  const handleRemovePlace = (id) => {
+    const ok = WBStore.removePlace(id);
+    if (!ok) return;
+    refreshPlaces();
+    setWbLog(WBStore.getLog());
+    flash("走访地点已删除");
+  };
+
   /** Task status change that also refreshes project surfaces. */
   const changeTaskStatusEverywhere = (id, status) => {
     changeTaskStatus(id, status);
@@ -568,6 +613,7 @@ export default function App() {
         onRemoveNote={removeProjectNote}
         onSaveReview={saveProjectReview}
         onArchiveProject={archiveProjectAndExit}
+        onPlaceVisit={handlePlaceVisit}
       />
     ) : (
       <ProjectsScreen
@@ -603,6 +649,11 @@ export default function App() {
       <ReviewCenterScreen cards={wbReview} onDecide={decideReview}
         reviewTasks={wbTasks} onResumeTask={resumeReviewTask}
         proposals={wbProposals} onProposal={decideProposal} />
+    ),
+    places: (
+      <PlacesScreen places={wbPlaces} projects={wbProjects}
+        onCreate={handleCreatePlace} onStatus={handlePlaceStatus}
+        onVisit={handlePlaceVisit} onRemove={handleRemovePlace} />
     ),
     history: (
       <HistoryScreen tasks={wbTasks} log={wbLog} onOpenTask={openTaskDetail} />
