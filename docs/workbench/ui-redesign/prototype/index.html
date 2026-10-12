@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gorgon Workbench — 移动端 UI 重设计原型（V2.2 设计阶段）</title>
+<style>
+/* ══ Gorgon 设计令牌（复用 tokens/*.css，移动端补齐） ══ */
+:root{
+  --indigo-50:#F1EFFD; --indigo-100:#E4E0FB; --indigo-200:#C9C1F7; --indigo-500:#5B47E0;
+  --indigo-600:#4733C4; --indigo-700:#38289B;
+  --mint-50:#E6FBF5; --mint-500:#00C28E; --mint-600:#009D74;
+  --slate-0:#FFFFFF; --slate-50:#F7F8FB; --slate-100:#EEF0F5; --slate-200:#E1E4EC;
+  --slate-300:#CBD0DC; --slate-400:#9AA1B2; --slate-500:#6B7280; --slate-700:#343846;
+  --ink:#0C0D12;
+  --brand:var(--indigo-500); --brand-strong:var(--indigo-600); --brand-soft:var(--indigo-50);
+  --accent:var(--mint-500); --accent-soft:var(--mint-50);
+  --success-ink:#046A4A; --warning-ink:#8A5600; --danger:#FF5A5F; --danger-soft:#FFECEC;
+  --warning-soft:#FFF6E6;
+  --demo-bg:#FFF4D6; --demo-ink:#8A5600; --demo-border:#F0D9A0;
+  --real-bg:#E6FBF5; --real-ink:#046A4A; --real-border:#A7E6D2;
+  --bg-base:var(--slate-50); --bg-sunken:var(--slate-100); --surface-card:var(--slate-0);
+  --text-strong:var(--ink); --text-body:var(--slate-700); --text-muted:var(--slate-500); --text-faint:var(--slate-400);
+  --border-subtle:var(--slate-200);
+  --radius-sm:10px; --radius-md:14px; --radius-lg:20px; --radius-xl:28px; --radius-pill:999px;
+  --shadow-sm:0 2px 6px rgba(28,20,78,.07),0 1px 2px rgba(28,20,78,.05);
+  --shadow-md:0 6px 18px rgba(28,20,78,.10),0 2px 5px rgba(28,20,78,.06);
+  --shadow-lg:0 16px 40px rgba(28,20,78,.14),0 4px 10px rgba(28,20,78,.07);
+  --font-ui:"PingFang SC","HarmonyOS Sans SC","Noto Sans CJK SC","Source Han Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  --font-num:"Space Grotesk",var(--font-ui);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box}
+body{margin:0;background:#EFF1F6;font-family:var(--font-ui);color:var(--text-body);-webkit-font-smoothing:antialiased}
+.wrap{display:flex;gap:32px;align-items:flex-start;justify-content:center;padding:34px 24px 60px;flex-wrap:wrap}
+
+/* ── 手机框 ── */
+.phone{width:390px;height:800px;border-radius:44px;padding:10px;background:linear-gradient(160deg,#1b1d27,#0c0d12);
+  box-shadow:var(--shadow-lg),0 0 0 2px rgba(255,255,255,.05) inset;flex:none;position:sticky;top:34px}
+.screen{width:100%;height:100%;border-radius:36px;overflow:hidden;background:var(--bg-base);display:flex;flex-direction:column;position:relative}
+.statusbar{height:36px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;flex:none;
+  font-family:var(--font-num);font-size:13px;font-weight:600;color:var(--ink)}
+.body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
+.body::-webkit-scrollbar{width:0}
+
+/* ── 底部导航（4 项，替代 9 项抽屉） ── */
+.tabbar{flex:none;display:flex;padding:8px 8px 16px;border-top:1px solid var(--border-subtle);
+  background:rgba(255,255,255,.92);backdrop-filter:blur(14px)}
+.tab{flex:1;border:none;background:transparent;display:flex;flex-direction:column;align-items:center;gap:3px;
+  color:var(--text-faint);cursor:pointer;padding:6px 0;font-family:var(--font-ui);min-height:48px}
+.tab.on{color:var(--brand)}
+.tab .ic{font-size:19px;line-height:1}
+.tab .lb{font-size:10.5px;font-weight:500}
+.tab.on .lb{font-weight:700}
+
+/* ── 通用排版 ── */
+.pad{padding:0 16px}
+.h1{font-size:24px;line-height:32px;font-weight:600;color:var(--text-strong);margin:0;letter-spacing:0}
+.h2{font-size:12.5px;font-weight:700;color:var(--text-muted);display:flex;align-items:center;justify-content:space-between}
+.sec{margin-top:24px}
+.card{background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)}
+.muted{color:var(--text-muted)}.faint{color:var(--text-faint)}
+.link{border:none;background:transparent;color:var(--brand);font-weight:600;font-size:13px;cursor:pointer;padding:0;font-family:var(--font-ui)}
+
+/* ── 徽章 / 状态 ── */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:var(--radius-pill);white-space:nowrap}
+.b-run{background:var(--brand-soft);color:var(--brand)}
+.b-done{background:var(--accent-soft);color:var(--success-ink)}
+.b-wait{background:var(--bg-sunken);color:var(--text-muted)}
+.b-warn{background:var(--warning-soft);color:var(--warning-ink)}
+.b-fail{background:var(--danger-soft);color:var(--danger)}
+.b-real{background:var(--real-bg);color:var(--real-ink);border:1px solid var(--real-border)}
+.b-demo{background:var(--demo-bg);color:var(--demo-ink);border:1px solid var(--demo-border)}
+
+/* ── 列表行 56dp（整行可点 → 用 button） ── */
+.row{width:100%;display:flex;align-items:center;gap:12px;min-height:56px;padding:10px 14px;background:var(--surface-card);
+  border:1px solid var(--border-subtle);border-radius:var(--radius-lg);text-align:left;cursor:pointer;font-family:var(--font-ui);
+  transition:transform 120ms var(--ease),background 120ms var(--ease)}
+.row:active{transform:scale(.985);background:var(--bg-sunken)}
+.row .ico{width:34px;height:34px;border-radius:10px;background:var(--brand-soft);color:var(--brand);
+  display:flex;align-items:center;justify-content:center;font-size:16px;flex:none}
+.row .main{min-width:0;flex:1}
+.row .t{font-size:15px;font-weight:600;color:var(--text-strong);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .s{font-size:12px;color:var(--text-muted);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.row .chev{color:var(--text-faint);font-size:16px;flex:none}
+
+/* ── Chip 40px（原 .gg-chip 29px） ── */
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{display:inline-flex;align-items:center;gap:5px;height:40px;padding:0 15px;border-radius:var(--radius-pill);
+  border:1px solid var(--border-subtle);background:var(--surface-card);font-size:13px;font-weight:600;color:var(--text-body);
+  cursor:pointer;white-space:nowrap;font-family:var(--font-ui);flex:none}
+.chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+
+/* ── 分段控件 ── */
+.seg{display:flex;background:var(--bg-sunken);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;border:none;background:transparent;border-radius:9px;padding:8px 0;font-size:13px;font-weight:600;
+  color:var(--text-muted);cursor:pointer;font-family:var(--font-ui);min-height:36px}
+.seg button.on{background:var(--surface-card);color:var(--brand);box-shadow:var(--shadow-sm)}
+
+/* ── 输入 ── */
+.input{width:100%;border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:12px 14px;
+  background:var(--surface-card);font-size:15px;color:var(--text-strong);font-family:var(--font-ui);outline:none;min-height:48px}
+.input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(91,71,224,.16)}
+.input::placeholder{color:var(--text-faint)}
+
+/* ── 主操作按钮 52dp ── */
+.btn{border:none;border-radius:var(--radius-md);padding:0 18px;height:48px;font-size:15px;font-weight:700;
+  cursor:pointer;font-family:var(--font-ui);display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.btn.primary{background:var(--brand);color:#fff}
+.btn.primary:active{background:var(--brand-strong)}
+.btn.ghost{background:var(--surface-card);border:1px solid var(--border-subtle);color:var(--text-body)}
+.btn.sm{height:44px;font-size:13.5px;padding:0 14px}
+.btn[disabled]{opacity:.45;cursor:default}
+.bottombar{flex:none;padding:10px 16px 14px;border-top:1px solid var(--border-subtle);background:rgba(255,255,255,.95);
+  backdrop-filter:blur(12px)}
+.bottombar .btn{width:100%;height:52px;font-size:16px}
+
+/* ── 结论卡 / 折叠 ── */
+.concl{background:var(--surface-card);border:1px solid var(--border-subtle);border-left:3px solid var(--accent);
+  border-radius:var(--radius-md);padding:12px 14px}
+details.fold{margin-top:12px;background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:var(--radius-lg)}
+details.fold>summary{padding:13px 14px;font-size:14px;font-weight:600;color:var(--text-strong);cursor:pointer;list-style:none;
+  display:flex;align-items:center;justify-content:space-between;min-height:48px}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::after{content:"▾";color:var(--text-faint);font-size:13px}
+details.fold[open]>summary::after{content:"▴"}
+details.fold .inner{padding:0 14px 14px;font-size:13px;color:var(--text-muted);line-height:1.7}
+
+/* ── 提示条 ── */
+.note{display:flex;gap:9px;align-items:flex-start;background:var(--bg-sunken);border-radius:var(--radius-md);
+  padding:11px 13px;font-size:12.5px;color:var(--text-muted);line-height:1.6;margin-top:10px}
+.note.warn{background:var(--warning-soft);color:var(--warning-ink)}
+.notimpl{display:inline-flex;gap:5px;align-items:center;font-size:10.5px;font-weight:700;color:#8A5600;
+  background:var(--warning-soft);border-radius:var(--radius-pill);padding:2px 8px}
+
+/* ── 周视图（规划中） ── */
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.day{border:1px solid var(--border-subtle);border-radius:11px;background:var(--surface-card);padding:8px 0;text-align:center}
+.day.wd{font-size:10.5px;color:var(--text-faint);margin-bottom:4px}
+.day.d{font-size:14px;font-weight:700;color:var(--text-strong);font-family:var(--font-num)}
+.day.has{background:var(--brand-soft);border-color:var(--indigo-200)}
+.day .dot{width:5px;height:5px;border-radius:50%;background:var(--brand);margin:4px auto 0}
+.day.sel{background:var(--brand);border-color:var(--brand)}
+.day.sel .d,.day.sel .wd{color:#fff}
+
+/* ── 右侧说明面板 ── */
+.panel{width:420px;max-width:100%}
+.panel h2{font-size:20px;margin:0 0 4px}
+.panel .sub{font-size:13px;color:var(--text-muted);line-height:1.7;margin-bottom:20px}
+.legend{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+.legend .it{display:flex;gap:10px;align-items:center;font-size:13px;background:#fff;border:1px solid var(--border-subtle);
+  border-radius:12px;padding:10px 13px}
+.legend .k{font-size:11px;font-weight:700;padding:2px 8px;border-radius:var(--radius-pill)}
+.k-done{background:var(--accent-soft);color:var(--success-ink)}
+.k-part{background:var(--warning-soft);color:var(--warning-ink)}
+.k-no{background:var(--danger-soft);color:var(--danger)}
+.k-ph{background:var(--bg-sunken);color:var(--text-muted)}
+.hint{font-size:12.5px;color:var(--text-muted);line-height:1.75;background:#fff;border:1px solid var(--border-subtle);
+  border-radius:14px;padding:14px 16px}
+.hint b{color:var(--text-strong)}
+.hint ul{margin:8px 0 0;padding-left:18px}
+.hint li{margin-bottom:5px}
+.screenname{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--brand);text-transform:uppercase}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ══════════ 手机原型 ══════════ -->
+  <div class="phone">
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><span>▪▪▪ ⌾ ▮</span></div>
+      <div class="body" id="body"></div>
+      <div class="tabbar" id="tabbar"></div>
+    </div>
+  </div>
+
+  <!-- ══════════ 说明面板 ══════════ -->
+  <div class="panel">
+    <div class="screenname">Gorgon Workbench · 移动端重设计</div>
+    <h2>V2.2 设计阶段原型</h2>
+    <div class="sub">4 个底部 tab 替代原「工作台/搜索/任务/更多（9 项抽屉）」。<br>点底部导航切换页面，点列表行进入详情。</div>
+
+    <div class="legend">
+      <div class="it"><span class="k k-done">已实现</span><span>数据层与界面均已存在，可直接复用现有 store</span></div>
+      <div class="it"><span class="k k-part">部分实现</span><span>数据已就绪，界面需新增或重排</span></div>
+      <div class="it"><span class="k k-no">未实现</span><span>本原型仅示意，代码尚不存在，不得冒充</span></div>
+      <div class="it"><span class="k k-ph">占位</span><span>界面存在但能力未接入（如地图/路线）</span></div>
+    </div>
+
+    <div class="hint">
+      <b>本原型覆盖的页面与状态</b>
+      <ul>
+        <li><b>今天</b>（列表 / 周视图）— 周视图 <span class="notimpl">未实现</span></li>
+        <li><b>发现</b> — 结果置顶、检索说明折叠、来源徽章</li>
+        <li><b>行动</b> — 3 段收敛（原 7 个筛选 chip）</li>
+        <li><b>任务详情</b> — 结论前置、记录上移、执行详情折叠</li>
+        <li><b>我的</b> — 列表行替代 9 项抽屉</li>
+        <li><b>设置</b> — 去除 schema/存储键术语</li>
+      </ul>
+      <div style="margin-top:10px">所有数据均为<b>演示数据</b>并带徽章；不展示任何未实现能力的结果。</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══ 真实文案与数据（取自基线代码的既有字段语义） ══ */
+const TABS=[
+  {k:'today',  lb:'今天', ic:'☀'},
+  {k:'discover',lb:'发现', ic:'◎'},
+  {k:'actions',lb:'行动', ic:'✓'},
+  {k:'mine',   lb:'我的', ic:'☰'}
+];
+
+/* 任务：字段与 task-model 对齐（status/scheduledDate/dueAt/steps/notes） */
+const TASKS=[
+  {id:'t1',title:'2026 大模型应用实战工作坊（零基础）',status:'ready',scheduledDate:'10月14日',dueText:'截止 14:00',steps:3,notes:1,demo:true},
+  {id:'t2',title:'周末民谣现场：城市夜晚与吉他',status:'created',scheduledDate:'10月14日',dueText:'截止 20:00',steps:0,notes:0,demo:true},
+  {id:'t3',title:'整理比赛报名资料清单',status:'running',scheduledDate:'10月15日',dueText:'',steps:3,notes:1,demo:false},
+  {id:'t4',title:'联系三家合作机构确认档期',status:'completed',scheduledDate:'10月13日',dueText:'',steps:2,notes:2,demo:false}
+];
+const ST={created:'未开始',planning:'规划中',ready:'待开始',running:'进行中',review:"待确认",completed:'已完成',failed:'失败'};
+const STC={created:'b-wait',planning:'b-run',ready:'b-run',running:'b-run',review:'b-warn',completed:'b-done',failed:'b-fail'};
+
+const SCREENS={
+today:()=>`
+  <div class="pad" style="padding-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;font-weight:600;color:var(--text-body)">10月13日 周一</span>
+      <button class="chip" style="height:34px;padding:0 12px;font-size:12.5px">上海 · 全上海 ▾</button>
+    </div>
+    <h1 class="h1" style="margin:12px 0 14px">今天</h1>
+
+    <div class="card" style="padding:12px 14px;border-radius:var(--radius-xl);box-shadow:var(--shadow-md)">
+      <input class="input" style="border:none;background:var(--bg-sunken)" placeholder="描述你想完成的事，例如：帮我找周末的 AI 活动">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+        <span class="faint" style="font-size:11.5px">回车即可开始</span>
+        <button class="btn primary sm">开始</button>
+      </div>
+    </div>
+
+    <div class="chips" style="margin-top:12px">
+      <button class="chip">寻找行业机会</button>
+      <button class="chip">整理资料</button>
+      <button class="chip">制定计划</button>
+    </div>
+
+    <div class="sec">
+      <div class="h2">今日安排（2）
+        <span style="display:inline-flex;gap:6px">
+          <span style="font-size:12px;color:var(--brand);font-weight:700">列表</span>
+          <span style="font-size:12px;color:var(--text-faint)">周视图</span>
+        </span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:9px">
+        ${row('🕐','大模型应用实战工作坊（零基础）','14:00 · 上海·杨浦 · 1.2km','running','t1')}
+        ${row('🕗','周末民谣现场：城市夜晚与吉他','20:00 · 上海·长宁 · 11.9km','created','t2')}
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="h2">需要你处理（1）</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:9px">
+        ${row('⚑','确认报名：AI Agent Builder Meetup','工作台生成的行动建议，等你确认','review','t1')}
+      </div>
+    </div>
+
+    <div class="sec" style="margin-bottom:24px">
+      <div class="h2">最近记录<span class="link">全部</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:9px">
+        <div class="card" style="padding:11px 14px;display:flex;gap:10px">
+          <span class="faint" style="font-size:14px">✎</span>
+          <div><div style="font-size:13.5px;color:var(--text-body)">已电话确认，对方要求带身份证</div>
+          <div class="faint" style="font-size:11.5px;margin-top:3px">2 小时前 · 关联：整理比赛资料清单</div></div>
+        </div>
+      </div>
+    </div>
+  </div>`,
+
+week:()=>`
+  <div class="pad" style="padding-top:14px">
+    <h1 class="h1" style="margin:6px 0 4px">今天</h1>
+    <div class="seg" style="margin:10px 0 16px">
+      <button>列表</button><button class="on">周视图</button>
+    </div>
+    <div class="week">
+      ${['一|13','二|14','三|15','四|16','五|17','六|18','日|19'].map((s,i)=>{
+        const [w,d]=s.split('|'); const has=[1,2].includes(i); const sel=i===1;
+        return `<button class="day ${has?'has':''} ${sel?'sel':''}"><div class="wd">周${w}</div><div class="d">${d}</div>${has?'<div class="dot"></div>':''}</button>`;
+      }).join('')}
+    </div>
+    <div class="note">周视图需要按日期聚合现有任务字段（scheduledDate / dueAt），数据层已具备，界面尚未实现。</div>
+
+    <div class="sec">
+      <div class="h2">10月14日 周二</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:9px">
+        ${row('🕐','大模型应用实战工作坊（零基础）','14:00 · 上海·杨浦 · 1.2km','running','t1')}
+        ${row('🕗','周末民谣现场：城市夜晚与吉他','20:00 · 上海·长宁 · 11.9km','created','t2')}
+      </div>
+    </div>
+    <div class="sec" style="margin-bottom:24px">
+      <div class="h2">10月15日 周三</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:9px">
+        ${row('📋','整理比赛报名资料清单','计划 10月15日 · 步骤 3','running','t3')}
+      </div>
+    </div>
+  </div>`,
+
+discover:()=>`
+  <div class="pad" style="padding-top:14px">
+    <h1 class="h1" style="margin:6px 0 12px">发现</h1>
+    <input class="input" placeholder="想找什么？例如：周末的 AI 活动">
+    <div class="seg" style="margin:12px 0">
+      <button class="on">精选</button><button>关键词</button><button>地图</button>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;font-weight:600;color:var(--text-body)">上海 · 全上海 ▾</span>
+      <button class="link" style="font-size:12.5px">共 3 条 ⓘ</button>
+    </div>
+
+    <div class="note" style="margin-top:10px">
+      <span>ⓘ</span><span>检索说明：来自内置演示数据，未联网核实。点右上角可查看来源与抓取时间。</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;margin-bottom:24px">
+      ${activity('大模型应用实战工作坊（零基础）','9月20日 周日 13:30','上海·杨浦 · 1.2km','免费','demo')}
+      ${activity('周末民谣现场：城市夜晚与吉他','9月20日 周日 20:00','上海·长宁 · 11.9km','¥80 起','demo')}
+      ${activity('城市漫步：老城厢建筑摄影','9月21日 周一 14:00','上海·黄浦 · 3.4km','免费','real')}
+    </div>
+  </div>`,
+
+actions:()=>`
+  <div class="pad" style="padding-top:14px">
+    <h1 class="h1" style="margin:6px 0 12px">行动</h1>
+    <div class="seg" style="margin-bottom:12px">
+      <button class="on">进行中</button><button>已加入</button><button>已完成</button>
+    </div>
+    <button class="btn primary" style="width:100%;margin-bottom:12px">＋ 新建任务</button>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px">
+      ${row('📋','整理比赛报名资料清单','计划 10月15日 · 步骤 3 · 笔记 1','running','t3',true)}
+      ${row('🕐','2026 大模型应用实战工作坊（零基础）','计划 10月14日 · 截止 14:00','ready','t1',true)}
+      ${row('✎','确认报名：AI Agent Builder Meetup','工作台行动建议，待你确认','review','t1',true)}
+      ${row('📁','准备 10 月地推物料','未设置计划 · 点击去安排时间','created','t4',true)}
+    </div>
+  </div>`,
+
+mine:()=>`
+  <div class="pad" style="padding-top:14px">
+    <h1 class="h1" style="margin:6px 0 4px">我的</h1>
+    <div class="faint" style="font-size:12.5px;margin-bottom:14px">列表行替代原「更多」9 项抽屉，一眼可数</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${menu('📁','我的项目','4 个项目 · 12 个任务','mine')}
+      ${menu('📍','走访地点','3 个地点 · 1 个待复访','places')}
+      ${menu('✎','记录与笔记','8 条笔记 · 24 条动态','records')}
+      ${menu('📈','进度一览','跨项目进度摘要','progress')}
+      ${menu('⚑','待我确认','1 条行动建议','review')}
+      ${menu('⚙','设置','通用 · 数据 · 关于与诊断','settings')}
+    </div>
+    <div class="note" style="margin-top:16px;margin-bottom:24px">地图与路线、求职管线管理屏尚未实现，本页不提供入口以免误导。</div>
+  </div>`,
+
+settings:()=>`
+  <div class="pad" style="padding-top:14px">
+    <button class="link" style="margin-bottom:8px">‹ 我的</button>
+    <h1 class="h1" style="margin:6px 0 14px">设置</h1>
+
+    <div class="h2">通用</div>
+    <div class="card" style="margin-top:8px;padding:2px 14px">
+      ${kv('界面语言','简体中文')}${kv('默认地区','上海')}${kv('外观','浅色')}
+    </div>
+
+    <div class="h2" style="margin-top:20px">数据与存储</div>
+    <div class="card" style="margin-top:8px;padding:2px 14px">
+      ${kv('本地数据','12 个任务 · 4 个项目 · 8 条笔记')}${kv('存储位置','本机（不会上传）')}
+    </div>
+    <div class="note warn" style="margin-top:10px">清空演示数据会移除标记为「演示」的内容，不影响你自己的任务。</div>
+    <button class="btn ghost sm" style="margin-top:10px;width:100%">清空演示数据</button>
+
+    <div class="h2" style="margin-top:20px">关于与诊断</div>
+    <div class="card" style="margin-top:8px;overflow:hidden">
+      <details class="fold" style="border:none;border-radius:0;margin:0">
+        <summary>运行状态</summary>
+        <div class="inner">
+          任务引擎：就绪<br>
+          智能处理：未连接（不影响本地功能）<br>
+          数据结构版本：2<br>
+          最近错误：无
+        </div>
+      </details>
+    </div>
+    <div class="faint" style="font-size:12px;text-align:center;margin:14px 0 24px">版本 2.2.0（构建 2026-10-13）</div>
+  </div>`,
+
+detail:()=>{
+  const t=TASKS.find(x=>x.id==='t1');
+  return `
+  <div class="pad" style="padding-top:14px">
+    <button class="link" style="margin-bottom:10px">‹ 行动</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="badge ${STC[t.status]}">◐ ${ST[t.status]}</span>
+      <span class="badge b-demo">演示数据</span>
+    </div>
+    <h1 class="h1" style="margin:10px 0 0;font-size:21px;line-height:29px">2026 大模型应用实战工作坊（零基础）</h1>
+    <div class="card" style="margin-top:10px;padding:11px 13px;font-size:13.5px;color:var(--text-body);line-height:1.7">
+      参加一场零基础的大模型实战工作坊
+    </div>
+    <div class="faint" style="font-size:12px;margin-top:8px">创建 10月13日 · 计划 10月14日 14:00</div>
+
+    <!-- ① 结论前置 -->
+    <div class="sec">
+      <div class="h2">结论</div>
+      <div class="concl" style="margin-top:9px">
+        <div style="font-size:15px;font-weight:600;color:var(--text-strong)">找到 1 条匹配活动</div>
+        <div style="font-size:12.5px;color:var(--text-muted);margin-top:4px;line-height:1.65">
+          9月20日 周日 13:30 · 上海·杨浦 · 免费<br>来源：活动主办方页面（演示数据，未联网核实）
+        </div>
+        <div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ghost sm">加入行动</button>
+          <button class="btn ghost sm">查看来源 ↗</button>
+        </div>
+      </div>
+      <details class="fold">
+        <summary>技术详情（原始数据）</summary>
+        <div class="inner">仅需要排查问题的用户会用到的原始字段，默认收起。</div>
+      </details>
+    </div>
+
+    <!-- ② 安排时间 -->
+    <div class="sec">
+      <div class="h2">安排时间</div>
+      <div class="card" style="margin-top:9px;padding:12px 14px">
+        <div style="display:flex;gap:10px">
+          <div style="flex:1"><div class="faint" style="font-size:11.5px;margin-bottom:5px">计划日期</div>
+            <input class="input" style="min-height:44px;padding:9px 12px;font-size:14px" value="2026-10-14"></div>
+          <div style="flex:1"><div class="faint" style="font-size:11.5px;margin-bottom:5px">截止时间</div>
+            <input class="input" style="min-height:44px;padding:9px 12px;font-size:14px" value="14:00"></div>
+        </div>
+        <button class="btn ghost sm" style="margin-top:10px;width:100%">保存排期</button>
+      </div>
+    </div>
+
+    <!-- ③ 执行记录 -->
+    <div class="sec">
+      <div class="h2">执行记录</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:9px">
+        <div class="card" style="padding:11px 14px;font-size:13.5px;color:var(--text-body);line-height:1.6">
+          已电话确认，对方要求带身份证
+          <div class="faint" style="font-size:11.5px;margin-top:5px">2 小时前</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:9px;margin-top:9px">
+        <input class="input" placeholder="执行过程中记一笔…" style="min-height:48px">
+        <button class="btn ghost">记一笔</button>
+      </div>
+    </div>
+
+    <!-- ④ 执行详情（折叠） -->
+    <details class="fold" style="margin-top:20px;margin-bottom:18px">
+      <summary>执行详情（3 个步骤）</summary>
+      <div class="inner">
+        步骤：检索活动 → 归纳要点 → 生成行动清单<br>
+        来源：1 条<br>
+        处理方式：本地处理 3 个 · 智能辅助 0 个<br>
+        时间线：创建 → 排期 → 开始执行
+      </div>
+    </details>
+  </div>`;
+}
+};
+
+/* ── 子页面占位：这些页面在产品中已实现，本原型聚焦 4 个主 tab 故未展开 ── */
+function stub(title, note){
+  return `<div class="pad" style="padding-top:14px">
+    <button class="link" style="margin-bottom:8px" onclick="go('mine')">‹ 我的</button>
+    <h1 class="h1" style="margin:6px 0 10px">${title}</h1>
+    <div class="note">${note}</div>
+    <div style="margin-top:14px">
+      <span class="badge b-done">已实现</span>
+      <span style="font-size:12.5px;color:var(--text-muted);margin-left:8px">本原型未展开此页布局</span>
+    </div>
+  </div>`;
+}
+SCREENS.places = ()=>stub('走访地点','此页面已在产品中实现（列表 / 标记已去·未去·需复访 / 记录到访 / 笔记）。本原型聚焦「今天 / 发现 / 行动 / 我的」四个主 tab，未展开其内部布局。');
+SCREENS.records = ()=>stub('记录与笔记','此页面在产品中由「笔记」与「工作记录」两处合并而成（合并视图为设计新增，见 B 信息架构 D6）。数据层已就绪。');
+SCREENS.progress = ()=>stub('进度一览','跨项目进度摘要已在产品中实现。求职管线专用管理屏尚未实现 —— 本页不会伪造该能力。');
+SCREENS.review = ()=>stub('待我确认','行动建议确认已在产品中实现；设计改动为把原始数据展示替换为中文摘要（见 A4.2）。');
+
+/* ── 小组件 ── */
+function row(ic,title,sub,status,id,withAction){
+  return `<button class="row" onclick="go('detail')">
+    <span class="ico">${ic}</span>
+    <span class="main">
+      <span class="t">${title}</span>
+      <span class="s">${sub}</span>
+    </span>
+    ${withAction?`<span class="btn ghost sm" style="height:36px;padding:0 12px;font-size:12.5px">继续</span>`
+      :`<span class="badge ${STC[status]}">${ST[status]}</span>`}
+  </button>`;
+}
+function activity(title,when,where,price,mode){
+  const badge = mode==='demo'
+    ? '<span class="badge b-demo">演示数据</span>'
+    : '<span class="badge b-real">真实来源</span>';
+  return `<div class="card" style="padding:13px 14px;border-left:3px solid ${mode==='demo'?'var(--demo-border)':'var(--real-border)'}">
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+      <div style="font-size:15px;font-weight:600;color:var(--text-strong);line-height:1.45">${title}</div>
+      ${badge}
+    </div>
+    <div style="font-size:12.5px;color:var(--text-muted);margin-top:6px;display:flex;gap:12px;flex-wrap:wrap">
+      <span>🕐 ${when}</span><span>📍 ${where}</span><span>🎫 ${price}</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:11px">
+      <button class="btn primary sm">加入行动</button>
+      <button class="btn ghost sm">查看来源 ↗</button>
+    </div>
+  </div>`;
+}
+function menu(ic,title,sub,k){
+  return `<button class="row" onclick="${k==='settings'?"go('settings')":`go('${k}')`}">
+    <span class="ico">${ic}</span>
+    <span class="main"><span class="t">${title}</span><span class="s">${sub}</span></span>
+    <span class="chev">›</span>
+  </button>`;
+}
+function kv(k,v){
+  return `<div style="display:flex;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid var(--border-subtle);font-size:13.5px">
+    <span style="color:var(--text-body);flex:none">${k}</span>
+    <span style="color:var(--text-muted);text-align:right">${v}</span></div>`;
+}
+
+/* ── 渲染 ── */
+let cur='today';
+function go(k){cur=k;render();document.getElementById('body').scrollTop=0;}
+function render(){
+  const body=document.getElementById('body');
+  if(cur==='detail'||cur==='settings'){ body.innerHTML=SCREENS[cur](); }
+  else if(cur==='today'||cur==='week'){ body.innerHTML=SCREENS[cur](); }
+  else { body.innerHTML=SCREENS[cur]?SCREENS[cur]():SCREENS.today(); }
+  // 「今天」页提供周视图切换
+  if(cur==='today'){
+    const spans=body.querySelectorAll('.h2 span span');
+    if(spans.length>=2){ spans[1].style.cursor='pointer'; spans[1].onclick=()=>go('week'); }
+  }
+  renderTabbar();
+}
+function renderTabbar(){
+  const active = cur==='detail'?'actions' : cur==='settings'?'mine' : cur;
+  document.getElementById('tabbar').innerHTML = TABS.map(t=>
+    `<button class="tab ${t.k===active?'on':''}" onclick="go('${t.k}')">
+      <span class="ic">${t.ic}</span><span class="lb">${t.lb}</span></button>`).join('');
+}
+render();
+</script>
+</body>
+</html>
