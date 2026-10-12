@@ -395,6 +395,65 @@ export function removePlace(id) {
   return ok;
 }
 
+// ── Module C facade: registration tracking + prep + ICS ────────────────
+// The repository owns the honest vocabulary (opening the official page is
+// NEVER recorded as registered; REGISTERED only via an explicit user
+// confirm). This facade adds the activity-log trail. Screens go through
+// here, never the repository directly.
+
+export function getRegistration(activityId) {
+  return Opportunities.getRegistration(activityId);
+}
+
+export function getRegistrations() {
+  return Opportunities.listRegistrations();
+}
+
+/** Record OPENED the official page (advances NONE -> OPENED only). */
+export function markRegistrationOpened(activityId, sourceUrl) {
+  const prev = Opportunities.getRegistration(activityId);
+  const r = Opportunities.markRegistrationOpened(activityId, sourceUrl);
+  if (r && (prev ? prev.status === "none" : true)) {
+    logEvent("registration_opened", `打开了报名页（未确认报名）`);
+  }
+  return r;
+}
+
+/**
+ * Explicit user status change. REGISTERED is only reachable through this
+ * call — the UI must ask the user to confirm; opening a link never does.
+ */
+export function setRegistrationStatus(activityId, status, extra = {}) {
+  const r = Opportunities.setRegistration(activityId, Object.assign({ status }, extra));
+  if (r) {
+    const labels = {
+      none: "未报名", opened_registration: "已打开报名页", in_progress: "报名中",
+      registered: "已报名（用户确认）", failed: "未成功", cancelled: "已取消",
+    };
+    logEvent("registration_status", `报名状态 → ${labels[status] || status}`);
+  }
+  return r;
+}
+
+/** Set/clear the 出行前准备 checklist (+ optional reminder) for an activity. */
+export function setPrep(activityId, prepItems, remindAt) {
+  const r = Opportunities.setPrep(activityId, prepItems, remindAt);
+  if (r) logEvent("prep_update", `更新了出行准备清单`);
+  return r;
+}
+
+/** Seed the default prep checklist for an activity view (pure helper). */
+export function defaultPrepFor(view) {
+  return Opportunities.defaultPrepFor(view);
+}
+
+/** Export ONE activity as an .ics file (null when time fields are missing). */
+export function exportICS(activityId, view) {
+  const ics = Opportunities.exportICS(activityId, view);
+  if (ics) logEvent("ics_export", `导出了活动日历（.ics）`);
+  return ics;
+}
+
 // ── Phase 3: Task execution (deterministic router + skills) ────────────
 //
 // runTask drives the real Task Runner: it routes the goal, builds steps, runs

@@ -52,6 +52,8 @@ export function ActivityDetailScreen({
   onCreateProjectFromActivity = null, onLinkActivityToProject = null,
   onOpenProject = null,
   pickerOpen = false, onTogglePicker = null, onClosePicker = null,
+  // ── Module C UI: registration tracking + ICS. All optional.
+  registration = null, onMarkOpened = null, onRegStatus = null, onExportICS = null,
 }) {
   const v = view;
   const [shareNote, setShareNote] = React.useState("");
@@ -59,6 +61,39 @@ export function ActivityDetailScreen({
   if (!v) return null;
 
   const shareUrl = v.sourceUrl || v.registrationUrl || null;
+
+  // Module C UI: the honest registration vocabulary (REG_LABEL mirror).
+  const REG_LABEL = {
+    none: "未报名",
+    opened_registration: "已打开报名页",
+    in_progress: "报名中",
+    registered: "已报名",
+    failed: "未成功",
+    cancelled: "已取消",
+  };
+  const regStatus = registration ? registration.status : "none";
+  const regLabel = REG_LABEL[regStatus] || regStatus;
+  // Opening the official link records「已打开报名页」— NEVER 已报名 (that is
+  // an explicit user confirm through the status buttons only).
+  const handleOpenRegistration = () => {
+    if (onMarkOpened && v.id) onMarkOpened(v.id, v.registrationUrl);
+    window.open(v.registrationUrl, "_blank", "noopener");
+  };
+  const handleExportICS = () => {
+    if (!onExportICS) return;
+    const ics = onExportICS(v.id, v);
+    if (!ics) { setShareNote("该活动缺少时间信息，无法导出日历"); return; }
+    try {
+      const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "gorgon-" + String(v.title || "activity").slice(0, 24) + ".ics";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    } catch (e) { /* download blocked — stay silent, the toast lives in App */ }
+  };
 
   const doShare = async () => {
     if (!shareUrl) { setShareNote("该活动暂无可分享的链接"); return; }
@@ -100,8 +135,35 @@ export function ActivityDetailScreen({
             {synced ? "已加入我的周末" : "加入我的周末"}
           </Button>
 
+          {/* Module C UI: honest registration tracking. The status line and
+              the quick buttons only render when a handler is provided. */}
+          {(onMarkOpened || onRegStatus) && (
+            <div data-testid="workbench-reg-status" style={{
+              display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+              fontSize: 12, color: "var(--text-muted)",
+            }}>
+              <span>报名状态</span>
+              <span style={{
+                fontSize: 11.5, fontWeight: 700, padding: "3px 9px",
+                borderRadius: "var(--radius-pill)",
+                background: regStatus === "registered" ? "var(--accent-soft)"
+                  : regStatus === "failed" || regStatus === "cancelled" ? "var(--danger-soft)"
+                  : regStatus === "none" ? "var(--bg-sunken)" : "var(--brand-soft)",
+                color: regStatus === "registered" ? "var(--accent-strong, #047857)"
+                  : regStatus === "failed" || regStatus === "cancelled" ? "var(--danger)"
+                  : regStatus === "none" ? "var(--text-faint)" : "var(--brand)",
+              }}>
+                {regLabel}
+              </span>
+              {registration && registration.confirmedAt && (
+                <span style={{ fontSize: 11, color: "var(--text-faint)" }}>已确认</span>
+              )}
+            </div>
+          )}
+
           {v.registrationUrl ? (
-            <a href={v.registrationUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", display: "block" }}>
+            <a href={v.registrationUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", display: "block" }}
+              onClick={(e) => { if (onMarkOpened) { e.preventDefault(); handleOpenRegistration(); } }}>
               <Button block variant="secondary" size="lg"
                 leadingIcon={<Icon name="ticket" style={{ width: 17, height: 17 }} />}
                 trailingIcon={<Icon name="external-link" style={{ width: 15, height: 15 }} />}>
@@ -115,6 +177,34 @@ export function ActivityDetailScreen({
             }}>
               暂未找到报名链接
             </div>
+          )}
+
+          {onRegStatus && regStatus !== "registered" && v.registrationUrl && (
+            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+              <button data-testid="workbench-reg-confirm" onClick={() => onRegStatus(v.id, "registered")}
+                style={{
+                  flex: 1, border: "1px solid var(--border-subtle)", background: "var(--surface-card)", cursor: "pointer",
+                  borderRadius: "var(--radius-md)", padding: "8px 12px", fontFamily: "var(--font-sans)",
+                  fontSize: 12, fontWeight: 600, color: "var(--accent-strong, #047857)",
+                }}>
+                确认已报名
+              </button>
+              <button data-testid="workbench-reg-inprogress" onClick={() => onRegStatus(v.id, "in_progress")}
+                style={{
+                  flex: 1, border: "1px solid var(--border-subtle)", background: "var(--surface-card)", cursor: "pointer",
+                  borderRadius: "var(--radius-md)", padding: "8px 12px", fontFamily: "var(--font-sans)",
+                  fontSize: 12, fontWeight: 600, color: "var(--text-body)",
+                }}>
+                报名中
+              </button>
+            </div>
+          )}
+
+          {onExportICS && (
+            <Button block variant="ghost" size="lg" onClick={handleExportICS}
+              leadingIcon={<Icon name="calendar-heart" style={{ width: 17, height: 17 }} />}>
+              导出日历（.ics）
+            </Button>
           )}
 
           <Button block variant="ghost" size="lg" onClick={doShare}

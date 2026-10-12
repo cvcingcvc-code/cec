@@ -475,6 +475,48 @@ export default function App() {
     flash("走访地点已删除");
   };
 
+  // ── Module C UI (registrations): honest tracking + ICS handlers ────
+  // Opening the official page records「已打开报名页」— NEVER 已报名;
+  // REGISTERED is only an explicit user confirm through the status buttons.
+
+  const handleMarkRegistrationOpened = (activityId, sourceUrl) => {
+    WBStore.markRegistrationOpened(activityId, sourceUrl);
+    setWbLog(WBStore.getLog());
+  };
+
+  const handleRegStatus = (activityId, status) => {
+    const r = WBStore.setRegistrationStatus(activityId, status);
+    if (!r) { flash("非法状态，已阻止"); return; }
+    setWbLog(WBStore.getLog());
+    flash(status === "registered" ? "已确认报名" : "报名状态已更新");
+  };
+
+  const handleExportICS = (activityId, view) => WBStore.exportICS(activityId, view);
+
+  /** Module C UI: prep checklist — seed (null) / add (text) / toggle (id+done). */
+  const handlePrepAdd = (activityId, text) => {
+    const view = asView(activityId);
+    const seed = text === null
+      ? WBStore.defaultPrepFor(view)
+      : null;
+    const items = seed || (() => {
+      const r = WBStore.getRegistration(activityId);
+      const cur = (r && r.prep) || [];
+      return cur.concat([{ title: text, done: false }]);
+    })();
+    const r = WBStore.setPrep(activityId, items);
+    if (r) { setWbLog(WBStore.getLog()); setProjectRev((rev) => rev + 1); }
+  };
+
+  const handlePrepToggle = (activityId, prepId, done) => {
+    const r = WBStore.getRegistration(activityId);
+    if (!r) return;
+    const cur = (r.prep || []);
+    const items = cur.map((p) => (p.id === prepId ? Object.assign({}, p, { done }) : p));
+    const out = WBStore.setPrep(activityId, items);
+    if (out) { setWbLog(WBStore.getLog()); setProjectRev((rev) => rev + 1); }
+  };
+
   /** Task status change that also refreshes project surfaces. */
   const changeTaskStatusEverywhere = (id, status) => {
     changeTaskStatus(id, status);
@@ -614,6 +656,9 @@ export default function App() {
         onSaveReview={saveProjectReview}
         onArchiveProject={archiveProjectAndExit}
         onPlaceVisit={handlePlaceVisit}
+        onPrepToggle={handlePrepToggle}
+        onPrepAdd={handlePrepAdd}
+        onRegStatus={handleRegStatus}
       />
     ) : (
       <ProjectsScreen
@@ -677,6 +722,10 @@ export default function App() {
             onBack={() => setDetail(null)} onShowMap={() => showOnMap(detail)}
             projects={wbProjects}
             linkedProject={WBStore.findProjectByActivity(detail.id)}
+            registration={WBStore.getRegistration(detail.id)}
+            onMarkOpened={handleMarkRegistrationOpened}
+            onRegStatus={handleRegStatus}
+            onExportICS={handleExportICS}
             onCreateProjectFromActivity={(opts) => {
               const p = handleCreateProjectFromActivity(detail, opts);
               if (p) { setDetail(null); openProjectDetail(p.id); }

@@ -54,6 +54,7 @@ export function ProjectDetailScreen({
   bundle, onBack, onOpenTask, onTaskStatus, onAddTask,
   onAddNote, onUpdateNote, onRemoveNote,
   onSaveReview, onArchiveProject, onPlaceVisit,
+  onPrepToggle, onPrepAdd, onRegStatus,
 }) {
   const { project, tasks, notes, places, review, registrations } = bundle;
 
@@ -63,6 +64,17 @@ export function ProjectDetailScreen({
   const [editingText, setEditingText] = React.useState("");
   const [outcome, setOutcome] = React.useState((review && review.outcome) || "");
   const [nextAction, setNextAction] = React.useState((review && review.nextAction) || "");
+  const [prepDraft, setPrepDraft] = React.useState("");
+
+  // Module C UI: the honest registration vocabulary (REG_LABEL mirror).
+  const REG_LABEL = {
+    none: "未报名",
+    opened_registration: "已打开报名页",
+    in_progress: "报名中",
+    registered: "已报名",
+    failed: "未成功",
+    cancelled: "已取消",
+  };
 
   // Re-sync the review form when the bundle changes under us (cold restart).
   React.useEffect(() => {
@@ -140,7 +152,7 @@ export function ProjectDetailScreen({
                       </div>
                       <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 3 }}>
                         {[a.dateText, a.venue].filter(Boolean).join(" · ") || "时间地点待定"}
-                        {reg ? ` · 报名状态：${reg.status}` : ""}
+                        {reg ? ` · 报名状态：${REG_LABEL[reg.status] || reg.status}` : ""}
                       </div>
                       {/* PHASE 5 (P5-C): 来源可从项目详情追溯 — the snapshot
                           keeps the sourceUrl it was retrieved with; render it
@@ -161,6 +173,63 @@ export function ProjectDetailScreen({
             </div>
           )}
         </Section>
+
+        {/* ── prep checklists (Module C UI: per linked activity) ─────── */}
+        {onPrepToggle && onPrepAdd && project.activities.map((a) => {
+          const reg = registrations.find((r) => r.activityId === a.activityId);
+          const prep = (reg && reg.prep) || [];
+          const doneCount = prep.filter((p) => p.done).length;
+          return (
+            <Section key={a.activityId} title={`出行准备 · ${a.title.slice(0, 14)}${a.title.length > 14 ? "…" : ""} (${doneCount}/${prep.length})`}
+              testid="workbench-project-prep">
+              {prep.length === 0 ? (
+                <div style={{ display: "flex", gap: 9, alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12.5, color: "var(--text-faint)" }}>还没有准备清单。</span>
+                  <button data-testid="workbench-project-prep-seed" onClick={() => onPrepAdd(a.activityId, null)}
+                    style={{
+                      border: "1px solid var(--border-subtle)", background: "var(--surface-card)", cursor: "pointer",
+                      borderRadius: "var(--radius-sm)", padding: "6px 11px", fontFamily: "var(--font-sans)",
+                      fontSize: 12, fontWeight: 600, color: "var(--brand)",
+                    }}>
+                    生成默认清单
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {prep.map((p) => (
+                    <div key={p.id} data-testid="workbench-project-prep-item" style={{ ...card, padding: "8px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+                      <button aria-label={p.done ? "取消勾选" : "勾选完成"}
+                        data-testid="workbench-project-prep-toggle"
+                        onClick={() => onPrepToggle(a.activityId, p.id, !p.done)}
+                        style={{
+                          flex: "none", width: 18, height: 18, borderRadius: "var(--radius-sm)", cursor: "pointer",
+                          border: "1px solid " + (p.done ? "var(--brand)" : "var(--border-strong, var(--border-subtle))"),
+                          background: p.done ? "var(--brand)" : "var(--surface-card)",
+                          display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0,
+                        }}>
+                        {p.done && <Icon name="check" style={{ width: 12, height: 12, color: "#fff" }} />}
+                      </button>
+                      <span style={{
+                        minWidth: 0, flex: 1, fontSize: 12.5, lineHeight: 1.5, color: "var(--text-body)",
+                        textDecoration: p.done ? "line-through" : "none",
+                      }}>
+                        {p.title}
+                      </span>
+                    </div>
+                  ))}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input aria-label="添加准备事项" data-testid="workbench-project-prep-input"
+                      placeholder="加一项准备，例如：打印停车证"
+                      value={prepDraft} onChange={(e) => setPrepDraft(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && prepDraft.trim()) { onPrepAdd(a.activityId, prepDraft.trim()); setPrepDraft(""); } }}
+                      style={{ flex: 1, minWidth: 0, border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-md)", padding: "8px 12px", background: "var(--surface-card)", fontFamily: "var(--font-sans)", fontSize: 12.5, color: "var(--text-strong)" }} />
+                    <Button size="sm" onClick={() => { if (prepDraft.trim()) { onPrepAdd(a.activityId, prepDraft.trim()); setPrepDraft(""); } }}>添加</Button>
+                  </div>
+                </div>
+              )}
+            </Section>
+          );
+        })}
 
         {/* ── tasks ──────────────────────────────────────────────────── */}
         <Section title={`关联任务 (${tasks.length})`} testid="workbench-project-tasks">
