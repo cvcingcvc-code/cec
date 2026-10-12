@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gorgon 日期选择器 — Bottom Sheet Calendar 原型（P0）</title>
+<style>
+:root{
+  --indigo-50:#F1EFFD; --indigo-100:#E4E0FB; --indigo-200:#C9C1F7; --indigo-500:#5B47E0;
+  --indigo-600:#4733C4; --indigo-700:#38289B;
+  --mint-50:#E6FBF5; --mint-500:#00C28E;
+  --slate-0:#FFF; --slate-50:#F7F8FB; --slate-100:#EEF0F5; --slate-200:#E1E4EC; --slate-300:#CBD0DC;
+  --slate-400:#9AA1B2; --slate-500:#6B7280; --slate-700:#343846; --ink:#0C0D12;
+  --brand:var(--indigo-500); --brand-strong:var(--indigo-600); --brand-soft:var(--indigo-50);
+  --success-ink:#046A4A; --warning-ink:#8A5600; --danger:#FF5A5F; --danger-soft:#FFECEC; --warning-soft:#FFF6E6;
+  --bg-base:var(--slate-50); --bg-sunken:var(--slate-100); --surface-card:var(--slate-0);
+  --text-strong:var(--ink); --text-body:var(--slate-700); --text-muted:var(--slate-500); --text-faint:var(--slate-400);
+  --border-subtle:var(--slate-200);
+  --radius-sm:10px; --radius-md:14px; --radius-lg:20px; --radius-xl:28px; --radius-pill:999px;
+  --shadow-sm:0 2px 6px rgba(28,20,78,.07); --shadow-lg:0 16px 40px rgba(28,20,78,.14);
+  --font-ui:"PingFang SC","HarmonyOS Sans SC","Noto Sans CJK SC","Source Han Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  --font-num:"Space Grotesk",var(--font-ui);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box}
+body{margin:0;background:#EFF1F6;font-family:var(--font-ui);color:var(--text-body)}
+.wrap{display:flex;gap:34px;align-items:flex-start;justify-content:center;padding:32px 22px 60px;flex-wrap:wrap}
+
+/* 手机框 */
+.phone{width:390px;height:800px;border-radius:44px;padding:10px;background:linear-gradient(160deg,#1b1d27,#0c0d12);
+  box-shadow:var(--shadow-lg),0 0 0 2px rgba(255,255,255,.05) inset;flex:none;position:sticky;top:32px}
+.screen{width:100%;height:100%;border-radius:36px;overflow:hidden;background:var(--bg-base);display:flex;flex-direction:column;position:relative}
+.statusbar{height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;flex:none;
+  font-family:var(--font-num);font-size:13px;font-weight:600;color:var(--ink)}
+.scroll{flex:1;min-height:0;overflow-y:auto;padding:6px 16px 20px}
+.scroll::-webkit-scrollbar{width:0}
+
+h1.t{font-size:21px;font-weight:600;color:var(--text-strong);margin:8px 0 6px;letter-spacing:0}
+.back{border:none;background:transparent;color:var(--brand);font-size:13px;font-weight:600;cursor:pointer;padding:6px 0;font-family:var(--font-ui)}
+.card{background:var(--surface-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:12px 14px}
+.lbl{font-size:11.5px;font-weight:700;color:var(--text-faint);letter-spacing:.03em;margin-bottom:7px}
+
+/* 日期触发字段：≥48dp，点整块即弹出（关键修复点） */
+.dfield{width:100%;min-height:48px;display:flex;align-items:center;gap:10px;text-align:left;
+  border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--bg-sunken);
+  padding:0 13px;font-family:var(--font-ui);font-size:15px;color:var(--text-strong);cursor:pointer;
+  transition:transform 120ms var(--ease)}
+.dfield:active{transform:scale(.99)}
+.dfield .ph{color:var(--text-faint)}
+.dfield .ic{color:var(--brand);flex:none}
+.dfield .clr{margin-left:auto;color:var(--text-faint);font-size:17px;line-height:1;padding:6px}
+.rowlabels{display:flex;gap:12px}
+.fl{flex:1;min-width:0}
+.hint{font-size:12px;color:var(--text-muted);margin-top:9px;line-height:1.6}
+
+/* 结果回填预览 */
+.fill{font-family:var(--font-num);font-size:12.5px;color:var(--text-muted);margin-top:11px;padding-top:10px;
+  border-top:1px dashed var(--border-subtle);line-height:1.8}
+.fill code{background:var(--bg-sunken);padding:1px 6px;border-radius:6px;font-size:12px;color:var(--brand)}
+
+/* ── Bottom Sheet ── */
+.sheetmask{position:absolute;inset:0;background:rgba(12,13,18,.45);display:none;align-items:flex-end;z-index:30}
+.sheetmask.open{display:flex}
+.sheet{width:100%;max-height:88%;background:var(--surface-card);border-radius:22px 22px 0 0;
+  box-shadow:var(--shadow-lg);display:flex;flex-direction:column;animation:up 220ms var(--ease)}
+@keyframes up{from{transform:translateY(14px);opacity:.6}to{transform:translateY(0);opacity:1}}
+@media (prefers-reduced-motion:reduce){.sheet{animation:none}}
+.grab{width:38px;height:4px;border-radius:2px;background:var(--slate-300);margin:9px auto 4px;flex:none}
+.shead{display:flex;align-items:center;gap:8px;padding:6px 12px 8px;flex:none;border-bottom:1px solid var(--border-subtle)}
+.shead .st{flex:1;font-size:15px;font-weight:600;color:var(--text-strong)}
+.iconbtn{width:48px;height:48px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;
+  border-radius:12px;cursor:pointer;color:var(--text-muted);font-size:17px}
+.iconbtn:active{background:var(--bg-sunken)}
+.sbody{padding:6px 12px 0;overflow-y:auto;min-height:0}
+
+/* 月份导航 */
+.mnav{display:flex;align-items:center;gap:6px;padding:6px 2px 4px}
+.mtitle{flex:1;text-align:center;font-size:15px;font-weight:600;color:var(--text-strong);font-family:var(--font-num)}
+.mbtn{width:48px;height:48px;border:1px solid var(--border-subtle);background:var(--surface-card);border-radius:12px;
+  cursor:pointer;color:var(--text-body);font-size:16px;display:inline-flex;align-items:center;justify-content:center}
+.mbtn:disabled{opacity:.4;cursor:default}
+.mbtn:active:not(:disabled){background:var(--bg-sunken)}
+
+/* 星期表头 + 网格 */
+.wk{display:grid;grid-template-columns:repeat(7,1fr);margin-top:4px}
+.wk span{text-align:center;font-size:11.5px;font-weight:700;color:var(--text-faint);padding:6px 0}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding-bottom:6px}
+.cell{height:48px;border:none;background:transparent;border-radius:12px;cursor:pointer;font-family:var(--font-num);
+  font-size:15px;font-weight:600;color:var(--text-strong);display:flex;align-items:center;justify-content:center;position:relative}
+.cell.mut{color:var(--slate-300)}
+.cell:disabled{color:var(--slate-300);cursor:default}
+.cell.today::after{content:"";position:absolute;bottom:6px;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:50%;background:var(--brand)}
+.cell.sel,.cell.sel:disabled{background:var(--brand);color:#fff}
+.cell.sel::after{background:#fff}
+.cell.inrange{background:var(--brand-soft);border-radius:0}
+.cell.rstart{border-radius:12px 0 0 12px;background:var(--brand);color:#fff}
+.cell.rend{border-radius:0 12px 12px 0;background:var(--brand);color:#fff}
+.cell:active:not(:disabled){background:var(--indigo-100)}
+
+/* 时间行（datetime 变体） */
+.timerow{display:flex;align-items:center;gap:10px;padding:10px 2px 4px;border-top:1px solid var(--border-subtle);margin-top:4px}
+.timerow .tl{font-size:13px;font-weight:600;color:var(--text-muted);flex:none}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:44px;height:44px;border:1px solid var(--border-subtle);background:var(--surface-card);border-radius:11px;
+  cursor:pointer;font-size:16px;color:var(--text-body)}
+.tval{width:62px;height:44px;border:1px solid var(--border-subtle);border-radius:11px;background:var(--bg-sunken);
+  display:flex;align-items:center;justify-content:center;font-family:var(--font-num);font-size:16px;font-weight:700;color:var(--text-strong)}
+.sep{color:var(--text-faint);font-weight:700}
+
+/* 快捷预设 */
+.presets{display:flex;gap:8px;flex-wrap:wrap;padding:8px 2px 2px}
+.preset{height:40px;padding:0 14px;border-radius:var(--radius-pill);border:1px solid var(--border-subtle);
+  background:var(--surface-card);font-size:13px;font-weight:600;color:var(--text-body);cursor:pointer;font-family:var(--font-ui)}
+.preset.on{background:var(--brand);border-color:var(--brand);color:#fff}
+
+/* 底部操作（≥48dp） */
+.sfoot{display:flex;gap:10px;padding:12px 14px 18px;border-top:1px solid var(--border-subtle);flex:none;background:var(--surface-card)}
+.btn{flex:1;min-height:48px;border-radius:var(--radius-md);border:none;font-family:var(--font-ui);font-size:15px;font-weight:700;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn.primary{background:var(--brand);color:#fff}
+.btn.primary:active{background:var(--brand-strong)}
+.btn.ghost{background:var(--surface-card);border:1px solid var(--border-subtle);color:var(--text-body)}
+.btn.ghost:active{background:var(--bg-sunken)}
+.err{display:none;margin:8px 2px 0;padding:9px 12px;border-radius:var(--radius-sm);background:var(--danger-soft);
+  color:#B3261E;font-size:12.5px;line-height:1.55}
+.err.on{display:block}
+
+/* 右侧控制面板 */
+.panel{width:430px;max-width:100%}
+.panel h2{font-size:20px;margin:0 0 6px;color:var(--text-strong)}
+.panel .sub{font-size:13px;color:var(--text-muted);line-height:1.75;margin-bottom:18px}
+.grp{background:#fff;border:1px solid var(--border-subtle);border-radius:14px;padding:14px 16px;margin-bottom:14px}
+.grp h3{font-size:13px;margin:0 0 10px;color:var(--text-strong)}
+.segs{display:flex;background:var(--bg-sunken);border-radius:12px;padding:3px;gap:3px}
+.segs button{flex:1;border:none;background:transparent;border-radius:9px;padding:10px 0;font-size:13px;font-weight:600;
+  color:var(--text-muted);cursor:pointer;font-family:var(--font-ui);min-height:40px}
+.segs button.on{background:var(--surface-card);color:var(--brand);box-shadow:var(--shadow-sm)}
+.chk{display:flex;align-items:center;gap:9px;font-size:13px;padding:8px 0;color:var(--text-body)}
+.chk input{width:20px;height:20px;accent-color:var(--brand)}
+.spec{font-size:12.5px;line-height:1.8;color:var(--text-muted)}
+.spec b{color:var(--text-strong)}
+.spec ul{margin:6px 0 0;padding-left:18px}
+.spec li{margin-bottom:4px}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:var(--radius-pill);background:var(--brand-soft);color:var(--brand);margin-right:5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ═══ 手机 ═══ -->
+  <div class="phone">
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><span>▪▪▪ ⌾ ▮</span></div>
+      <div class="scroll">
+        <button class="back">‹ 行动</button>
+        <h1 class="t">2026 大模型应用实战工作坊</h1>
+        <div class="card" style="margin-top:8px;font-size:13.5px;line-height:1.7">参加一场零基础的大模型实战工作坊</div>
+
+        <div class="card" style="margin-top:14px">
+          <div class="lbl">排期（由你设置，引擎不会自动安排）</div>
+          <div class="rowlabels">
+            <div class="fl">
+              <div class="lbl" style="font-weight:600;color:var(--text-muted)">计划日期</div>
+              <button class="dfield" id="f-date" aria-haspopup="dialog">
+                <span class="ic">▦</span><span class="v" id="v-date">选择日期</span>
+              </button>
+            </div>
+            <div class="fl">
+              <div class="lbl" style="font-weight:600;color:var(--text-muted)">截止时间</div>
+              <button class="dfield" id="f-due" aria-haspopup="dialog">
+                <span class="ic">◔</span><span class="v" id="v-due">选择日期与时间</span>
+              </button>
+            </div>
+          </div>
+          <div class="hint">点整块字段即可弹出日历（修复原「点输入框上沿不弹软键盘」的问题）。</div>
+          <div class="fill">
+            回填字段（不改变存储格式）：<br>
+            计划日期 → <code id="o-date">null</code><br>
+            截止时间 → <code id="o-due">null</code>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Bottom Sheet 日历 ═══ -->
+    <div class="sheetmask" id="mask">
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="stitle">
+        <div class="grab"></div>
+        <div class="shead">
+          <span class="st" id="stitle">选择日期</span>
+          <button class="iconbtn" id="close" aria-label="关闭日期选择">✕</button>
+        </div>
+
+        <div class="sbody">
+          <div class="mnav">
+            <button class="mbtn" id="prev" aria-label="上一个月">‹</button>
+            <span class="mtitle" id="mtitle" aria-live="polite">2026年10月</span>
+            <button class="mbtn" id="next" aria-label="下一个月">›</button>
+          </div>
+
+          <div class="wk" aria-hidden="true">
+            <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+          </div>
+          <div class="grid" id="grid" role="grid" aria-label="日历"></div>
+
+          <!-- 时间行：仅 date-time 变体显示 -->
+          <div class="timerow" id="timerow" style="display:none">
+            <span class="tl">时间</span>
+            <div class="stepper">
+              <button id="h-" aria-label="小时减一">−</button>
+              <span class="tval" id="hv" aria-label="小时">14</span>
+              <button id="h+" aria-label="小时加一">＋</button>
+            </div>
+            <span class="sep">:</span>
+            <div class="stepper">
+              <button id="m-" aria-label="分钟减五">−</button>
+              <span class="tval" id="mv" aria-label="分钟">00</span>
+              <button id="m+" aria-label="分钟加五">＋</button>
+            </div>
+          </div>
+
+          <!-- 快捷预设：仅范围变体显示 -->
+          <div class="presets" id="presets" style="display:none">
+            <button class="preset" data-r="7">未来 7 天</button>
+            <button class="preset" data-r="30">未来 30 天</button>
+            <button class="preset" data-r="weekend">本周末</button>
+          </div>
+
+          <div class="err" id="err" role="alert"></div>
+        </div>
+
+        <div class="sfoot">
+          <button class="btn ghost" id="clear">清除</button>
+          <button class="btn ghost" id="today">今天</button>
+          <button class="btn primary" id="ok">确定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 控制面板 ═══ -->
+  <div class="panel">
+    <h2>P0 · 日期选择器重设计</h2>
+    <div class="sub">Android 风格底部弹出月历（Bottom Sheet Calendar），复用现有 indigo / mint / slate 令牌。<br>
+      点手机里的「计划日期」「截止时间」查看实际交互；按 <b>Esc</b> 模拟安卓返回键关闭。</div>
+
+    <div class="grp">
+      <h3>组件变体（同一组件，三种模式）</h3>
+      <div class="segs" id="modes">
+        <button data-m="date" class="on">单日</button>
+        <button data-m="datetime">日期+时间</button>
+        <button data-m="range">范围</button>
+      </div>
+      <div class="spec" style="margin-top:10px">切换后点「截止时间」字段查看效果。</div>
+    </div>
+
+    <div class="grp">
+      <h3>约束开关（用于验证禁用与范围限制）</h3>
+      <label class="chk"><input type="checkbox" id="c-past" checked> 禁用今天之前的日期</label>
+      <label class="chk"><input type="checkbox" id="c-max"> 限制最多可选 30 天内</label>
+      <label class="chk"><input type="checkbox" id="c-mon"> 仅允许周一 / 周三 / 周日</label>
+    </div>
+
+    <div class="grp">
+      <h3>规格要点</h3>
+      <div class="spec">
+        <span class="tag">触控</span>日期格 48×48dp，月份切换/关闭/底部按钮全部 ≥48dp<br>
+        <span class="tag">中文</span>标题「2026年10月」，值「2026年10月14日 周三 14:00」，周一为每周首日<br>
+        <span class="tag">选中态</span>实心 indigo 圆角 + 今日圆点，不靠颜色单一维度（含白色圆点/加粗）<br>
+        <span class="tag">禁用</span>置灰 + <code>disabled</code>（不可点、不进焦点）<br>
+        <span class="tag">返回键</span>Esc / 安卓返回键 = 取消并关闭，不写入任何值<br>
+        <span class="tag">无障碍</span>格子 <code>aria-label="2026年10月14日 周三"</code>、<code>aria-selected</code>、月标题 <code>aria-live</code>
+      </div>
+    </div>
+
+    <div class="grp" style="margin-bottom:0">
+      <h3>数据回填（格式不变）</h3>
+      <div class="spec">
+        单日 → <b>计划日期</b> 写入本地 <code>YYYY-MM-DD</code>（<code>scheduledDate</code>）<br>
+        日期+时间 → <b>截止时间</b> 以本地时间转 <code>toISOString()</code>（<code>dueAt</code>），时区语义与现状一致<br>
+        「清除」→ 写入 <code>null</code>，与现有 <code>setTaskSchedule</code> 的清空语义一致
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const WEEK = ["一","二","三","四","五","六","日"];
+const pad = n => String(n).padStart(2,"0");
+const ymd = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const today = (()=>{ const t=new Date(); t.setHours(0,0,0,0); return t; })();
+
+let mode = "date";
+let viewMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+let sel = null;          // 单日: Date ; 范围: {start,end}
+let rangeAnchor = null;
+let hour = 14, minute = 0;
+
+/* 约束 */
+const cPast = () => document.getElementById("c-past").checked;
+const cMax  = () => document.getElementById("c-max").checked;
+const cMon  = () => document.getElementById("c-mon").checked;
+const MAX_DAYS = 30;
+const ALLOWED = [1,3,0]; // 周一/周三/周日（getDay: 1,3,0）
+
+function isDisabled(d){
+  const day = new Date(d); day.setHours(0,0,0,0);
+  if (cPast() && day < today) return true;
+  if (cMax()){
+    const lim = new Date(today); lim.setDate(lim.getDate()+MAX_DAYS); lim.setHours(0,0,0,0);
+    if (day > lim) return true;
+  }
+  if (cMon() && ALLOWED.indexOf(day.getDay()) < 0) return true;
+  return false;
+}
+function canGoMonth(delta){
+  const t = new Date(viewMonth.getFullYear(), viewMonth.getMonth()+delta, 1);
+  if (cMax()){
+    const lim = new Date(today); lim.setDate(lim.getDate()+MAX_DAYS);
+    if (t > new Date(lim.getFullYear(), lim.getMonth(), 1)) return false;
+  }
+  if (cPast()){
+    if (t < new Date(today.getFullYear(), today.getMonth(), 1)) return false;
+  }
+  return true;
+}
+
+/* 中文格式化 */
+function fmtCN(d){
+  const w = "日一二三四五六"[d.getDay()];
+  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 周${w}`;
+}
+function fmtRange(a,b){ return a&&b ? `${fmtCN(a)} — ${fmtCN(b)}` : ""; }
+
+/* 渲染 */
+function render(){
+  document.getElementById("mtitle").textContent =
+    `${viewMonth.getFullYear()}年${viewMonth.getMonth()+1}月`;
+  document.getElementById("prev").disabled = !canGoMonth(-1);
+  document.getElementById("next").disabled = !canGoMonth(1);
+
+  const y = viewMonth.getFullYear(), m = viewMonth.getMonth();
+  const first = new Date(y, m, 1);
+  const lead = (first.getDay() + 6) % 7;           // 周一为首日
+  const start = new Date(y, m, 1 - lead);
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+
+  for (let i=0;i<42;i++){
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate()+i);
+    const btn = document.createElement("button");
+    btn.className = "cell";
+    btn.textContent = d.getDate();
+    btn.setAttribute("role","gridcell");
+    btn.setAttribute("aria-label", fmtCN(d));
+    const mut = d.getMonth() !== m;
+    if (mut) btn.classList.add("mut");
+    if (d.getTime() === today.getTime()) { btn.classList.add("today"); btn.setAttribute("aria-current","date"); }
+    const dis = isDisabled(d);
+    if (dis) btn.disabled = true;
+
+    if (mode === "range"){
+      const a = sel && sel.start, b = sel && sel.end;
+      if (a && d.getTime() === a.getTime()) btn.classList.add("rstart");
+      if (b && d.getTime() === b.getTime()) btn.classList.add("rend");
+      if (a && b && d > a && d < b) btn.classList.add("inrange");
+      if (a && d.getTime() === a.getTime()) btn.setAttribute("aria-selected","true");
+      if (b && d.getTime() === b.getTime()) btn.setAttribute("aria-selected","true");
+    } else {
+      if (sel && d.getTime() === sel.getTime()){ btn.classList.add("sel"); btn.setAttribute("aria-selected","true"); }
+    }
+
+    btn.onclick = () => onPick(d);
+    grid.appendChild(btn);
+  }
+}
+
+function onPick(d){
+  const err = document.getElementById("err");
+  err.classList.remove("on");
+  if (mode === "range"){
+    if (!rangeAnchor){ rangeAnchor = d; sel = {start:d, end:null}; }
+    else if (!sel || !sel.start){ sel = {start:d, end:null}; }
+    else if (!sel.end){
+      if (d < sel.start){ sel = {start:d, end:sel.start}; } else { sel.end = d; }
+      rangeAnchor = null;
+    } else { sel = {start:d, end:null}; }
+  } else {
+    sel = d;
+  }
+  render();
+}
+
+function open(){
+  const isRange = mode === "range";
+  document.getElementById("stitle").textContent =
+    mode === "date" ? "选择计划日期" : mode === "datetime" ? "选择截止日期与时间" : "选择日期范围";
+  document.getElementById("timerow").style.display = mode === "datetime" ? "flex" : "none";
+  document.getElementById("presets").style.display = isRange ? "flex" : "none";
+  document.getElementById("err").classList.remove("on");
+  if (isRange && (!sel || !sel.start)) { sel = {start:null,end:null}; rangeAnchor = null; }
+  if (mode === "datetime" && sel) { hour = 14; minute = 0; }
+  document.getElementById("mask").classList.add("open");
+  document.getElementById("close").focus();
+  render();
+}
+function close(){ document.getElementById("mask").classList.remove("open"); }   // 返回键 = 取消，不写入
+
+function commit(){
+  const err = document.getElementById("err");
+  if (mode === "range"){
+    if (!sel || !sel.start){ err.textContent = "请选择开始日期"; err.classList.add("on"); return; }
+    if (!sel.end){ err.textContent = "请选择结束日期（再点一次日历中的日期）"; err.classList.add("on"); return; }
+    document.getElementById("v-due").textContent = fmtRange(sel.start, sel.end);
+    document.getElementById("o-due").textContent = `range: ${ymd(sel.start)} → ${ymd(sel.end)}`;
+  } else if (mode === "datetime"){
+    if (!sel){ err.textContent = "请选择一个日期"; err.classList.add("on"); return; }
+    const dt = new Date(sel.getFullYear(), sel.getMonth(), sel.getDate(), hour, minute);
+    document.getElementById("v-due").textContent = `${fmtCN(sel)} ${pad(hour)}:${pad(minute)}`;
+    document.getElementById("o-due").textContent = dt.toISOString();
+  } else {
+    if (!sel){ err.textContent = "请选择一个日期"; err.classList.add("on"); return; }
+    document.getElementById("v-date").textContent = fmtCN(sel);
+    document.getElementById("o-date").textContent = ymd(sel);
+  }
+  close();
+}
+
+function clearField(which){
+  if (which === "date"){ sel = null; document.getElementById("v-date").textContent = "选择日期"; document.getElementById("o-date").textContent = "null"; }
+  else { sel = null; document.getElementById("v-due").textContent = "选择日期与时间"; document.getElementById("o-due").textContent = "null"; }
+  render();
+}
+
+/* 事件 */
+let openTarget = "date";
+document.getElementById("f-date").onclick = () => { openTarget="date"; mode="date"; syncMode(); open(); };
+document.getElementById("f-due").onclick  = () => { openTarget="due";  open(); };
+document.getElementById("prev").onclick = () => { viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth()-1, 1); render(); };
+document.getElementById("next").onclick = () => { viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth()+1, 1); render(); };
+document.getElementById("close").onclick = close;
+document.getElementById("mask").onclick = (e) => { if (e.target.id === "mask") close(); };
+document.getElementById("ok").onclick = commit;
+document.getElementById("today").onclick = () => {
+  if (mode === "range"){ sel = {start:new Date(today), end:null}; rangeAnchor = new Date(today); }
+  else sel = new Date(today);
+  viewMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  render();
+};
+document.getElementById("clear").onclick = () => {
+  if (openTarget === "date") clearField("date");
+  else clearField("due");
+  close();
+};
+document.getElementById("h-").onclick = () => { hour = (hour+23)%24; document.getElementById("hv").textContent = pad(hour); };
+document.getElementById("h+").onclick = () => { hour = (hour+1)%24;  document.getElementById("hv").textContent = pad(hour); };
+document.getElementById("m-").onclick = () => { minute = (minute+55)%60; document.getElementById("mv").textContent = pad(minute); };
+document.getElementById("m+").onclick = () => { minute = (minute+5)%60;  document.getElementById("mv").textContent = pad(minute); };
+document.querySelectorAll("#presets .preset").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#presets .preset").forEach(x => x.classList.remove("on"));
+  b.classList.add("on");
+  const r = b.dataset.r;
+  if (r === "weekend"){
+    const d = new Date(today); while (d.getDay() !== 6) d.setDate(d.getDate()+1);
+    const e = new Date(d); e.setDate(e.getDate()+1);
+    sel = {start:d, end:e}; rangeAnchor = null;
+    viewMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+  } else {
+    const s = new Date(today), e = new Date(today);
+    e.setDate(e.getDate() + (Number(r)-1));
+    sel = {start:s, end:e}; rangeAnchor = null;
+  }
+  document.getElementById("err").classList.remove("on");
+  render();
+});
+document.querySelectorAll("#modes button").forEach(b => b.onclick = () => {
+  mode = b.dataset.m; syncMode(); open();
+});
+[...document.querySelectorAll("#c-past,#c-max,#c-mon")].forEach(c => c.onchange = () => {
+  // 已选日期若因新约束变为非法，立即清空并提示（不静默保留非法值）
+  const bad = sel && (mode === "range"
+    ? (sel.start && isDisabled(sel.start)) || (sel.end && isDisabled(sel.end))
+    : isDisabled(sel));
+  if (bad){
+    sel = null; rangeAnchor = null;
+    const err = document.getElementById("err");
+    err.textContent = "已选日期不符合当前限制，已清除。";
+    err.classList.add("on");
+  }
+  render();
+});
+function syncMode(){
+  document.querySelectorAll("#modes button").forEach(b => b.classList.toggle("on", b.dataset.m === mode));
+  if (mode === "date"){ sel = null; }
+  document.getElementById("stitle").textContent =
+    mode === "date" ? "选择计划日期" : mode === "datetime" ? "选择截止日期与时间" : "选择日期范围";
+  document.getElementById("timerow").style.display = mode === "datetime" ? "flex" : "none";
+  document.getElementById("presets").style.display = mode === "range" ? "flex" : "none";
+  document.getElementById("hv").textContent = pad(hour);
+  document.getElementById("mv").textContent = pad(minute);
+}
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && document.getElementById("mask").classList.contains("open")) close();
+});
+
+syncMode(); render();
+</script>
+</body>
+</html>

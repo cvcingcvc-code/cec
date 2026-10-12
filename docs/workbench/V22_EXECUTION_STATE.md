@@ -151,3 +151,78 @@
 1. **物理真机验收（Issue #1/#2）**：安装 `ebe4ca74…` 包，按九步清单执行；通过后关 #1/#2/#3。
 2. **真机网络闭环确认**：真机创建检索任务，验证 fetch→中文摘要→来源链接完整链路。
 3. （可选）求职管线管理屏：按需排入，不阻塞交付。
+
+## 设计包提交 + 低风险 UI 优化（2026-10-13 · 第二轮）
+
+### 1. 本次提交与 Git 状态
+
+- 起点 HEAD `ccc1d03` → 设计包提交 **`9f05f9d`**（8 份设计文档 + 交互原型，已推双远端 origin/geergong + cec）。
+- 工作树：仅本轮改动；已还原 15 个**测试副作用**文件（6 张 E2E 截图 + 8 个 `pipeline/data/*.json` + `ui_kits/admin/generated-review-data.js`），未夹带构建产物。
+- APK：BEFORE `ebe4ca74…` 已备份为 `docs/screenshots/ui-v22-touch/BEFORE-app-release.apk`；AFTER `6427dfd1…`（`app/android/app/build/**` 被 gitignore）。
+
+### 2. 已验证功能及证据（模拟器 gorgon_test，420dpi，受控启动 ×1）
+
+**触控尺寸实测（uiautomator bounds ÷ 2.625）— 全部 PASS**
+
+| 控件 | 实测 | 改造前依据 |
+|---|---|---|
+| 运行任务 | 125.0 × **45.0dp** | md=44 |
+| 保存排期 | 87.2 × **45.7dp** | `Button size="sm"` **36**（A2.1） |
+| 返回任务列表 | 106.7 × **45.0dp** | `padding:0`（A2.5） |
+| 进入规划/准备就绪/标记失败 | 80-81 × **46.1dp** | `padding:8px 13px`≈34（A2.6） |
+| 添加步骤/添加来源/保存结果 | 103.2 × **45.0-46.1dp** | ≈36 |
+| 记一笔 | 88.0 × **45.0dp** | md=44 |
+
+**文案中文化（设置页实测）**：`Phase 3 · Task Router + Skills`→`2.2.0`；
+`LocalStorage（gorgon_workbench_tasks_v2）`→`数据保存：保存在本机，不会上传`；`Schema Version`→`数据结构版本`；
+`本地引擎 / 就绪（本地状态机 + 执行引擎）`→`本地引擎 / 就绪`。**E2E 必需子串保持**（`本地引擎 / 就绪`、`未配置`）。
+
+**软键盘/输入**：首页提示 `Enter 提交 · Shift + Enter 换行`（桌面术语）→ `点这里输入 · 回车即可开始`；
+整卡可点即聚焦（修复"点输入框上沿不弹键盘"）；输入框加 `enterKeyHint`。
+
+### 3. 测试与构建
+
+| 门禁 | 结果 |
+|---|---|
+| app 单测 | **333/333 PASS** |
+| Workbench E2E | **93/93 PASS**（console errors = 0） |
+| legacy 前端 E2E | **58/58 PASS** |
+| build-smoke | **18/18 PASS** |
+| pipeline unittest | **461 OK**（须从仓库根运行：`python -m unittest discover -s pipeline -t .`；在 `pipeline/` 内运行会因 `No module named 'pipeline'` 报 4 个 loader 错误，非代码问题） |
+| Vite 构建 | PASS |
+| Android 打包 | `assembleRelease` BUILD SUCCESSFUL → `6427dfd1…` |
+
+### 4. 本轮修复清单（对应 A 审计编号）
+
+- **A2 触控**：`Button size="sm"` 36→44dp；`.gg-chip` 29→40px；准备清单勾选框 18→44dp 热区（视觉仍 20dp）；
+  TaskDetail/Tasks/ProjectDetail/Places/MyWeekend/ReviewCenter 全部小热区 → ≥44dp。
+- **A3 输入**：首页整卡聚焦 + `enterKeyHint="send"`；任务页输入 `enterKeyHint="done"`。
+- **A4 术语**：设置页去存储键/schema/Phase 术语；审核中心 `JSON.stringify`→`payloadSummary()` 中文摘要；
+  检索失败 `HTTP xxx`+日志→中文可重试；工作记录去 `（Task.timeline）`；英文标语中文化
+  （`This Weekend`/`My Weekend`/`Saved`/`MAP PLACEHOLDER`/`DEMO DATA`/`REAL SEARCH`/`DEMO-PREVIEW`）。
+- **A5 反馈**：ICS 导出静默 `catch{}` → 内联成功/失败反馈；地图定位死控件 → `disabled`+说明。
+- **A1/A2.10 层级**：移动端检索页内部面板从结果**之前**移到**之后**（`.gg-smart-aside` order）。
+- **A6 令牌/字体**：新增 `tokens/mobile.css`（`--success-ink`/`--warning-ink`/`--info-ink`/`--brand-ink`/
+  `--surface-sunken`/`--demo-*`/`--real-*`/`--touch-*`）；裸用硬编码色 **4→0**；
+  `--brand-ink`/`--surface-sunken` 由"未定义→错误回退"变为真实令牌；
+  中文字体改**系统栈优先**（`tokens/fonts.css` + `tokens/typography.css`），APK 离线不再掉字体。
+
+### 5. 真机测试状态
+
+- **NOT_TESTED**：无物理设备。本轮触控/显示证据全部来自**模拟器**，不得视为真机验收。
+- Issue #1/#2 **保持 OPEN**。
+
+### 6. 仍阻断 / 未做
+
+1. 物理真机九步验收（Issue #1/#2）仍缺。
+2. **日期选择器仅完成原型与规格**（`G_DATE_PICKER.md` + `prototype/date-picker.html`），代码未实施——
+   实施须同时更新 `android_phase4_e2e.mjs:451-455`（`typeInto` 原生输入框的打字方式失效），
+   但 **`:456-459` 的 localStorage 断言必须保留**作为存储格式护栏。
+3. **导航改造未动**（Phase 5 仅输出评审 `H_PHASE5_NAV_REVIEW.md`）。
+4. 危险操作二次确认（取消收藏/删进度/归档）未做——涉及 E2E 点击路径，留待专项。
+
+### 7. 下一阶段行动项（最多三个）
+
+1. **实现日期选择器**（P0，Codex 优先）：按 `G_DATE_PICKER.md` G-1→G-4 实施，同步更新 `android_phase4_e2e.mjs`。
+2. **物理真机验收**：安装 `6427dfd1…`，走九步清单 + 触控/键盘实测；通过后关 #1/#2/#3。
+3. **Phase 5 导航改造**：按 `H_PHASE5_NAV_REVIEW.md` 走 5.a（兼容切换，E2E 不动）→ 5.b（测试迁移）。
