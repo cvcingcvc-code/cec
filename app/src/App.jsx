@@ -273,6 +273,9 @@ export default function App() {
   // Module D UI (places): React state so the list re-renders on mutation;
   // persistence lives in the opportunities repository via the facade.
   const [wbPlaces, setWbPlaces] = React.useState(() => WBStore.getPlaces());
+  // V2.3 Phase 3: notes list for the place-notes panels (all notes; screens
+  // filter by placeId). Persistence stays in the opportunities repository.
+  const [wbNotes, setWbNotes] = React.useState(() => WBStore.getNotes());
 
   const { isMobile } = useResponsive();
 
@@ -494,6 +497,32 @@ export default function App() {
     refreshPlaces();
     setWbLog(WBStore.getLog());
     flash("走访地点已删除");
+  };
+
+  // ── Phase 3 (地点管理): edit + place notes handlers ──────────────────
+  const handleEditPlace = (id, patch) => {
+    const p = WBStore.upsertPlace({ id, ...patch });
+    if (!p) return;
+    refreshPlaces();
+    setWbLog(WBStore.getLog());
+    flash("走访地点已更新");
+  };
+
+  const handleAddPlaceNote = (placeId, text) => {
+    const n = WBStore.addNote({ text, placeId, kind: "text" });
+    if (!n) return;
+    setWbPlaces(WBStore.getPlaces());
+    setWbNotes(WBStore.getNotes());
+    setWbLog(WBStore.getLog());
+    flash("地点笔记已保存");
+  };
+
+  const handleRemovePlaceNote = (noteId) => {
+    const ok = WBStore.removeNote(noteId);
+    if (!ok) return;
+    setWbNotes(WBStore.getNotes());
+    setWbLog(WBStore.getLog());
+    flash("笔记已删除");
   };
 
   // ── Module C UI (registrations): honest tracking + ICS handlers ────
@@ -754,9 +783,11 @@ export default function App() {
         proposals={wbProposals} onProposal={decideProposal} />
     ),
     places: (
-      <PlacesScreen places={wbPlaces} projects={wbProjects}
+      <PlacesScreen places={wbPlaces} projects={wbProjects} tasks={wbTasks} notes={wbNotes}
         onCreate={handleCreatePlace} onStatus={handlePlaceStatus}
-        onVisit={handlePlaceVisit} onRemove={handleRemovePlace} />
+        onVisit={handlePlaceVisit} onRemove={handleRemovePlace}
+        onEditPlace={handleEditPlace} onAddPlaceNote={handleAddPlaceNote}
+        onRemovePlaceNote={handleRemovePlaceNote} />
     ),
     schedule: (
       <ScheduleScreen tasks={wbTasks} onOpenTask={openTaskDetail} />
