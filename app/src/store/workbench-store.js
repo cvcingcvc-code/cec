@@ -701,8 +701,15 @@ export function exportICS(activityId, view) {
 // each Skill, and writes the result back through the repository. The search
 // skill reuses the SAME api.searchActivities client the NaturalSearchScreen
 // uses — no second search client. Returns the Runner's result object.
-export async function runTask(id, { skillIds = null } = {}) {
-  const result = await runTaskEngine(id, { search: searchActivities, skillIds });
+//
+// Phase 7: aiClient is OPT-IN and passed through to the Runner. It is injected
+// by the HOST (desktop shell / CLI via GORGON_AI_* env, or an Android bridge
+// behind secure storage) — never created inside the browser bundle, so a key
+// can never be compiled into the frontend. When omitted every skill stays
+// purely deterministic; when a provider fails the assist bridge falls back to
+// the local path, so the task still completes (AI 失败本地可用).
+export async function runTask(id, { skillIds = null, aiClient = null } = {}) {
+  const result = await runTaskEngine(id, { search: searchActivities, skillIds, aiClient });
   return result;
 }
 
