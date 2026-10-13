@@ -82,10 +82,17 @@ Gorgon Workbench 让 AI 从「回答问题的助手」，变成帮助个人**整
 
 ## Android 运行情况
 
-- 当前交付 APK **v5**：debug `FF3BE332…`（含 Phase 1-7 全部新代码，指向真实检索 API）/ release `6427DFD1…`（versionCode 5，签名构建）。
-- 已验证：模拟器安装与 WebView origin、公网 health/OPTIONS/search、WebView 网络层、离线持久化镜像（单测层）。
-- **未验收**：物理真机完整九步链路（冷启动→检索→建任务→排期→笔记→重启保留→断网）。
-- 下载：[GitHub Release v1.0.0](https://github.com/cvcingcvc-code/cec/releases/tag/v1.0.0)（以 Release 页最新 SHA256SUMS 为准）。
+- 当前交付 APK **v6.0（V3 Phase A）**：debug `ca4f2c3e…`（4,869,758 字节）/ release `2894e215…`（3,834,665 字节），含本地提醒、笔记导入、智能体网关。
+- 已验证：单测/构建/安全检查全绿；**真机验收 NOT_TESTED**（安装后按 [docs/DEVICE_ACCEPTANCE_V3_ALPHA.md](docs/DEVICE_ACCEPTANCE_V3_ALPHA.md) 逐项验收）。
+- 下载：[GitHub Release v0.3.0-alpha](https://github.com/cvcingcvc-code/cec/releases/tag/v0.3.0-alpha)（V3 Phase A 最新版）；历史版 [v1.0.0](https://github.com/cvcingcvc-code/cec/releases/tag/v1.0.0)。
+
+## 唯一正式仓库
+
+- **唯一正式 GitHub 仓库：[cvcingcvc-code/cec](https://github.com/cvcingcvc-code/cec)** —— 所有源码分支与 Release 均以此为准。
+- 源码分支：`feature/gorgon-opportunity-v2`（最新 `82c638e`，与当前 V3 源码一致）。
+- APK 下载：进入 Release 页 → 下载 `Gorgon-Workbench-Android-v6.0.0-debug.apk`（日常自用推荐）或 `Gorgon-Workbench-Android-v6.0.0-release.apk` → 安装前比对上方 SHA256。
+- **Git 推送与 Release 发布必须显式指定 `cec` remote**（`git push cec <branch>` / `gh release create --repo cvcingcvc-code/cec`），不依赖含义不明的默认 remote。
+- `cvcingcvc-code/geergong` 为旧仓库：**保留不删除**（历史代码与旧 Release 仍可访问），但不再接收新推送。
 
 ## AI 智能体协作的规划（未开发，仅设计）
 
