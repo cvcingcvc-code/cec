@@ -51,6 +51,8 @@ import {
 } from "./workbench/navigation.js";
 // V3 Phase A (gap 2): TXT/Markdown note import (pure parser).
 import { isImportableFileName, parseNoteText, MAX_IMPORT_BYTES } from "./lib/note-import.js";
+// Phase B3: PC gateway run-record mirror (TaskDetail「电脑执行记录」card).
+import { readAgentRunsMirror } from "./lib/agent-runs-mirror.js";
 // V3 Phase A (gap 1): native reminder scheduling (Capacitor LocalNotifications).
 import * as NativeReminders from "./lib/native-reminders.js";
 
@@ -814,6 +816,10 @@ export default function App() {
   // contract). Workbench tabs render the Phase-2 shell screens; 智能搜索
   // maps onto the existing NaturalSearchScreen with a Workbench heading.
   const detailTask = detailTaskId ? wbTasks.find((t) => t.id === detailTaskId) : null;
+  // Phase B3: real gateway run records for the detail task (mirrored from the
+  // PC gateway's runs.json via agent-runs-mirror; [] when none/mirror empty).
+  const detailAgentRuns = detailTask && detailTask.agentRunIds && detailTask.agentRunIds.length
+    ? readAgentRunsMirror(detailTask.agentRunIds) : [];
 
   // ── Phase 4: project surfaces ─────────────────────────────────────
   // The bundle is read through the facade every render so it always reflects
@@ -902,7 +908,8 @@ export default function App() {
           onConflicts={wbTasks}
           projects={wbProjects}
           notes={detailTask ? WBStore.getNotes({ taskId: detailTask.id }) : []}
-          onAddNote={addTaskNote} />
+          onAddNote={addTaskNote}
+          agentRuns={detailAgentRuns} />
       ) : (
         <TasksScreen tasks={wbTasks} onStatusChange={changeTaskStatus}
           onAddTask={(t) => addTaskLocal(t, { source: "任务页输入" })}

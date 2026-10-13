@@ -230,7 +230,10 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
   notes = [], onAddNote = null,
   // ── V3 Phase A (gap 1): local reminder. onSetReminder(taskId, { remindAt })
   //    | null → the reminder card renders only when wired (honesty).
-  onSetReminder = null }) {
+  onSetReminder = null,
+  // ── Phase B3: PC agent-run records (from the gateway runs.json mirror).
+  //    Optional — the card renders only when records exist.
+  agentRuns = [] }) {
   const [stepTitle, setStepTitle] = React.useState("");
   const [sourceTitle, setSourceTitle] = React.useState("");
   const [resultText, setResultText] = React.useState("");
@@ -1001,6 +1004,44 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
 
         {/* processing mode — Local vs AI Assisted, per skill (Phase 7).
             Read from the REAL skill metadata; never guessed. */}
+        {/* Phase B3: PC agent-run records linked to this task (agentRunIds).
+            Shows the real gateway execution results so the user can find them
+            from the task itself — no cross-screen copying. */}
+        {agentRuns.length > 0 && (
+          <Section title={`电脑执行记录 (${agentRuns.length})`} testid="workbench-detail-agent-runs">
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {agentRuns.map((r) => (
+                <div key={r.runId} data-testid="workbench-detail-agent-run" style={{ ...card, fontSize: 12.5, lineHeight: 1.6 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span data-testid="workbench-detail-agent-run-status" style={{
+                      fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: "var(--radius-pill)",
+                      background: r.status === "completed" ? "var(--accent-soft)" : "var(--danger-soft)",
+                      color: r.status === "completed" ? "var(--accent-strong, #047857)" : "var(--danger)",
+                    }}>
+                      {r.status === "completed" ? "已完成" : r.status === "timed_out" ? "已超时" : r.status === "failed" ? "失败" : r.status === "cancelled" ? "已取消" : r.status}
+                    </span>
+                    <span style={{ fontWeight: 600, color: "var(--text-strong)" }}>{r.executor}</span>
+                    <span style={{ flex: 1 }} />
+                    <span style={{ fontSize: 11, color: "var(--text-faint)" }}>{fmtTime(r.finishedAt || r.createdAt)}</span>
+                  </div>
+                  {r.summary && (
+                    <div style={{ marginTop: 6, color: "var(--text-muted)" }}>{r.summary}</div>
+                  )}
+                  {r.error && (
+                    <div style={{ marginTop: 6, color: "var(--danger)" }}>错误：{r.error}</div>
+                  )}
+                  {r.outputText && (
+                    <pre style={{
+                      margin: "8px 0 0", padding: "9px 11px", borderRadius: "var(--radius-sm)",
+                      background: "var(--bg-sunken)", color: "var(--text-body)", fontSize: 11, lineHeight: 1.55,
+                      overflowX: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 220, overflowY: "auto",
+                    }}>{r.outputText}</pre>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
         <Section title="处理方式" testid="workbench-detail-processing">
           <div style={card} data-testid="workbench-detail-processing-view">
             {task.steps.length === 0 ? (
