@@ -48,3 +48,6 @@ docs/screenshots/ui-v22-touch/BEFORE-app-release.apk
 # log, run records. Machine-local and SECRET (token grants executor access).
 # Only the gateway script itself is committed.
 scripts/.agent-gateway/
+
+# Isolated runtime diagnostics, test state and dependency cache.
+/work/

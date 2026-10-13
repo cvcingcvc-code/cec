@@ -150,8 +150,10 @@ export function execCodex(opts) {
     timeoutMs = 300_000,
     maxOutputChars = 60_000,
     onChild = () => {},
+    signal,
   } = opts;
 
+  if (signal?.aborted) return Promise.resolve({ ok: false, status: "cancelled", error: "codex cancelled", exitCode: null });
   if (!codexPath) return Promise.resolve({ ok: false, status: "failed", error: "codex CLI not found" });
   if (!prompt || typeof prompt !== "string") {
     return Promise.resolve({ ok: false, status: "failed", error: "prompt required" });
@@ -175,11 +177,14 @@ export function execCodex(opts) {
       }
     }
 
-    const p = spawn(codexPath, ["exec", "--skip-git-repo-check", "--sandbox", "read-only", "-C", cwd, prompt], {
+    const p = spawn(codexPath, ["exec", "--ephemeral", "--skip-git-repo-check", "--sandbox", "read-only", "-C", cwd, prompt], {
       shell: false,
       windowsHide: true,
       cwd,
       env: childEnv,
+      // codex exec appends piped stdin even when PROMPT is supplied.
+      // An unused open pipe blocks prompt intake before any model request.
+      stdio: ["ignore", "pipe", "pipe"],
     });
     onChild(p);
 
@@ -192,13 +197,21 @@ export function execCodex(opts) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      resolve(Object.assign({ durationMs: Date.now() - startedAt }, result));
+      signal?.removeEventListener("abort", onAbort);
+      resolve(Object.assign({ durationMs: Date.now() - startedAt, stderr: filterSecrets(stderr).slice(0, 4000) }, result));
     };
 
+    const onAbort = () => {
+      killTree(p, "codex cancelled");
+      finish({ ok: false, status: "cancelled", error: "codex cancelled", exitCode: null });
+    };
     const timer = setTimeout(() => {
       killTree(p, "codex timeout");
-      finish({ ok: false, status: "timed_out", error: `codex hard timeout (${timeoutMs}ms)`, exitCode: null, output: filterSecrets(stdout).slice(0, maxOutputChars) });
+      const cls = classifyFailure(filterSecrets(stderr + "\n" + stdout), null);
+      finish({ ok: false, status: "timed_out", failureKind: cls.kind, error: `codex hard timeout (${timeoutMs}ms)`, exitCode: null, output: filterSecrets(stdout).slice(0, maxOutputChars) });
     }, timeoutMs);
+    signal?.addEventListener("abort", onAbort, { once: true });
+    if (signal?.aborted) onAbort();
 
     p.stdout.on("data", (d) => {
       if (stdout.length < maxOutputChars * 2) stdout += d;
@@ -208,7 +221,7 @@ export function execCodex(opts) {
       if (stderr.length < 40_000) stderr += d;
     });
     p.on("error", (e) => {
-      finish({ ok: false, status: "failed", error: `spawn failed: ${e.message}`, exitCode: null });
+      finish({ ok: false, status: "failed", error: filterSecrets(`spawn failed: ${e.message}`), exitCode: null });
     });
     p.on("close", (code) => {
       if (settled) return;
@@ -223,7 +236,7 @@ export function execCodex(opts) {
           sessionId: sid,
         });
       } else {
-        const cls = classifyFailure(stderr || stdout, code);
+        const cls = classifyFailure(filterSecrets(stderr + "\n" + stdout), code);
         finish({
           ok: false,
           status: cls.kind, // BLOCKED_USAGE_LIMIT | BLOCKED_AUTH | BLOCKED_NETWORK | failed
@@ -251,7 +264,7 @@ function killTree(p, label) {
 
 export const READONLY_DIAGNOSIS_PROMPT = [
   "你是 Gorgon Workbench 项目的只读诊断助手。",
-  "请分析当前工作区（F:\\Gorgon-Workbench）的项目，输出一份简明诊断报告，包含以下小节：",
+  "请分析启动参数 -C 指定的当前固定工作区，输出一份简明诊断报告，包含以下小节：",
   "1. 项目架构概览（主要目录与职责，200 字以内）",
   "2. 当前主功能（列出最重要的 3-5 个功能模块）",
   "3. 存在的明确问题（只列有真实证据的问题，标注证据文件位置）",
