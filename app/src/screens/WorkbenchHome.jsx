@@ -40,6 +40,7 @@ function fmtTime(iso) {
 }
 
 export function WorkbenchHome({ tasks, onCreateTask, onGoSearch, onGoTasks, onOpenTask,
+  onGoSchedule = null,
   // ── Phase 4 (P0-D): the home must show the whole loop, not just tasks.
   //    All data comes from the parent (computed through the store facade).
   todayTasks = [], openTaskCount = 0, projects = [], projectStats = {},
@@ -163,9 +164,17 @@ export function WorkbenchHome({ tasks, onCreateTask, onGoSearch, onGoTasks, onOp
               今日待办{todayTasks.length > 0 ? `（${todayTasks.length}）` : ""}
               {openTaskCount > 0 && <span style={{ fontWeight: 500, color: "var(--text-faint)" }}> · 待完成 {openTaskCount}</span>}
             </div>
-            <button onClick={onGoTasks} style={{ border: "none", background: "transparent", color: "var(--brand)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>
-              任务页
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              {/* Phase 2 (V2.3): the formal schedule view entry */}
+              {onGoSchedule && (
+                <button onClick={onGoSchedule} data-testid="workbench-today-goschedule" style={{ border: "none", background: "transparent", color: "var(--brand)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>
+                  日程视图
+                </button>
+              )}
+              <button onClick={onGoTasks} style={{ border: "none", background: "transparent", color: "var(--brand)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>
+                任务页
+              </button>
+            </div>
           </div>
           {todayTasks.length === 0 ? (
             <div style={{ fontSize: 13, color: "var(--text-faint)", padding: "12px 0", lineHeight: 1.6 }}>

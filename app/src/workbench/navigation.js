@@ -26,6 +26,8 @@ export const WORKBENCH_TABS = [
   // V2.2 (Stage 4): cross-project plain-language progress summary.
   { key: "progress", label: "进度中心", icon: "trending-up" },
   { key: "tasks", label: "我的任务", icon: "list-todo" },
+  // Phase 2 (V2.3): the formal 周/月 schedule view.
+  { key: "schedule", label: "日程", icon: "calendar-clock" },
   // Module D UI: field-visit places closing the P1 loop.
   { key: "places", label: "走访地点", icon: "map-pin" },
   { key: "search", label: "智能搜索", icon: "search" },
@@ -68,6 +70,8 @@ export const MOBILE_TABS = [
 export const MOBILE_MORE_TABS = [
   { key: "projects", label: "我的项目", icon: "folder-kanban", workbench: true },
   { key: "progress", label: "进度中心", icon: "trending-up", workbench: true },
+  { key: "tasks", label: "我的任务", icon: "list-todo", workbench: true },
+  { key: "schedule", label: "日程", icon: "calendar-clock", workbench: true },
   { key: "places", label: "走访地点", icon: "map-pin", workbench: true },
   { key: "smart", label: "智能找活动", icon: "sparkles", legacy: true },
   { key: "weekend", label: "我的周末", icon: "calendar-heart", legacy: true },

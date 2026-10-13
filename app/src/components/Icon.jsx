@@ -15,18 +15,19 @@
 import React from "react";
 import {
   ArrowLeft, ArrowRight, BadgeCheck, BatteryFull, Bell, Calendar, CalendarClock,
-  CalendarHeart, Check, ChevronRight, Clock, Compass, ExternalLink, FileCheck, Flag,
-  FlaskConical, FolderKanban, FolderPlus, GitBranch, GitMerge, Globe, Heart, HeartOff,
-  Hexagon, History, ImageOff, Info, LayoutDashboard, Link, ListPlus, ListTodo,
-  LocateFixed, Map, MapPin, MapPinOff, Menu, Navigation, NotebookPen, Pencil, Play,
-  Plus, PlugZap, RotateCcw, Search, SearchX, Settings, Share2, ShieldAlert, ShieldCheck,
-  Signal, SlidersHorizontal, Sparkles, Target, Ticket, Trash2, TrendingUp, TriangleAlert,
-  Users, Wifi, X,
+  CalendarHeart, Check, ChevronLeft, ChevronRight, Clock, Compass, ExternalLink,
+  FileCheck, Flag, FlaskConical, FolderKanban, FolderPlus, GitBranch, GitMerge,
+  Globe, Heart, HeartOff, Hexagon, History, ImageOff, Info, LayoutDashboard, Link,
+  ListPlus, ListTodo, LocateFixed, Map, MapPin, MapPinOff, Menu, Navigation,
+  NotebookPen, Pencil, Play, Plus, PlugZap, RotateCcw, Search, SearchX, Settings,
+  Share2, ShieldAlert, ShieldCheck, Signal, SlidersHorizontal, Sparkles, Target,
+  Ticket, Trash2, TrendingUp, TriangleAlert, Users, Wifi, X,
 } from "lucide-react";
 
 const ICONS = {
   "arrow-left": ArrowLeft,
   "arrow-right": ArrowRight,
+  "chevron-left": ChevronLeft,
   "history": History,
   "layout-dashboard": LayoutDashboard,
   "list-todo": ListTodo,

@@ -12,6 +12,8 @@ import { TASK_STATUS, canTransition } from "../workbench/task-model.js";
 import * as SkillRegistry from "../workbench/skills/registry.js";
 import { summarizeResult, RESULT_TYPE_LABEL } from "../workbench/result-summary.js";
 import { Icon } from "../components/Icon.jsx";
+import { DatePickerSheet } from "../components/mobile/DatePickerSheet.jsx";
+import { findConflictFor, formatCN, formatCNTime } from "../lib/calendar.js";
 
 const STATUS_LABEL = {
   created: "已创建",
@@ -217,6 +219,8 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
   onSetSchedule = null, onSavePlanTodos = null, onLinkProject = null, projects = [],
   // ── V2.3 (Phase 1): priority selector + title edit + place link.
   onSetPriority = null, onSetTitle = null, onLinkPlace = null, places = [],
+  // ── Phase 2 (#4): other tasks (for conflict detection); pass the full list.
+  onConflicts = null,
   // ── Phase 4 (P0-C): task-linked notes (execution records).
   notes = [], onAddNote = null }) {
   const [stepTitle, setStepTitle] = React.useState("");
@@ -235,12 +239,28 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
   // V2.3 (Phase 1 gap #3): title editing local state.
   const [editingTitle, setEditingTitle] = React.useState(false);
   const [titleDraft, setTitleDraft] = React.useState("");
+  // Phase 2 (G-2/G-3): DatePickerSheet state. Which sheet is open —
+  // "date" (计划日期) | "due" (截止时间) | null. Replaces the two native
+  // <input type="date|datetime-local"> controls; the ORIGINAL testids
+  // (workbench-detail-schedule-date / -due) remain as the trigger buttons
+  // so existing E2E assertions keep working.
+  const [pickerOpen, setPickerOpen] = React.useState(null);
+  // Phase 2 (#4): conflict warning for the current due value.
+  const [conflictTask, setConflictTask] = React.useState(null);
 
   React.useEffect(() => {
     if (!task) return;
     setSchedDate(task.scheduledDate || "");
     setDueInput(task.dueAt ? task.dueAt.slice(0, 16) : "");
   }, [task && task.id, task && task.scheduledDate, task && task.dueAt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Phase 2 (#4/#5): conflict warning recomputes whenever the task's dueAt
+  // changes. Pure function over the passed-in task list — nothing is written.
+  React.useEffect(() => {
+    if (!task || !onConflicts || !Array.isArray(onConflicts)) { setConflictTask(null); return; }
+    if (!task.dueAt) { setConflictTask(null); return; }
+    setConflictTask(findConflictFor(task.id, task.dueAt, onConflicts) || null);
+  }, [task && task.id, task && task.dueAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const router = task.metadata && task.metadata.router;
   const routerHasSkills = !!(router && Array.isArray(router.skillIds) && router.skillIds.length > 0);
@@ -419,7 +439,11 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
           </div>
         </div>
 
-        {/* ── Phase 4 (P0-B): schedule editor ─────────────────────────── */}
+        {/* ── Phase 2 (G-2/G-3): schedule editor with DatePickerSheet ────
+            The two original testids (workbench-detail-schedule-date / -due)
+            remain — they are now the TRIGGER BUTTONS that open the sheet,
+            not native inputs. Storage semantics unchanged: scheduledDate is
+            a local "YYYY-MM-DD"; dueAt is a UTC ISO instant. */}
         {onSetSchedule && (
           <div style={{ ...card, marginTop: 14 }} data-testid="workbench-detail-schedule">
             <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-faint)", marginBottom: 9, letterSpacing: "0.03em" }}>
@@ -427,18 +451,28 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
               排期（由你设置，引擎不会自动安排）
             </div>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-              <label style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)" }}>
+              <button
+                aria-label={schedDate ? `计划日期：${formatCN(schedDate) || schedDate}，点击修改` : "计划日期：未设置，点击选择"}
+                aria-haspopup="dialog"
+                data-testid="workbench-detail-schedule-date"
+                onClick={() => setPickerOpen("date")}
+                style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)", border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "8px 13px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", minHeight: 48, cursor: "pointer", textAlign: "left" }}>
                 计划日期
-                <input type="date" aria-label="计划日期" data-testid="workbench-detail-schedule-date"
-                  value={schedDate} onChange={(e) => setSchedDate(e.target.value)}
-                  style={{ border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "8px 11px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--text-strong)" }} />
-              </label>
-              <label style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)" }}>
+                <span style={{ fontSize: 13.5, color: "var(--text-strong)" }}>
+                  {schedDate ? (formatCN(schedDate) || schedDate) : "未设置"}
+                </span>
+              </button>
+              <button
+                aria-label={dueInput ? `截止时间：${formatCNTime(dueInput.slice(0, 10), dueInput.slice(11, 16)) || dueInput}，点击修改` : "截止时间：未设置，点击选择"}
+                aria-haspopup="dialog"
+                data-testid="workbench-detail-schedule-due"
+                onClick={() => setPickerOpen("due")}
+                style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)", border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "8px 13px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", minHeight: 48, cursor: "pointer", textAlign: "left" }}>
                 截止时间
-                <input type="datetime-local" aria-label="截止时间" data-testid="workbench-detail-schedule-due"
-                  value={dueInput} onChange={(e) => setDueInput(e.target.value)}
-                  style={{ border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "8px 11px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--text-strong)" }} />
-              </label>
+                <span style={{ fontSize: 13.5, color: "var(--text-strong)" }}>
+                  {dueInput ? (formatCNTime(dueInput.slice(0, 10), dueInput.slice(11, 16)) || dueInput) : "未设置"}
+                </span>
+              </button>
               <Button size="sm" data-testid="workbench-detail-schedule-save" onClick={saveSchedule}>保存排期</Button>
               {(task.scheduledDate || task.dueAt) && (
                 <span data-testid="workbench-detail-schedule-current" style={{ fontSize: 12, color: "var(--text-faint)" }}>
@@ -446,8 +480,49 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
                 </span>
               )}
             </div>
+            {/* Phase 2 (#4): conflict warning (never auto-rescheduled) */}
+            {conflictTask && (
+              <div data-testid="workbench-detail-schedule-conflict" role="alert" style={{
+                marginTop: 9, padding: "8px 12px", borderRadius: "var(--radius-sm)",
+                background: "var(--warning-soft)", color: "var(--warning-ink, #9A6300)",
+                fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 6,
+              }}>
+                <Icon name="alert-triangle" style={{ width: 14, height: 14 }} />
+                时间冲突：与「{conflictTask.title}」的截止时间重叠。请自行调整，系统不会自动改期。
+              </div>
+            )}
           </div>
         )}
+
+        {/* Phase 2 (G-2): the DatePickerSheet itself */}
+        <DatePickerSheet
+          open={pickerOpen === "date"}
+          mode="date"
+          title="选择计划日期"
+          initialDate={schedDate || null}
+          onConfirm={(dayStr) => {
+            // 直接写盘：计划日期单独保存（与保存排期按钮同路径，语义一致）。
+            setPickerOpen(null);
+            if (!onSetSchedule) return;
+            if (!dayStr) { onSetSchedule(task.id, { scheduledDate: null }); return; }
+            onSetSchedule(task.id, { scheduledDate: dayStr });
+          }}
+          onCancel={() => setPickerOpen(null)}
+        />
+        <DatePickerSheet
+          open={pickerOpen === "due"}
+          mode="datetime"
+          title="选择截止时间"
+          initialDueAt={dueInput ? new Date(dueInput).toISOString() : null}
+          onConfirm={(dayStr, hhmm) => {
+            setPickerOpen(null);
+            if (!onSetSchedule) return;
+            if (!dayStr || !hhmm) { onSetSchedule(task.id, { dueAt: null }); return; }
+            // Same timezone semantics as the old input: local HH:mm → ISO.
+            onSetSchedule(task.id, { dueAt: new Date(`${dayStr}T${hhmm}`).toISOString() });
+          }}
+          onCancel={() => setPickerOpen(null)}
+        />
 
         {/* ── Phase 4 (P0-A): project link ─────────────────────────────── */}
         {onLinkProject && projects.length > 0 && (

@@ -32,6 +32,7 @@ import { ProgressCenterScreen } from "./screens/ProgressCenterScreen.jsx";
 import { PlacesScreen } from "./screens/PlacesScreen.jsx";
 import { TasksScreen } from "./screens/TasksScreen.jsx";
 import { TaskDetailScreen } from "./screens/TaskDetailScreen.jsx";
+import { ScheduleScreen } from "./screens/ScheduleScreen.jsx";
 import { ReviewCenterScreen } from "./screens/ReviewCenterScreen.jsx";
 import { HistoryScreen } from "./screens/HistoryScreen.jsx";
 import { SettingsScreen } from "./screens/SettingsScreen.jsx";
@@ -683,6 +684,7 @@ export default function App() {
       <WorkbenchHome tasks={wbTasks}
         onCreateTask={createTaskFromGoal}
         onGoSearch={() => changeWbTab("search")} onGoTasks={() => changeWbTab("tasks")}
+        onGoSchedule={() => changeWbTab("schedule")}
         onOpenTask={openTaskDetail}
         todayTasks={homeToday}
         openTaskCount={homeOpenCount}
@@ -736,6 +738,7 @@ export default function App() {
           onSetTitle={handleSetTitle}
           onLinkPlace={handleLinkTaskToPlace}
           places={wbPlaces}
+          onConflicts={wbTasks}
           projects={wbProjects}
           notes={detailTask ? WBStore.getNotes({ taskId: detailTask.id }) : []}
           onAddNote={addTaskNote} />
@@ -754,6 +757,9 @@ export default function App() {
       <PlacesScreen places={wbPlaces} projects={wbProjects}
         onCreate={handleCreatePlace} onStatus={handlePlaceStatus}
         onVisit={handlePlaceVisit} onRemove={handleRemovePlace} />
+    ),
+    schedule: (
+      <ScheduleScreen tasks={wbTasks} onOpenTask={openTaskDetail} />
     ),
     progress: (
       <ProgressCenterScreen data={progressCenterData} onOpenProject={openProjectDetail} />
