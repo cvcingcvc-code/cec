@@ -1,21 +1,61 @@
 # V2.3 执行状态（V23_EXECUTION_STATE）
 
 > 持续更新：每轮 10 步迭代的第 9 步刷新本文件。
-> 最后更新：2026-10-13 05:58 — Phase 1 五缺口全部实现并通过验收。
+> 最后更新：2026-10-13 — Phase 4 笔记中心完成并推送（993c0b5）。
 
 ## 1. 当前状态卡
 
 ```
-PHASE = 1（完整任务系统）✅ 完成 → 下一步 Phase 2（日程系统）
-CURRENT_HEAD = b349f26 + 未提交的 V2.3 Phase 1 改动（工作树含新实现）
-FEATURES_IMPLEMENTED = 16 项任务能力中 15 项 REAL（仅任务↔地点在 UI 侧为 additive 新字段）
-TESTS_PASS = 单测 351/351、build-smoke 18/18、vite build 成功（7.99s）
+PHASE = 4（笔记与录音）数据层+笔记中心 ✅ → 剩余：自动保存强化 + Android 录音（BLOCKED，插件未装）→ 下一步 Phase 5（真实活动源）
+CURRENT_HEAD = 993c0b5（feature/gorgon-opportunity-v2，已推送 cec）
+FEATURES_IMPLEMENTED = Phase 1 任务系统 15/16 REAL + Phase 2 日程系统 + Phase 3 地点管理 + Phase 4 笔记中心
+TESTS_PASS = 单测 394/394、build-smoke 18/18、vite build 成功（8.32s）
 TESTS_FAIL = 0
-ANDROID_STATUS = debug APK ebe4ca74… 有效（未含 Phase 1 新改动，需重新打包）
+ANDROID_STATUS = debug APK ebe4ca74… 有效（未含 Phase 1-4 新改动，Android 交付轮重新打包）
 REAL_DATA_STATUS = 活动数据 DEMO/MOCK；用户数据 localStorage REAL（v2 envelope + quarantine）
-BLOCKERS = AI 端到端接线方案待用户决策（Phase 7）；真机验收无物理设备（Issue #1/#2 OPEN）
-NEXT_TASK = Phase 2：日程系统（周/月视图 + 日期选择器实施 + 系统通知）
+BLOCKERS = Android 录音（@capacitor/voice-recorder 类插件未装，真机录音 BLOCKED/NOT_TESTED）；AI 端到端接线方案待用户决策（Phase 7）；真机验收无物理设备（Issue #1/#2 OPEN）
+NEXT_TASK = Phase 5：真实活动源（数据源接入，替换 DEMO/MOCK 活动）
 ```
+
+## 1.0a Phase 4 笔记中心交付记录（2026-10-13，commit 993c0b5，已推送）
+
+| 交付 | 说明 | 测试 |
+|---|---|---|
+| lib/note-view.js | searchNotes（text + audioPath 大小写不敏感）+ exportNotesText（纯文本 digest，时间正序） | v23-note-gaps.test.mjs |
+| NotesScreen.jsx | 笔记中心：全局搜索 + kind 过滤（全部/文本/录音）+ 关联展示（任务可点击跳转/地点/项目）+ 剪贴板导出 + 删除；audio 笔记指针形状展示（audioPath + 时长），**无假录音按钮**（诚实 NOT_IMPLEMENTED） | UI 层 |
+| navigation | 新「笔记」tab（schedule 后）+ mobile more drawer | workbench-shell.test.mjs（+1） |
+| App.jsx | NotesScreen 接线（wbNotes/tasks/places/projects） | UI 层 |
+
+**录音诚实纪律**：浏览器 MediaRecorder 存在 ≠ 真机可用；Capacitor 录音插件未装，数据层只锚定 audio 指针形状（normalizeNote 已支持 audioPath/audioDurationMs）
+**测试基线**：387 → **394**（+note-gaps 6 +shell 1）
+
+## 1.0 交付记录（Phase 1 → Phase 3）
+
+### Phase 2 日程系统（2026-10-13，commit 09546f5，已推送）
+
+| 交付 | 说明 | 测试 |
+|---|---|---|
+| lib/calendar.js | 纯函数：parseDay/addDays/diffDays/formatCN/monthGrid（周一为首日，42 格）/taskDaySlot（跨日 null 守卫）/conflictIdsOnDate（60 分钟窗口）/sortTasksForDay | v23-calendar.test.mjs（17 项） |
+| lib/schedule-view.js | effectiveDay/weekRange/monthRange/groupTasksByDate/tasksInMonth/tasksInWeek/overdueTaskIds | v23-schedule-view.test.mjs（10 项） |
+| DatePickerSheet.jsx | 三模式（date/datetime/range）单组件；48dp 格子；Esc/遮罩取消不写入；testid gg-datepicker* | UI 层 |
+| ScheduleScreen.jsx | 月历（红点冲突+计数）+ 本周 7 天 + 过期 banner + 未安排 bucket 诚实显示 | UI 层 |
+| TaskDetailScreen | 排期编辑器替换原生 input → DatePickerSheet 触发按钮 + 冲突警告行 | UI 层 |
+| navigation | 新「日程」tab（tasks 后）+ mobile more drawer | workbench-shell.test.mjs（+1） |
+
+**修复**：calendar.js conflictIdsOnDate 跨日误判（taskDaySlot 缺日期守卫，测试捕获）
+**测试基线**：351 → 368 → **379**
+
+### Phase 3 地点管理（2026-10-13，commit 8213820，已推送）
+
+| 交付 | 说明 | 测试 |
+|---|---|---|
+| lib/place-view.js | searchPlaces（name/address 大小写不敏感）+ duplicatePlaceName（trim + 自排除） | v23-place-gaps.test.mjs |
+| PlacesScreen 强化 | 文本搜索框；新建/编辑同名重复提示（role=status，创建仍是用户选择）；地点编辑表单（name/address upsert）；到访历史展开（最新在前，共 N 次）；地点笔记面板（note placeId 关联 + 增删）；地点卡片显示关联任务 + 项目 | UI 层 |
+| App.jsx | wbNotes state + handleEditPlace/handleAddPlaceNote/handleRemovePlaceNote + 新 props 接线 | UI 层 |
+| 验收场景 | 创建地点→安排走访→关联任务→完成访问→记录结果→再次查看（store 级全流程断言） | v23-place-scenario.test.mjs（1 项） |
+
+**语义锚定**：addVisit 第二次到访无复访计划 → 旧计划清除（nextPlan=null，状态已走访）；place_linked 记录在任务时间线（task.timeline）而非平面日志
+**测试基线**：379 → **387**（+place-gaps 7 +scenario 1）
 
 ## 1.1 Phase 1 交付记录（2026-10-13 05:40–05:58）
 
@@ -58,13 +98,16 @@ NEXT_TASK = Phase 2：日程系统（周/月视图 + 日期选择器实施 + 系
 | 上一阶段收口 | V2.2 长跑 Stage 1-8 全完成（V22_EXECUTION_STATE.md） |
 | 本阶段开始 | 2026-10-13 Phase 0 |
 | Phase 0 | ✅ 四文档完成（ROADMAP/STATE/MATRIX/ACCEPTANCE） |
-| Phase 1 | ✅ 五缺口实现，351/351 |
+| Phase 1 | ✅ 五缺口实现，351/351，commit 29430ca 已推送 |
+| Phase 2 | ✅ 日程系统（周月视图+DatePickerSheet），379/379，commit 09546f5 已推送 |
+| Phase 3 | ✅ 地点管理（编辑/搜索/重复提示/历史/笔记），387/387，commit 8213820 已推送 |
+| Phase 4 | ✅ 笔记中心（搜索/导出/过滤/关联展示），394/394，commit 993c0b5 已推送；Android 录音 BLOCKED（插件未装） |
 | 下次接手入口 | 本文件 → V23_V30_MASTER_ROADMAP.md → V23_ACCEPTANCE_MATRIX.md |
-| 环境要点 | GitHub 走 Clash 127.0.0.1:7890；pipeline 测试从仓库根跑；Node --test 用 glob 形式；模拟器最多两次受控启动 |
+| 环境要点 | GitHub 走 Clash 127.0.0.1:7890；pipeline 测试从仓库根跑；Node --test 用 glob 形式；模拟器最多两次受控启动；**Bash 工作目录会漂移到 WorkBuddy 会话目录，跑测试前必须显式 cd app/** |
 
 ## 5. 待用户决策点
 
-1. **Phase 7 AI 接线方案**（阻塞 Phase 7，不阻塞 Phase 2/3）：
+1. **Phase 7 AI 接线方案**（阻塞 Phase 7，不阻塞 Phase 2/3/4）：
    - 方案 A：桌面壳/CLI 注入 GORGON_AI_API_KEY（hostEnv 已支持，零浏览器风险）
    - 方案 B：Android 壳内安全存储 + Capacitor bridge（真机可用，工程量更大）
-2. **push 时机**：本地领先远端 6+ 提交（Phase 1 改动待提交），是否推送到 cec
+2. ~~push 时机~~：已解决——每阶段完成即自动推送 cec（Phase 2/3 均已推送验证）
