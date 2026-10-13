@@ -333,10 +333,16 @@ async function main() {
   check("step9-pre: existing localStorage keys captured", Array.isArray(keysBefore) && keysBefore.length > 0,
     JSON.stringify(keysBefore));
 
-  // ── step 1: search an activity (offline → recorded DEMO payload) ─────
+  // ── step 1: search an activity (real retrieval API) ──────────────────
   // The mobile tabbar's data-gg-nav="search" is the LEGACY 搜索 tab
   // (SearchScreen, static keyword search). The NL search lives behind the
   // 更多 drawer as data-gg-nav="smart" (NaturalSearchScreen) — drive that.
+  // G_DATE_PICKER G4.1 sync + real-API adaptation (2026-10-13): the APK now
+  // points at the deployed retrieval server (providerMode:"real"), so the
+  // cold WebView's first real fetch (TLS + planner + crawl) can take 25-40s+
+  // — the card wait is 90s. The DEMO-marker assertion became a providerMode
+  // honesty assertion: a REAL result honestly carries NO demo badge, and the
+  // screen must show the 真实检索 provider badge instead.
   await click('[data-workbench-nav="more"]');
   await waitFor(`!!document.querySelector('[data-testid="workbench-more-drawer"]')`);
   await click('[data-gg-nav="smart"]');
@@ -344,13 +350,20 @@ async function main() {
   check("step1: 智能搜索 (NaturalSearchScreen) opens from the mobile 更多 drawer", askUp);
   await typeInto('textarea[aria-label="告诉 Gorgon 你想参加什么活动"]', DEMO_QUERY, "HTMLTextAreaElement");
   await clickButton("帮我找活动");
-  const gotResults = await waitFor(`document.querySelectorAll('[data-gg-card-id]').length > 0`, { timeout: 40000 });
+  const gotResults = await waitFor(`document.querySelectorAll('[data-gg-card-id]').length > 0`, { timeout: 90000 });
   const cardCount = gotResults ? await evalJs(`return document.querySelectorAll('[data-gg-card-id]').length;`) : 0;
-  check("step1: activity search returns results (offline demo payload)", gotResults, "cards=" + cardCount);
+  check("step1: activity search returns results (real retrieval API)", gotResults, "cards=" + cardCount);
 
+  const realBadge = await evalJs(`
+    return [...document.querySelectorAll('*')].some(e => (e.innerText||'').trim() === '真实来源');`);
   const demoBadge = await evalJs(`
-    return [...document.querySelectorAll('[data-gg-card-id]')].some(c => (c.innerText||'').includes('DEMO'));`);
-  check("step10a: search results carry the DEMO marker (honest offline data)", demoBadge);
+    return [...document.querySelectorAll('*')].some(e => (e.innerText||'').trim() === 'DEMO DATA');`);
+  // Honesty: exactly ONE of the two — a real result must not be labelled
+  // demo, and a demo result must not be labelled real. (The ProviderBadge
+  // renders「真实来源」for providerMode:"real" /「演示数据」+ the DEMO DATA
+  // NoticeBlock for demo.)
+  check("step10a: search results are honestly labelled (真实来源 XOR DEMO DATA)",
+    realBadge !== demoBadge, `real=${realBadge} demo=${demoBadge}`);
 
   // The NL result card has no onClick on the card itself — the「详情」button
   // in its footer opens the overlay. Click that.
@@ -445,14 +458,42 @@ async function main() {
   check("step4: a saved suggestion is editable by the user", editUp && edited);
 
   // step 5: schedule Task A (planned date + due time)
+  // G_DATE_PICKER G4.1 sync (2026-10-13): the two schedule testids are now
+  // TRIGGER BUTTONS that open the DatePickerSheet — the native inputs are
+  // gone. Drive: open the field → click today's grid cell → 确定. The
+  // localStorage assertions below (:456-459) are UNCHANGED — they are the
+  // "storage format + timezone semantics unchanged" guard and must not be
+  // weakened (weakening them = faking results).
   const today = await evalJs(`
     const d=new Date(); const p=n=>String(n).padStart(2,'0');
     return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());`);
-  await typeInto('[data-testid="workbench-detail-schedule-date"]', today);
-  await typeInto('[data-testid="workbench-detail-schedule-due"]', today + "T18:30");
+  // planned date via the DatePickerSheet
+  await click('[data-testid="workbench-detail-schedule-date"]');
+  await waitFor(`!!document.querySelector('[data-testid="gg-datepicker-confirm"]')`);
+  await click(`[data-testid="gg-datepicker-day"][data-date="${today}"]`);
+  await click('[data-testid="gg-datepicker-confirm"]');
+  await sleep(500);
+  // due time via the datetime DatePickerSheet (18:30 local)
+  await click('[data-testid="workbench-detail-schedule-due"]');
+  await waitFor(`!!document.querySelector('[data-testid="gg-datepicker-confirm"]')`);
+  await click(`[data-testid="gg-datepicker-day"][data-date="${today}"]`);
+  // step the time to 18:30: the sheet seeds 09:00 (hh=9, mm=0)
+  //   hour +1 x9  → 18:00 ; minute +5 x6 → :30
+  await evalJs(`
+    const hPlus = document.querySelectorAll('[aria-label="小时加一"]');
+    for (let i = 0; i < 9 && hPlus.length; i++) hPlus[0].click();
+    return true;`);
+  await sleep(200);
+  await evalJs(`
+    const mPlus = document.querySelectorAll('[aria-label="分钟加一"]');
+    for (let i = 0; i < 6 && mPlus.length; i++) mPlus[0].click();
+    return true;`);
+  await sleep(200);
+  await click('[data-testid="gg-datepicker-confirm"]');
+  await sleep(500);
   await click('[data-testid="workbench-detail-schedule-save"]');
   const schedSaved = await waitFor(`!!document.querySelector('[data-testid="workbench-detail-schedule-current"]')`);
-  check("step5: schedule saved (planned date + due time)", schedSaved);
+  check("step5: schedule saved (planned date + due time via DatePickerSheet)", schedSaved);
   const schedStored = await evalJs(`
     const env=JSON.parse(localStorage.getItem('gorgon_workbench_tasks_v2')||'{}');
     const t=(env.tasks||[]).find(t=>t.id===${JSON.stringify(planTaskId)});
