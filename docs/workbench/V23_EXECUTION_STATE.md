@@ -1,22 +1,34 @@
 # V2.3 执行状态（V23_EXECUTION_STATE）
 
 > 持续更新：每轮 10 步迭代的第 9 步刷新本文件。
-> 最后更新：2026-10-13 — Phase 7 AI Client 安全接入完成并推送（7ddefa4）。
+> 最后更新：2026-10-13 — Phase 7 AI 接线 + Android 交付轮（新 APK v5 + E2E 同步）完成并推送（7da802d）。
 
 ## 1. 当前状态卡
 
 ```
-PHASE = 7（AI Client 安全接入）✅ runTask 透传 aiClient → 下一步 Android 交付轮（重打包 APK + SHA256 + E2E）
-CURRENT_HEAD = 7ddefa4（feature/gorgon-opportunity-v2，已推送 cec）
+PHASE = 7 ✅ + Android 交付轮 ✅ → 下一步 E2E 全绿（CDP 长会话稳定性）→ Phase 8-10
+CURRENT_HEAD = 7da802d（feature/gorgon-opportunity-v2，已推送 cec）
 FEATURES_IMPLEMENTED = Phase 1 任务系统 15/16 REAL + Phase 2 日程系统 + Phase 3 地点管理 + Phase 4 笔记中心 + Phase 5 自建活动 + Phase 6 项目统一 + Phase 7 AI Client 接线
 TESTS_PASS = 单测 411/411、build-smoke 18/18、vite build 成功（7.93s）
-TESTS_FAIL = 0
-ANDROID_STATUS = debug APK ebe4ca74… 有效（未含 Phase 1-7 新改动，Android 交付轮重新打包）
-REAL_DATA_STATUS = 活动数据 DEMO/MOCK + 自建活动 REAL（user origin envelope）；用户数据 localStorage REAL
-AI_STATUS = 链路全通：runTask 透传 aiClient（opt-in）→ hostEnv GORGON_AI_* 注入（key 不进 bundle/APK）→ provider 失败 fallback 本地（任务仍完成）；默认无 client 纯确定性（demo AI_CALLS=0）
-BLOCKERS = Android 录音（插件未装，BLOCKED/NOT_TESTED）；真机验收无物理设备（Issue #1/#2 OPEN）
-NEXT_TASK = Android 交付轮：重新打包 APK（含 Phase 1-7）+ SHA256 验证 + E2E → Phase 8-10
+TESTS_FAIL = 0（单测层）；E2E 全绿 NOT_YET（31/55 首轮完成，CDP 长会话 wedge 阻断，非代码缺口）
+ANDROID_STATUS = debug APK v5（SHA256 ff3be332…，Oct 13 10:06）含 Phase 1-7 全部新代码；已装模拟器
+REAL_DATA_STATUS = 活动数据 真实 API（providerMode:real，部署服务器）+ 自建活动 REAL（user origin envelope）；用户数据 localStorage REAL
+AI_STATUS = 链路全通：runTask 透传 aiClient（opt-in）→ hostEnv GORGON_AI_* 注入（key 不进 bundle/APK，AI factory 被 tree-shake 出 shipped bundle）→ provider 失败 fallback 本地（任务仍完成）；默认无 client 纯确定性
+BLOCKERS = Android 录音（插件未装，BLOCKED/NOT_TESTED）；真机验收无物理设备（Issue #1/#2 OPEN）；E2E CDP 长会话 evaluate 挂起（>3min 后，非代码缺口）
+NEXT_TASK = E2E 全绿收口（分段驱动/重建 forward）→ Phase 8-10
 ```
+
+## 0.8 Android 交付轮交付记录（2026-10-13，commit 7da802d，已推送）
+
+| 交付 | 说明 | 验证 |
+|---|---|---|
+| 新 debug APK v5 | vite build（VITE_API_BASE_URL→部署服务器）+ cap sync + gradlew assembleDebug（JDK 21 toolchain）| SHA256 ff3be332…；versionCode 5 |
+| APK 内容验证 | 读 assets bundle 确认 Phase 2-7 全部 testid 标记 + aiClient 透传 + 无 secret；AI factory tree-shake 出 bundle（key 注入代码不在 shipped 产物） | 7 PASS + no-secret PASS |
+| E2E step1 同步 | 卡片等待 40s→90s（CDP 实测冷 WebView 首次真实 fetch 25-40s+） | CDP 探针 |
+| E2E step10a 同步 | DEMO 断言→诚实 origin 徽标断言（真实来源 XOR DEMO DATA）——APK 打真实 API，真实结果不冒充 demo | ProviderBadge 文案核对 |
+| E2E step5 同步 | typeInto 原生 input→DatePickerSheet 触发器+gg-datepicker-day[data-date]+确定（G_DATE_PICKER G4.1 处置 1/3）；localStorage 断言（处置 2）原样保留 | 语法 + 单测 411/411 |
+
+**E2E 运行状态（诚实标注）**：step0-4 大部 PASS（搜索 15 条真实结果/详情/建项目/plan→5 todos/编辑）；step5+ 因 CDP 长会话 evaluate 挂起未跑完（31/55）。怀疑点：>3min 长会话后 WebView devtools 通道 wedge。下轮：分段驱动或断言前重建 forward。
 
 ## 0.9 Phase 7 AI Client 安全接入交付记录（2026-10-13，commit 7ddefa4，已推送）
 
