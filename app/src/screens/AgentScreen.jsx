@@ -14,6 +14,7 @@
 import React from "react";
 import { Button } from "../lib/ds.js";
 import { Icon } from "../components/Icon.jsx";
+import { importRunsMirror } from "../lib/agent-runs-mirror.js";
 
 const K_GATEWAY = "gorgon_agent_gateway_url";
 const K_TOKEN = "gorgon_agent_gateway_token";
@@ -91,6 +92,13 @@ export function AgentScreen({ flash, linkTask = null, linkableTasks = [] }) {
     const iv = setInterval(tick, 4000);
     return () => { stop = true; clearInterval(iv); };
   }, [connState, url, token]);
+
+  // Phase B3: mirror recent runs into localStorage (fire-and-forget) so the
+  // TaskDetail「电脑执行记录」card keeps working when the phone is offline.
+  React.useEffect(() => {
+    if (connState !== "ok" || runs.length === 0) return;
+    try { importRunsMirror(JSON.stringify({ runs })); } catch (e) { /* non-fatal */ }
+  }, [connState, runs]);
 
   const connect = async () => {
     setBusy(true);
