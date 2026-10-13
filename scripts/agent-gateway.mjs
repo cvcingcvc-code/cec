@@ -83,10 +83,10 @@ try {
   audit({ kind: "codex_adapter_load_error", error: String((e && e.message) || e) });
 }
 
-function gitSnapshot(label, runId) {
+function gitSnapshot(label, cwd) {
   // §3.4: record git status before/after an AI run — read-only proof.
-  return execGit(["status", "--porcelain=v1"], REPO_ROOT)
-    .then((out) => ({ label, dirty: out.trim().length, output: out.slice(0, 2000) }))
+  return execGit(["status", "--porcelain=v1"], cwd)
+    .then((out) => ({ label, dirty: out.trim().length, statusHash: crypto.createHash("sha256").update(out).digest("hex"), output: out.slice(0, 2000) }))
     .catch((e) => ({ label, error: String((e && e.message) || e) }));
 }
 
@@ -168,64 +168,101 @@ const EXECUTORS = {
   },
 };
 
-// Phase C: test-only executor injection hooks live BELOW the run engine
-// (GORGON_GATEWAY_EXTRA_EXECUTORS + GORGON_GATEWAY_EXTRA_EXECUTORS_FILE).
-// Production never sets these env vars, so the production allowlist above
-// is unchanged.
+// Test fixtures can execute local code, so an inherited injection variable
+// alone MUST NOT enable them. Require explicit test mode, a separate state
+// directory and loopback binding before reading or importing either format.
+function isWithin(parent, candidate) {
+  const rel = path.relative(parent, candidate);
+  return rel !== "" && !rel.startsWith(".." + path.sep) && rel !== ".." && !path.isAbsolute(rel);
+}
 
-// Phase C: tests can inject extra executors via GORGON_GATEWAY_EXTRA_EXECUTORS
-// (path to a JSON file of { id: { description, input, runSource } }). The run
-// function is passed as source text and evaluated with `new Function` INSIDE
-// this gateway process — production never sets the env var, so the production
-// allowlist is exactly the three executors above.
+const productionStateDir = path.join(__dirname, ".agent-gateway");
+const TEST_EXECUTORS_ENABLED = process.env.NODE_ENV === "test"
+  && process.env.GORGON_GATEWAY_TEST_MODE === "1"
+  && Boolean(process.env.GORGON_GATEWAY_STATE_DIR)
+  && path.relative(productionStateDir, STATE_DIR) !== ""
+  && !isWithin(productionStateDir, STATE_DIR)
+  && !isWithin(STATE_DIR, productionStateDir)
+  && !process.argv.includes("--lan");
+
+function testExecutorFile(file) {
+  // Resolve symlinks before checking containment; fixtures belong to the
+  // isolated state directory, not arbitrary files inherited from the shell.
+  const state = fs.realpathSync(STATE_DIR);
+  const production = fs.existsSync(productionStateDir) ? fs.realpathSync(productionStateDir) : productionStateDir;
+  if (path.relative(production, state) === "" || isWithin(production, state) || isWithin(state, production)) {
+    throw new Error("test executor state directory overlaps production state");
+  }
+  const resolved = fs.realpathSync(path.resolve(file));
+  if (!isWithin(state, resolved) || !fs.statSync(resolved).isFile()) {
+    throw new Error("test executor fixture must be inside the isolated state directory");
+  }
+  return resolved;
+}
+
+function canAddTestExecutor(id) {
+  // A test fixture may add executors, never replace the shipped allowlist.
+  return id !== "codex.readonly-diagnosis" && !Object.hasOwn(EXECUTORS, id)
+    && id !== "__proto__" && id !== "constructor" && id !== "prototype";
+}
+
+if (!TEST_EXECUTORS_ENABLED && (process.env.GORGON_GATEWAY_EXTRA_EXECUTORS
+  || process.env.GORGON_GATEWAY_EXTRA_EXECUTORS_FILE)) {
+  audit({ kind: "test_executor_injection_ignored", reason: "requires explicit isolated loopback test mode" });
+}
+
+// Preserve the JSON+runSource fixture format only behind the same gates as
+// ESM fixtures. In particular, reject built-in IDs BEFORE evaluating source.
 const EXTRA_FILE = process.env.GORGON_GATEWAY_EXTRA_EXECUTORS;
-if (EXTRA_FILE) {
+if (TEST_EXECUTORS_ENABLED && EXTRA_FILE) {
   try {
-    const patch = JSON.parse(fs.readFileSync(path.resolve(EXTRA_FILE), "utf8"));
+    const patch = JSON.parse(fs.readFileSync(testExecutorFile(EXTRA_FILE), "utf8"));
     for (const [id, spec] of Object.entries(patch)) {
+      if (!canAddTestExecutor(id)) continue;
       if (!spec || typeof spec !== "object" || typeof spec.runSource !== "string") continue;
       // eslint-disable-next-line no-new-func
       const fn = new Function(`"use strict"; return (${spec.runSource});`)();
       if (typeof fn !== "function") continue;
       EXECUTORS[id] = { description: String(spec.description || id), input: spec.input || {}, run: fn };
     }
-  } catch (e) { /* test-only hook: ignore bad patches */ }
+  } catch (e) {
+    audit({ kind: "extra_executors_json_error", error: String((e && e.message) || e) });
+  }
 }
 
-// Phase C: GORGON_GATEWAY_EXTRA_EXECUTORS_FILE — ESM module injection (the
-// module form keeps real functions and child_process imports; the JSON+new
-// Function form above is kept for compatibility with earlier test drafts).
-// Production never sets either env var. Failures never crash startup.
-function loadExtraExecutorModule() {
+// ESM fixtures retain real functions/imports for child-process tests. Finish
+// loading before HTTP startup so the advertised allowlist is deterministic.
+async function loadExtraExecutorModule() {
   const file = process.env.GORGON_GATEWAY_EXTRA_EXECUTORS_FILE;
-  if (!file) return;
+  if (!TEST_EXECUTORS_ENABLED || !file) return;
   try {
-    const mod_url = process.platform === "win32"
-      ? "file:///" + String(file).replace(/\\/g, "/")
-      : "file://" + String(file);
-    import(mod_url)
-      .then((mod) => {
-        const extra = mod && mod.default;
-        if (extra && typeof extra === "object") {
-          Object.assign(EXECUTORS, extra);
-          audit({ kind: "extra_executors_module_loaded", file, count: Object.keys(extra).length });
-        }
-      })
-      .catch((e) => audit({ kind: "extra_executors_module_error", file, error: String((e && e.message) || e) }));
+    const { pathToFileURL } = await import("node:url");
+    const mod = await import(pathToFileURL(testExecutorFile(file)).href);
+    const extra = mod && mod.default;
+    let count = 0;
+    if (extra && typeof extra === "object") {
+      for (const [id, spec] of Object.entries(extra)) {
+        if (!canAddTestExecutor(id) || !spec || typeof spec.run !== "function") continue;
+        EXECUTORS[id] = spec;
+        count++;
+      }
+      audit({ kind: "extra_executors_module_loaded", count });
+    }
   } catch (e) {
     audit({ kind: "extra_executors_module_error", file, error: String((e && e.message) || e) });
   }
 }
-loadExtraExecutorModule();
+await loadExtraExecutorModule();
 
 // ── Phase C (§3.3): whitelisted real-AI executor ────────────────────────
 // codex.readonly-diagnosis: runs the pre-approved read-only diagnosis
 // template through the real Codex CLI, in the FIXED workspace
-// F:\Gorgon-Workbench. Input from the phone is IGNORED by design — the
+// this Gateway checkout (or a local administrator's fixed override).
+// Input from the phone is IGNORED by design — the
 // prompt is server-side only. Status maps onto the unified state machine;
 // BLOCKED_* statuses surface honestly (never disguised as completed).
 if (CODEX_ADAPTER) {
-  const CODEX_WORKSPACE = process.env.GORGON_CODEX_WORKSPACE || "F:\\Gorgon-Workbench";
+  const CODEX_WORKSPACE = path.resolve(process.env.GORGON_CODEX_WORKSPACE || REPO_ROOT);
   const CODEX_TIMEOUT_MS = Math.min(600_000, Math.max(30_000,
     parseInt(process.env.GORGON_CODEX_TIMEOUT_MS || "420000", 10) || 420000));
 
@@ -238,6 +275,8 @@ if (CODEX_ADAPTER) {
   EXECUTORS["codex.readonly-diagnosis"] = {
     description: "Codex · 项目只读诊断（真实 AI 分析 Gorgon 项目，只读沙箱，约 3-7 分钟）",
     agent: "codex",
+    // Leave room for bounded before/after snapshots; the adapter times out first.
+    timeoutMs: CODEX_TIMEOUT_MS + 25_000,
     get availability() { return codexAvailability; },
     input: {}, // no phone input: pre-approved template only
     async run(_input, ctx) {
@@ -246,17 +285,19 @@ if (CODEX_ADAPTER) {
         throw Object.assign(new Error(`Codex CLI 不可用：${det.error}`), { kind: "UNAVAILABLE" });
       }
       // §3.4: git snapshot BEFORE the run (read-only proof).
-      const before = await gitSnapshot("before", null);
+      const before = await gitSnapshot("before", CODEX_WORKSPACE);
       const res = await CODEX_ADAPTER.execCodex({
         codexPath: det.codexPath,
         cwd: CODEX_WORKSPACE,
         prompt: CODEX_ADAPTER.READONLY_DIAGNOSIS_PROMPT,
         timeoutMs: CODEX_TIMEOUT_MS,
+        signal: ctx?.signal,
         onChild: (child) => { if (ctx && typeof ctx.setCancellable === "function") ctx.setCancellable(child); },
       });
       // §3.4: git snapshot AFTER — confirm no working-tree changes.
-      const after = await gitSnapshot("after", null);
-      const clean = before.dirty === after.dirty && !(after.output && before.output && after.output !== before.output);
+      const after = await gitSnapshot("after", CODEX_WORKSPACE);
+      const unchanged = !before.error && !after.error && before.statusHash === after.statusHash;
+      const clean = unchanged && after.dirty === 0;
 
       // Map adapter status onto the unified run result. BLOCKED_* are
       // honest failures — they become run.status via a thrown error so
@@ -270,6 +311,7 @@ if (CODEX_ADAPTER) {
             sessionId: res.sessionId || null,
             durationMs: res.durationMs,
             gitClean: clean,
+            gitUnchanged: unchanged,
             workspace: CODEX_WORKSPACE,
           },
         };
@@ -278,6 +320,8 @@ if (CODEX_ADAPTER) {
       const err = new Error(`[${res.status}] ${res.error || "codex 执行失败"}`);
       err.kind = res.status;
       err.output = res.output || "";
+      audit({ kind: "codex_failure", status: res.status, failureKind: res.failureKind, exitCode: res.exitCode,
+        durationMs: res.durationMs, stderr: res.stderr, gitUnchanged: unchanged });
       throw err;
     },
   };
@@ -346,6 +390,8 @@ function saveRuns(runsList) {
 const runs = loadRuns();
 reconcileStaleRuns();
 let executing = false;
+let executingRunId = null;
+const cancelHooks = new Map();
 const queue = [];
 const cancelled = new Set();
 
@@ -391,6 +437,7 @@ function processQueue() {
     return;
   }
   executing = true;
+  executingRunId = run.runId;
   run.status = "running";
   run.startedAt = new Date().toISOString();
   run.timeline.push({ ts: new Date().toISOString(), type: "running", message: "开始执行" });
@@ -438,12 +485,15 @@ function finalizeRunOnce(run, status, patch) {
 
 function executeRun(run) {
   const ex = EXECUTORS[run.executor];
+  const timeoutMs = Number.isFinite(ex.timeoutMs) && ex.timeoutMs > 0
+    ? Math.min(ex.timeoutMs, 625_000) : HARD_TIMEOUT_MS;
   let child = null; // Phase C: track the executor's spawned child (if any)
   let done = false;
+  const controller = new AbortController();
 
   const setCancellable = (c) => {
     child = c;
-    if (child && cancelled.has(run.runId)) {
+    if (child && (cancelled.has(run.runId) || run.__finalized)) {
       // cancel arrived between enqueue and spawn — kill immediately
       killProcessTree(child.pid, run.executor);
     }
@@ -451,21 +501,39 @@ function executeRun(run) {
 
   const ctx = {
     setCancellable,
+    signal: controller.signal,
     // Adapters call this to register the real child process for
     // timeout/cancel tree-kill. No hook = pure in-process promise.
   };
 
   const timer = setTimeout(() => {
+    controller.abort();
     // Phase C: kill the real child tree FIRST, then finalize as timed_out.
     if (child && child.pid) killProcessTree(child.pid, "timeout");
-    if (finalizeRunOnce(run, "timed_out", { error: `hard timeout (${HARD_TIMEOUT_MS}ms)` })) {
+    if (finalizeRunOnce(run, "timed_out", { error: `hard timeout (${timeoutMs}ms)` })) {
       run.timeline.push({ ts: new Date().toISOString(), type: "timed_out", message: run.error });
       audit({ kind: "run_timeout", runId: run.runId });
       saveRuns(runs);
       executing = false;
+      executingRunId = null;
       processQueue();
     }
-  }, HARD_TIMEOUT_MS);
+  }, timeoutMs);
+
+  cancelHooks.set(run.runId, () => {
+    controller.abort();
+    if (child?.pid) killProcessTree(child.pid, "cancel");
+    if (!finalizeRunOnce(run, "cancelled", {})) return;
+    clearTimeout(timer);
+    run.timeline.push({ ts: new Date().toISOString(), type: "cancelled", message: "执行已取消" });
+    audit({ kind: "run_done", runId: run.runId, status: "cancelled" });
+    saveRuns(runs);
+    if (executingRunId === run.runId) {
+      executing = false;
+      executingRunId = null;
+      processQueue();
+    }
+  });
 
   let promise;
   try {
@@ -497,22 +565,27 @@ function executeRun(run) {
         audit({ kind: "run_late_error", runId: run.runId, error: String((e && e.message) || e) });
         return;
       }
-      if (finalizeRunOnce(run, "failed", { error: String((e && e.message) || e) })) {
-        run.timeline.push({ ts: new Date().toISOString(), type: "failed", message: run.error });
+      const status = e?.kind === "timed_out" ? "timed_out" : "failed";
+      if (finalizeRunOnce(run, status, { error: String((e && e.message) || e) })) {
+        run.timeline.push({ ts: new Date().toISOString(), type: status, message: run.error });
         audit({ kind: "run_error", runId: run.runId, error: run.error });
         saveRuns(runs);
       }
     })
     .finally(() => {
       clearTimeout(timer);
+      cancelHooks.delete(run.runId);
       done = true;
       if (!run.__finalized) {
         // safety net: never leave a run stuck in "running" (invariant 4)
         finalizeRunOnce(run, "failed", { error: "executor ended without a final state (gateway bug)" });
         saveRuns(runs);
       }
-      executing = false;
-      processQueue();
+      if (executingRunId === run.runId) {
+        executing = false;
+        executingRunId = null;
+        processQueue();
+      }
     });
 }
 
@@ -609,6 +682,7 @@ const server = http.createServer(async (req, res) => {
       cancelled.add(run.runId);
       const isFinal = ["completed", "failed", "timed_out", "cancelled"].includes(run.status);
       if (!isFinal) run.timeline.push({ ts: new Date().toISOString(), type: "cancel_requested", message: "收到取消请求" });
+      if (!isFinal) cancelHooks.get(run.runId)?.();
       saveRuns(runs);
       return sendJson(res, 202, { ok: true, runId: run.runId, status: run.status, cancelRequested: !isFinal });
     }
