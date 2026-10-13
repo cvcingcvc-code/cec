@@ -154,14 +154,21 @@ test("workbench tabs cover the shell surfaces", () => {
   // tasks, schedule and notes. Module D UI adds "places" — the field-visit
   // screen closing the P1 loop. V2.2 (Stage 4) adds "progress" — the
   // cross-project plain-language progress center. V2.3 (Phase 2) adds
-  // "schedule" — the formal 周/月 calendar view. The rest is unchanged.
-  assert.deepEqual(keys, ["home", "projects", "progress", "tasks", "schedule", "places", "search", "review", "history"]);
+  // "schedule" — the formal 周/月 calendar view. V2.3 (Phase 4) adds
+  // "notes" — the notes center (global search + export). The rest is
+  // unchanged.
+  assert.deepEqual(keys, ["home", "projects", "progress", "tasks", "schedule", "notes", "places", "search", "review", "history"]);
   assert.equal(Nav.WORKBENCH_SETTINGS.key, "settings");
 });
 
 test("schedule tab is reachable on mobile via the more drawer (V2.3)", () => {
   const keys = Nav.MOBILE_MORE_TABS.map((t) => t.key);
   assert.ok(keys.includes("schedule"), "mobile more drawer must expose the schedule view");
+});
+
+test("notes tab is reachable on mobile via the more drawer (V2.3 Phase 4)", () => {
+  const keys = Nav.MOBILE_MORE_TABS.map((t) => t.key);
+  assert.ok(keys.includes("notes"), "mobile more drawer must expose the notes center");
 });
 
 test("projects tab is reachable on mobile via the more drawer", () => {

@@ -33,6 +33,7 @@ import { PlacesScreen } from "./screens/PlacesScreen.jsx";
 import { TasksScreen } from "./screens/TasksScreen.jsx";
 import { TaskDetailScreen } from "./screens/TaskDetailScreen.jsx";
 import { ScheduleScreen } from "./screens/ScheduleScreen.jsx";
+import { NotesScreen } from "./screens/NotesScreen.jsx";
 import { ReviewCenterScreen } from "./screens/ReviewCenterScreen.jsx";
 import { HistoryScreen } from "./screens/HistoryScreen.jsx";
 import { SettingsScreen } from "./screens/SettingsScreen.jsx";
@@ -791,6 +792,10 @@ export default function App() {
     ),
     schedule: (
       <ScheduleScreen tasks={wbTasks} onOpenTask={openTaskDetail} />
+    ),
+    notes: (
+      <NotesScreen notes={wbNotes} tasks={wbTasks} places={wbPlaces} projects={wbProjects}
+        onRemoveNote={handleRemovePlaceNote} onOpenTask={openTaskDetail} flash={flash} />
     ),
     progress: (
       <ProgressCenterScreen data={progressCenterData} onOpenProject={openProjectDetail} />

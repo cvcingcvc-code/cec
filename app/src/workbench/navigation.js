@@ -28,6 +28,8 @@ export const WORKBENCH_TABS = [
   { key: "tasks", label: "我的任务", icon: "list-todo" },
   // Phase 2 (V2.3): the formal 周/月 schedule view.
   { key: "schedule", label: "日程", icon: "calendar-clock" },
+  // Phase 4 (V2.3): the notes center — every note, global search + export.
+  { key: "notes", label: "笔记", icon: "notebook-pen" },
   // Module D UI: field-visit places closing the P1 loop.
   { key: "places", label: "走访地点", icon: "map-pin" },
   { key: "search", label: "智能搜索", icon: "search" },
@@ -72,6 +74,7 @@ export const MOBILE_MORE_TABS = [
   { key: "progress", label: "进度中心", icon: "trending-up", workbench: true },
   { key: "tasks", label: "我的任务", icon: "list-todo", workbench: true },
   { key: "schedule", label: "日程", icon: "calendar-clock", workbench: true },
+  { key: "notes", label: "笔记", icon: "notebook-pen", workbench: true },
   { key: "places", label: "走访地点", icon: "map-pin", workbench: true },
   { key: "smart", label: "智能找活动", icon: "sparkles", legacy: true },
   { key: "weekend", label: "我的周末", icon: "calendar-heart", legacy: true },
