@@ -1,337 +1,161 @@
-# Gorgon Workbench — 个人智能行动工作台（产品发展方向）
+# Gorgon — From Information to Action
 
-> **当前主线：Android V2.1 真实可用验收。** 本页下方保留早期 Demo MVP 与设计系统历史说明，不代表当前全部能力。
+**个人 AI 智能行动工作台。**
 
-Gorgon 的固定方向是为普通人提供一个**日常生活行动工作台**：将活动/机会检索、任务、日程、地点走访、笔记、报名进度、多个项目的执行记录和复盘组织为可追溯的行动闭环。未来预留经过授权的**手机安全派发任务到常开电脑 AI 智能体**的能力；当前尚未提供远程电脑控制。
+发现信息、判断机会、规划任务、执行行动、积累经验。
 
-- **当前交付**：Android 修复版 APK 已更新 [GitHub Release v1.0.0](https://github.com/cvcingcvc-code/cec/releases/tag/v1.0.0)，公网检索和 WebView 网络层已验证；**物理安卓真机与 UI 完整流程仍为 NOT_TESTED**。
-- **固定开发路线**：[docs/ROADMAP.md](docs/ROADMAP.md)（V2.1 手机真机验收 → V2.2 生活工作台 → V2.3 项目进度 → V2.4 远程架构设计 → V3.0 安全远程 Agent → V3.1 视觉/UX 集中升级）。
-- **最新技术背景**：[项目总结](docs/PROJECT_FULL_SUMMARY.md)、[手机检索交接](docs/HANDOFF_PHONE_REAL_SEARCH.md)。正式开发必须核对实际代码、验收证据，不把 Demo/Mock 当真实数据。
-- **产品原则**：先功能真实可用，再逐阶段扩展；基本易用性同步保障，集中美术设计后置；外部高风险操作必须用户审批，进度与失败如实记录。
+> 产品定位冻结：2026-10-13。本 README 只描述**当前真实支持的功能**；未实现的能力如实标注，不夸大宣传。
 
 ---
 
-## 历史 Demo MVP / 设计系统资料（保留原文）
+## Gorgon 是什么
 
-# Gorgon Demo MVP
+Gorgon Workbench 让 AI 从「回答问题的助手」，变成帮助个人**整理信息、判断机会、规划行动、协调执行和积累经验**的工作系统。
 
-> **发现你的周末** — 一个 3 分钟可以完整演示的交互原型。
-> This is a **DEMO MVP** built on top of the recovered Gorgon design system.
-> The original design-system README follows below (unchanged).
+核心工作流程（信息到行动的闭环）：
 
-## 运行方式
-
-```bash
-# 在项目根目录（含 _ds_bundle.js 的那一层）
-python pipeline/api/server.py --port 8000
+```
+信息发现 → 证据分析 → 任务生成 → 日程规划 → 智能体执行 → 结果记录 → 失败复盘 → 长期记忆
 ```
 
-一个进程同时提供**界面**和**检索接口**（`POST /api/search`）。
-要把它发布到公网（只读、无登录）请看 **`docs/PUBLIC_DEPLOYMENT.md`**。
+每一环都以「可追溯、可核验、可复盘」为底线：信息有来源、判断有依据、任务有状态、执行有记录、失败有复盘。
 
-> 首次加载**不需要**外网 CDN：React / Babel / Lucide 已本地化到 `assets/vendor/`。
-> 唯一的外域请求是 Google Fonts，取不到时退化为系统字体，页面照常可用。
+## 为什么开发它
 
-**线上（已发布）**：<https://shanghai-activity-search.app.workbuddy.host/>
-— 服务跑在托管沙箱里，不依赖本机开机。地址与验证步骤见 `docs/PUBLIC_DEPLOYMENT.md`。
+过去，我一直希望有一个人，能够在我迷茫的时候给予指导。
 
-## 访问地址
+后来有了 AI，我开始思考，能否把它变成一个真正能够帮助我学习、工作、生活和成长的行动助手。
 
-| 界面 | 地址 |
+因此，我开始开发 Gorgon。先从自己使用开始，解决真实问题，再逐步扩展为其他人也能使用的工具。
+
+## 当前实际支持的功能（与代码对齐，诚实标注）
+
+### ✅ 已实现（REAL）
+
+| 能力 | 说明 |
 |---|---|
-| 📱 App（发现 / 搜索 / 智能 / 我的周末 / 地图） | `http://localhost:8000/` → 跳到 `/ui_kits/app/` |
+| 任务系统 | 创建（goal 输入）、7 态状态机（非法流转拒绝）、截止时间、子任务/步骤、执行记录（timeline）、完成历史 |
+| 日程系统 | 今日待办、周视图、日期选择器（DatePickerSheet）、ICS 导出 |
+| 地点管理 | CRUD、走访记录、复访计划、4 态状态机、搜索与历史 |
+| 笔记中心 | 文字笔记 CRUD、跨对象四向关联（活动/地点/任务/项目）、搜索/导出/过滤 |
+| 自建活动 | user origin envelope + 创建入口 + 周末/项目互通 |
+| 项目统一 | 项目 CRUD（软删除）、origin 诚实标注、聚合视图（任务/笔记/地点/复盘/报名/进度）、进度中心 |
+| AI 行动辅助 | provider contract + Mock 兜底 + HunyuanProvider + budget/cache + eligibility gate；opt-in 接线已交付，provider 失败自动降级本地（任务仍完成） |
+| Android 壳 | Capacitor 8（cn.gorgon.workbench）、离线持久化（localStorage → Preferences 镜像）、崩溃恢复（损坏存档不清除） |
+| Windows 桌面壳 | pywebview onedir 打包（`desktop/build.ps1` 一键重打包） |
 
-> **审核后台 / 桌面规划台 / 幻灯片不在这个服务里。** 它们是内部工具，
-> `pipeline/api/server.py` 刻意只放行 App 及其资源（白名单），其余路径一律 404。
-> 确实要看它们，就在根目录另起一个纯静态服务：
->
-> ```bash
-> python -m http.server 8001    # 然后访问 /ui_kits/admin/、/ui_kits/dashboard/、/slides/
-> ```
->
-> ⚠️ `http.server` **没有任何访问控制、目录列表也开着**（`pipeline/data/`、`.git/` 都能读到），
-> **只允许在本机用，绝对不要挂到公网。**
+测试基线：**App 单测 411/411、build-smoke 18/18（含 secret 扫描）、vite build PASS。**
 
-**Demo 模式**：在地址后加 `?demo=1`（例如 `.../ui_kits/app/?demo=1`），角落里会出现一个很淡的
-**「重置 Demo」** 按钮，用来一键清空演示状态。
+### ⬜ 未实现 / 未验收（如实标注）
 
-## 演示数据说明
+| 项 | 状态 |
+|---|---|
+| 物理真机完整流程验收 | **NOT_TESTED**（Issue #1/#2 OPEN） |
+| E2E 全绿 | **BLOCKED_ENVIRONMENT**（CDP 长会话 wedge，31/55 首轮） |
+| 任务优先级 / 失败重试 / 标题编辑 / 任务↔地点 / 跨字段搜索 | NOT_IMPLEMENTED / PARTIAL |
+| 月视图 / 系统通知 / TXT·Markdown 导入 | NOT_IMPLEMENTED |
+| Android 录音 / 回放 / 转写 | NOT_IMPLEMENTED（字段形状已就绪） |
+| 真实地图 | NOT_IMPLEMENTED |
+| 电脑 AI 智能体远程联动 | **仅设计**（见下文规划，未开发） |
+| Jev 判断引擎 / 智能记忆库 / 业务自动化 | **规划中**（未实现） |
 
-- ⚠️ 当前所有活动都是 **DEMO DATA（演示样例数据，不是真实活动）**，每条都带 `demo: true` 标记，
-  `source` 一律以 `DEMO DATA` 开头，App 内也会显示 `DEMO` 角标。
-- ⚠️ **当前版本没有真实爬虫，也没有生产数据库。** 后台的「爬取队列」是样例数据。
-- 演示中的「我的周末 / 收藏 / 审核结果」保存在**浏览器本地**（localStorage），
-  没有登录、没有账号，也不会上传到任何服务器。
+## 核心架构
 
-## 这一版实现了什么
+```
+┌────────────────────────────────────────────────┐
+│           Android / 浏览器 / Windows 桌面        │
+│  app/  React 18 + Vite 5 生产构建               │
+│    android/  Capacitor 8 壳（离线持久化镜像）     │
+│    desktop/  pywebview Windows 壳               │
+├────────────────────────────────────────────────┤
+│              Python Pipeline（后端）             │
+│  api/server.py   静态服务 + POST /api/search    │
+│  search/         planner→provider→rank         │
+│  ingest→normalize→clean→dedupe→trust→review    │
+│  data/           raw→…→approved（可溯源）        │
+└────────────────────────────────────────────────┘
+```
 
-- 发现：24 条活动、分类筛选、只看免费、按区域筛选、实时数量。
-- 搜索：跨标题 / 简介 / 标签 / 分类 / 场馆 / 区域 / 价格，大小写不敏感，带空状态。
-- 活动详情：完整信息 + **报名入口** + **加入我的周末** + **在地图查看** + 收藏。
-- 我的周末：本地持久化，刷新不丢，可按周六/周日查看，可移除。
-- 收藏：本地持久化，可在「我的周末 → 收藏」中查看与移除。
-- 地图：示意地图（不接真实地图 SDK），地点列表、选中高亮、从详情跳转定位。
-- 审核后台：通过 / 退回 / 拒绝，结果本地持久化，刷新不丢。
+- 前端与后端解耦：APK 内无后端，WebView 指向部署的检索服务（构建时 `VITE_API_BASE_URL` 注入）。
+- **唯一** API 配置点：`app/src/lib/api.js`；其余禁止硬编码 API 地址。
+- 详细架构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
-> 技术栈保持与恢复版本一致：React 18 (CDN) + Babel Standalone + 纯静态 HTML/JSX/CSS，
-> 无构建步骤、无打包工具。
+## Android 运行情况
 
----
+- 当前交付 APK **v5**：debug `FF3BE332…`（含 Phase 1-7 全部新代码，指向真实检索 API）/ release `6427DFD1…`（versionCode 5，签名构建）。
+- 已验证：模拟器安装与 WebView origin、公网 health/OPTIONS/search、WebView 网络层、离线持久化镜像（单测层）。
+- **未验收**：物理真机完整九步链路（冷启动→检索→建任务→排期→笔记→重启保留→断网）。
+- 下载：[GitHub Release v1.0.0](https://github.com/cvcingcvc-code/cec/releases/tag/v1.0.0)（以 Release 页最新 SHA256SUMS 为准）。
 
-# 戈尔贡 · Gorgon Design System
+## AI 智能体协作的规划（未开发，仅设计）
 
-> **发现你的周末** — Discover your weekend.
-> The design language for Gorgon, a platform that helps Shanghai university
-> students find weekend activities online and sync them to their schedule.
+目标：用户通过手机提交开发任务，由电脑上的 AI 智能体执行并回传结果。
 
----
+- 数据模型：Device / AgentAdapter / TaskRun / Approval / Event（复用现有 7 态任务状态机与人工批准模型）。
+- 安全边界：电脑端只出站连接（outbound-only，零公网入站端口）；Device 配对绑定；只读/普通写/敏感三级授权；敏感操作必须用户批准；全链路 append-only 审计。
+- 工具适配：Codex / WorkBuddy 等现有工具**必须先核实真实可用的集成接口**，不假定第三方工具都有开放 API；无公开接口的工具只支持人工方式。
+- 设计文档：[docs/AGENT_REMOTE_DESIGN.md](docs/AGENT_REMOTE_DESIGN.md)、[docs/REMOTE_AGENT_ARCHITECTURE.md](docs/REMOTE_AGENT_ARCHITECTURE.md)。
 
-## 1 · Company & product context
+## Jev 判断层（规划中）
 
-**上海戈尔贡科技有限公司 (Shanghai Gorgon Technology Co., Ltd.)** builds **Gorgon (戈尔贡)** —
-a discovery-and-sync platform for 上海 college students. Students browse weekend
-activities aggregated from across the web (club events, markets, sports meetups,
-exhibitions, workshops, live shows), then **sync** the ones they like into a personal
-"我的周末 / My Weekend" schedule that lives on their phone.
+统一结构化判断引擎——**负责判断，不直接掌握高风险执行权限**。
 
-The two verbs that define the product are **发现 (discover)** and **同步 (sync)**.
-Everything in the brand reinforces this: the mark is an open ring (discover) closed
-by a mint dot (synced); the signature gradient runs indigo→mint (browse→saved).
+- 应用：活动检索、副业机会评估、求职信息分析、订单异常分析、任务优先级、来源可信度。
+- 输出契约：输入信息 / 来源 / 判断结果 / 可信依据 / 证据缺口 / 风险提示 / 下一步建议。
+- 硬规则：证据不足时 **ABSTAIN**；判断只是建议，执行权在用户。
 
-**Surfaces in this system**
-- **Mobile app** (primary) — Discover feed, Activity detail, Search & filters, My Weekend, Map.
-- **Web dashboard** — a desktop companion for planning the week and managing saved activities.
-- **Slide template** — branded deck for pitches and campus partnerships.
+## 统一任务与记忆模型
 
-**Sources provided:** none. There was no attached codebase, Figma, or existing brand.
-This system was designed from scratch against the company brief above. If a real
-codebase or Figma exists, re-attach it via the Import menu and this system should be
-reconciled against it.
+- **统一对象**：Project（项目）/ Task（任务）/ Opportunity（信息机会）/ ScheduleItem（日程）/ PlaceVisit（地点走访）/ Note（笔记）/ Source（可追溯来源）/ Review（复盘）。活动/求职/学习/地推/个人项目共享同一套模型，不做五套重复系统。
+- **智能记忆（规划中）**：导入其他 AI 智能体的对话摘要、项目说明、技术经验、失败记录，构建可检索的个人记忆库；保留来源/版本/时间/去重记录；支持审查、纠错、删除；**不自动把历史内容判断为真实**。
 
----
+## 下一阶段路线图
 
-## 2 · Content fundamentals (voice & copy)
+完整路线图见 [docs/ROADMAP.md](docs/ROADMAP.md)，五大优先级：
 
-Gorgon talks like a **smart, upbeat friend who knows what's on this weekend** — never
-corporate, never try-hard. The product is bilingual: **Chinese leads, English supports.**
+1. **Android 日常可用**（P0）— 真机验收收口 + 任务系统最小增量补齐。
+2. **电脑 AI 智能体远程联动**（P1）— 手机派发任务，电脑智能体执行。
+3. **Jev 信息分析**（P1）— 统一结构化判断引擎。
+4. **智能记忆**（P2）— 可检索、可审查的个人记忆库。
+5. **业务自动化**（P3）— 授权与平台规则内的重复动作自动化。
 
-**Language & casing**
-- **Chinese is primary.** Headlines, buttons, and body are Chinese first.
-- **English appears as an accent layer** — kickers, labels, section tags, numerals,
-  the wordmark. Set English in `Space Grotesk`, often UPPERCASE with wide tracking
-  (e.g. `THIS WEEKEND`, `42 ACTIVITIES`). This bilingual contrast is a signature.
-- Chinese never uses ALL-CAPS (not a thing); emphasis comes from weight/size.
+## 已知限制
 
-**Person & tone**
-- Address the user as **你** (informal "you"), never 您. Warm, peer-to-peer.
-- The product refers to itself rarely; when it does it's **Gorgon** or **我们**.
-- Imperative and inviting: 「同步到我的周末」「去发现」「这周有空吗？」
-- Short. Most UI strings are 2–6 Chinese characters. Headlines under 12.
+- 模拟器 E2E 存在 CDP 长会话稳定性问题（>3 分钟后 evaluate 挂起），属环境问题（BLOCKED_ENVIRONMENT），非代码缺口。
+- 物理真机验收依赖设备，尚未执行。
+- 检索服务的真实数据依赖部署的服务器；本地默认 DEMO/Mock 数据（诚实徽标标注）。
+- 仓库历史含多阶段演进（Demo MVP → Workbench 竞赛版 → V2.x），旧文档保留在 `docs/workbench/`、`reports/`、`release/` 作为历史证据，不代表当前能力。
 
-**Vibe & examples**
-- Energetic but not noisy. Confident, a little playful.
-- ✅ `本周末 · 38 场活动` · `已同步 ✓` · `就在你附近` · `周六下午有空？`
-- ✅ Kicker: `THIS WEEKEND` · CTA: `去发现` / `立即同步`
-- ❌ Avoid: 「欢迎使用本平台」「点击此处查看更多详情」 (too formal/clunky).
-- Numbers and times are a feature — show them proudly in display/tabular figures
-  (`14:30`, `¥0`, `2.1km`, `周六 6.15`).
+## 本地开发与安全说明
 
-**Emoji:** sparingly, never as load-bearing UI. Category color-dots and Lucide icons
-do the iconographic work instead. An occasional emoji in marketing copy is fine.
+```bash
+# 前端（app/）
+cd app
+npm install
+npm run dev        # 开发（代理 /api → 127.0.0.1:8000）
+npm test           # 单元测试（411/411）
+npm run build      # 生产构建
 
----
+# 后端检索服务（项目根）
+python pipeline/api/server.py --port 8000
 
-## 3 · Visual foundations
+# Android APK（需 F 盘工具链或本机 SDK）
+cd app && node scripts/build-apk.mjs   # vite build + cap sync
+cd android && ./gradlew assembleDebug
 
-**Overall feeling:** clean, bright, and modern with a youthful charge. Generous white
-space on cool slate; punctuated by electric indigo and a fresh mint. Rounded, friendly,
-confident — closer to a well-made consumer product than a utilitarian listings app.
+# Windows 桌面壳
+powershell -ExecutionPolicy Bypass -File desktop/build.ps1
+```
 
-### Color
-- **Primary — Electric Indigo `#5B47E0`.** Brand actions, links, focus, the mark.
-- **Secondary — Mint `#00C28E`.** "Synced/saved" states, success, the second half of
-  the sync gradient. Used as a reward color — it shows up when something good happens.
-- **Neutrals — cool Slate.** Backgrounds are `--bg-base #F7F8FB`; cards are pure white.
-  Text is near-black ink, not pure black.
-- **Category accents** (sport/music/art/food/outdoor/study) give the feed visual variety
-  — each activity type carries a consistent hue dot/tag.
-- **Accent pops** (coral, amber, pink) used rarely for live/hot/trending flags.
-- Two brand colors maximum on any one screen. Let mint be a moment, not a wash.
+**安全约定**：
 
-### Typography
-- **Display — `Space Grotesk`.** Headlines, big numerals, times, kickers. Geometric,
-  slightly quirky, techy-young. Tight tracking on large sizes.
-- **Sans — `Plus Jakarta Sans` → `Noto Sans SC`.** UI + body. Latin renders in Jakarta,
-  CJK falls through to Noto Sans SC automatically.
-- **Mono/numerals** reuse Space Grotesk with tabular figures (`.tnum`) for times/prices.
-- Hierarchy comes from size + weight contrast, not many fonts. Big confident headlines,
-  calm readable body.
-
-### Spacing & layout
-- **4px base grid.** Comfortable, airy density — this is a browse-and-feel app, not a
-  dashboard crammed with data.
-- Mobile frame is `420px`. Content has generous 20–24px side gutters.
-- Cards stack with 12–16px gaps; sections separated by 24–32px.
-
-### Backgrounds
-- Mostly flat `--bg-base` slate or white. **No busy textures or patterns.**
-- **Gradients are reserved for hero moments** — the indigo→mint `--grad-sync`, the
-  indigo `--grad-brand`, and the dusk gradient for big marketing/empty states.
-  Never gradient body backgrounds wholesale (avoid AI-slop purple wash).
-- Activity imagery is full-bleed inside rounded cards, warm and lively (real photos of
-  events/places), with a subtle bottom protection gradient when text overlays.
-
-### Corner radii & cards
-- Friendly, generously rounded: chips/tags `pill`, buttons `14px`, cards `20px`,
-  sheets/hero `28–36px`. App icon squircle `22–32px`.
-- **Cards** = white surface, `--radius-lg (20px)`, `--shadow-sm` resting, a hairline
-  `--border-subtle` only when on white-on-white. No colored left-border accents.
-- Image cards: full-bleed photo top, content below, whole card rounded and clipped.
-
-### Shadows & elevation
-- Soft, **indigo-tinted** layered shadows (cool, never neutral-gray).
-- Resting cards `--shadow-sm`; raised/sheets `--shadow-md/lg`; primary buttons get a
-  colored `--shadow-brand` glow; mint CTAs get `--shadow-mint`.
-- Elevation increases with interactivity, not decoration.
-
-### Borders & dividers
-- Hairline `1px` `--border-subtle` slate. Dividers are low-contrast.
-- Inputs use a `1px` default border that thickens/recolors to indigo on focus + ring.
-
-### Motion
-- **Easing:** `--ease-out` for entrances, `--ease-spring` for playful confirmations
-  (e.g. the "synced ✓" pop). `--dur-base 200ms` default; `120ms` for hovers.
-- Fades + small upward transl(8–12px) for content; scale-in for the sync confirmation.
-- No infinite decorative loops. Respect `prefers-reduced-motion`.
-
-### Interaction states
-- **Hover:** primary → darker brand (`--brand-strong`) + slight lift; ghost → `--bg-sunken`.
-- **Press:** scale to `0.97`, shadow softens. Tactile, quick.
-- **Focus:** `3px` `--focus-ring` indigo halo, `2px` offset. Always visible.
-- **Selected/synced:** mint fill or mint check; the reward color.
-- **Disabled:** 45% opacity, no shadow, `not-allowed`.
-
-### Transparency & blur
-- Sticky top bars and the bottom tab bar use a translucent white with `backdrop-blur`
-  so content scrolls under them. Use blur only for floating chrome over content —
-  never as a body texture.
+- API key / 密钥永不进入仓库与前端 bundle：检索 key 只存 Python 侧；AI key 走宿主环境变量（GORGON_AI_*）；Android 签名 keystore gitignore。
+- `.env` / `.env.local` / `search.env` / `local.properties` / `keystore.properties` 均 gitignore；模板（`*.example`）提供。
+- 外部高风险操作（支付/发货/删除/外发）一律人工批准，产品不自动执行。
+- 项目迁移说明：开发根目录已迁至 `F:\Gorgon-Workbench`（源目录保留），见 `reports/migration/MIGRATION_REPORT.md`。
 
 ---
 
-## 4 · Iconography
+## 历史文档
 
-- **Library: [Lucide](https://lucide.dev)** — loaded from CDN
-  (`https://unpkg.com/lucide@latest`). Clean `2px` stroke, rounded line caps/joins;
-  matches Gorgon's friendly-geometric feel. This is a **substitution** chosen for the
-  from-scratch brand — swap for a bespoke set if one is commissioned.
-- Default icon stroke is `2px`, sized 18–24px in UI; color inherits `currentColor`
-  (usually `--text-muted`, or `--brand` when active).
-- **Category dots, not category icons, carry primary meaning** — each activity type maps
-  to a `--cat-*` color. Icons are wayfinding (search, map, calendar, heart, share),
-  not decoration.
-- **Emoji:** not used as UI. Unicode glyphs are avoided as icons. Use Lucide.
-- **Logo assets** in `assets/`: `logo-mark.svg` (squircle G + mint sync dot),
-  `logo-wordmark.svg` (mark + 戈尔贡 lockup), `logo-wordmark-light.svg` (for dark bg).
-
----
-
-## 5 · Index / manifest
-
-**Root**
-- `styles.css` — global entry (imports only). Consumers link this.
-- `readme.md` — this file. · `SKILL.md` — Agent-Skill wrapper.
-
-**`tokens/`** — `fonts.css`, `colors.css`, `typography.css`, `spacing.css`, `effects.css`, `base.css`
-
-**`assets/`** — `logo-mark.svg`, `logo-wordmark.svg`, `logo-wordmark-light.svg`
-
-**`guidelines/`** — foundation specimen cards (Type, Colors, Spacing, Brand) shown in the Design System tab.
-
-**`components/core/`** — reusable primitives:
-`Button`, `IconButton`, `Tag`, `CategoryDot`, `Badge`, `Avatar`, `Input`, `SearchField`,
-`Switch`, `SegmentedControl`, `ActivityCard`, `StatBlock` — each with `.jsx` + `.d.ts` + `.prompt.md`, plus card HTML.
-
-**`components/trust/`** — trust & verification primitives:
-`VerifiedBadge`, `SourceTag`, `TrustBanner`, `FreshnessLabel`, `ReportSheet` — the UI for
-信息真实性 (see §6). Same file pattern, plus `trust.card.html`.
-
-**`components/location/`** — location & navigation primitives:
-`RoutePlanner` (transit options: 地铁/公交/骑行/步行/驾车 + ETA) and `MapAppSheet`
-(deep-link hand-off to 高德 / 百度 / 腾讯 / Apple 地图). See §7. Plus `location.card.html`.
-
-**`ui_kits/`**
-- `app/` — mobile app (Discover, Activity detail, Search, My Weekend, Map).
-- `dashboard/` — web planning dashboard.
-- `admin/` — 审核后台 (review console): 爬取→自动校验→人工审核→发布. The human-in-the-loop
-  surface that gates information authenticity (see §6).
-
-**`slides/`** — branded sample slides (title, agenda, big-stat, comparison, quote, closing).
-
----
-
-## 6 · Trust & information authenticity · 可信度设计原则
-
-Gorgon aggregates weekend activities from across the web, so **information trust is
-the product's核心命题**. Every listing must let a student answer: *is this real, current,
-and from a source I can check?* The system encodes this in four layers, each with
-dedicated UI in `components/trust/`.
-
-**1 · Source provenance · 来源可溯**
-Every aggregated listing keeps its origin and links back. `SourceTag` renders
-「来源 · <出处> ↗」 and opens the original. "我们说的"永远能回到"他们说的".
-
-**2 · Host verification · 主办方认证** — `VerifiedBadge`, four levels:
-- `verified` (mint) — submitted credentials / official campus partner.
-- `official` (indigo) — verified venue or brand account.
-- `aggregated` (grey) — machine-scraped, not yet confirmed by the host.
-- `unverified` (amber) — user-submitted; flagged 待核实 until corroborated.
-
-**3 · Freshness & change · 时效与变更**
-`FreshnessLabel` shows 「<时间>更新」 or 「主办方已确认」. `TrustBanner` sits atop the
-detail view with a status: `confirmed` (mint) / `unverified` · `changed` (amber) /
-`cancelled` (coral). Aggregated listings never masquerade as confirmed.
-
-**4 · Community signal · 社群反馈**
-`ReportSheet` lets any student flag bad info (时间/地点有误, 已取消, 票价不符, 重复, 虚假).
-Reports + 到场率 + 「我去过」 feed back into a listing's trust level. The crowd keeps
-aggregated data honest.
-
-**Color discipline:** trust states reuse the semantic palette exactly — mint = confirmed
-(the reward color), amber = needs-check (warning), coral = cancelled (danger). No new
-colors are introduced; trust *is* the semantic system applied to information quality.
-
-**Copy rules:** never overclaim. An unconfirmed listing says 「来自网络聚合，尚未经主办方确认，
-请以原始来源为准」 — honest, not alarming. Confirmation is earned language, reserved for
-genuinely verified data.
-
----
-
-## 7 · Location & navigation · 到达方式与导航
-
-Discovery is only useful if students can actually *get there*. Every activity carries a
-full `address`, a `coord` { lng, lat }, and a `transit` array, surfaced in the detail
-view's **到达方式** section via two components in `components/location/`.
-
-**`RoutePlanner`** — a from→venue summary (straight-line distance) plus ranked transit
-options. Each option has a `mode` (`metro` / `bus` / `bike` / `walk` / `drive` / `taxi`),
-a line label, a step detail, an ETA, and optional cost; the recommended option is
-highlighted in brand indigo. Ends with a single **「用导航软件打开」** button.
-
-**`MapAppSheet`** — the hand-off. Rather than building an in-app turn-by-turn engine,
-Gorgon respects the map app students already use: a bottom sheet deep-links to
-**高德 / 百度 / 腾讯 / Apple 地图**, opening the native app (web fallback) with the
-destination prefilled. Students navigate in their tool of choice.
-
-> **Coordinate caveat:** providers use different geodetic systems — Amap & Tencent
-> GCJ-02, Baidu BD-09, Apple/GPS WGS-84. The prototype links raw coordinates; production
-> must convert per provider or pins will be offset by ~50–700m.
-
-**Why hand-off, not in-app nav:** building reliable routing for all of 上海 is out of
-scope and students trust their existing map app's live traffic. Gorgon's job is accurate
-*discovery + the right deep-link*, not re-inventing 高德.
-
----
-
-*Webfont note: Space Grotesk, Plus Jakarta Sans, and Noto Sans SC are loaded from the
-Google Fonts CDN rather than self-hosted binaries. For production, self-host licensed
-files and update `tokens/fonts.css`.*
+早期 Demo MVP 与设计系统说明保留于本文件历史版本（`docs/workbench/README_v1_HISTORY.md`）及 `docs/` 各 Phase 报告，不代表当前全部能力。
