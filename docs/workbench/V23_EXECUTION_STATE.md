@@ -1,21 +1,34 @@
 # V2.3 执行状态（V23_EXECUTION_STATE）
 
 > 持续更新：每轮 10 步迭代的第 9 步刷新本文件。
-> 最后更新：2026-10-13 — Phase 4 笔记中心完成并推送（993c0b5）。
+> 最后更新：2026-10-13 — Phase 5 自建活动完成并推送（ff2f964）。
 
 ## 1. 当前状态卡
 
 ```
-PHASE = 4（笔记与录音）数据层+笔记中心 ✅ → 剩余：自动保存强化 + Android 录音（BLOCKED，插件未装）→ 下一步 Phase 5（真实活动源）
-CURRENT_HEAD = 993c0b5（feature/gorgon-opportunity-v2，已推送 cec）
-FEATURES_IMPLEMENTED = Phase 1 任务系统 15/16 REAL + Phase 2 日程系统 + Phase 3 地点管理 + Phase 4 笔记中心
-TESTS_PASS = 单测 394/394、build-smoke 18/18、vite build 成功（8.32s）
+PHASE = 5（真实活动源）✅ 自建活动存储层+UI 完成 → 下一步 Phase 6（项目统一）→ Phase 7（AI Client 安全接入）
+CURRENT_HEAD = ff2f964（feature/gorgon-opportunity-v2，已推送 cec）
+FEATURES_IMPLEMENTED = Phase 1 任务系统 15/16 REAL + Phase 2 日程系统 + Phase 3 地点管理 + Phase 4 笔记中心 + Phase 5 自建活动
+TESTS_PASS = 单测 400/400、build-smoke 18/18、vite build 成功（7.70s）
 TESTS_FAIL = 0
-ANDROID_STATUS = debug APK ebe4ca74… 有效（未含 Phase 1-4 新改动，Android 交付轮重新打包）
-REAL_DATA_STATUS = 活动数据 DEMO/MOCK；用户数据 localStorage REAL（v2 envelope + quarantine）
-BLOCKERS = Android 录音（@capacitor/voice-recorder 类插件未装，真机录音 BLOCKED/NOT_TESTED）；AI 端到端接线方案待用户决策（Phase 7）；真机验收无物理设备（Issue #1/#2 OPEN）
-NEXT_TASK = Phase 5：真实活动源（数据源接入，替换 DEMO/MOCK 活动）
+ANDROID_STATUS = debug APK ebe4ca74… 有效（未含 Phase 1-5 新改动，Android 交付轮重新打包）
+REAL_DATA_STATUS = 活动数据 DEMO/MOCK + 自建活动 REAL（user origin envelope）；用户数据 localStorage REAL
+BLOCKERS = Android 录音（插件未装，BLOCKED/NOT_TESTED）；AI 端到端接线方案待用户决策（Phase 7）；真机验收无物理设备（Issue #1/#2 OPEN）
+NEXT_TASK = Phase 6：项目统一（项目概念统一收口）→ Phase 7：AI Client 安全接入
 ```
+
+## 1.0b Phase 5 自建活动交付记录（2026-10-13，commit ff2f964，已推送）
+
+| 交付 | 说明 | 测试 |
+|---|---|---|
+| store/user-activity-repository.js | 自有版本化 envelope（gorgon_workbench_user_activities_v1）+ quarantine + 内存回退；dataOrigin "user" 不可覆盖；title 必填其余 normalize | v23-user-activity.test.mjs |
+| activity-view.js 修复 | toView 的 dataOrigin 兜底传播 rec.dataOrigin（additive——自建活动经 view 归一化后保留 origin） | 同上（G-3） |
+| workbench-store facade | getUserActivities/getUserActivity/addUserActivity/updateUserActivity/removeUserActivity + 活动日志轨迹 | 同上 |
+| UserActivitiesScreen.jsx | 创建表单（title/date/time/venue/district/price）+「自建」徽标 + 加入我的周末（与搜索结果同一条 weekend 流）+ 创建项目（origin=activity）+ 删除确认 | UI 层 |
+| navigation | 新「自建活动」tab（places 后）+ mobile more drawer | workbench-shell.test.mjs（+1） |
+
+**三源可辨**：DEMO（data.js fallback 24 条，demo:true）/ pipeline（generated-data.js 17 条，demo:true）/ user（自建，dataOrigin:user，永不冒充）
+**测试基线**：394 → **400**（+user-activity 5 +shell 1）
 
 ## 1.0a Phase 4 笔记中心交付记录（2026-10-13，commit 993c0b5，已推送）
 
@@ -102,6 +115,7 @@ NEXT_TASK = Phase 5：真实活动源（数据源接入，替换 DEMO/MOCK 活�
 | Phase 2 | ✅ 日程系统（周月视图+DatePickerSheet），379/379，commit 09546f5 已推送 |
 | Phase 3 | ✅ 地点管理（编辑/搜索/重复提示/历史/笔记），387/387，commit 8213820 已推送 |
 | Phase 4 | ✅ 笔记中心（搜索/导出/过滤/关联展示），394/394，commit 993c0b5 已推送；Android 录音 BLOCKED（插件未装） |
+| Phase 5 | ✅ 自建活动（user origin envelope + 创建入口 + 周末/项目互通），400/400，commit ff2f964 已推送 |
 | 下次接手入口 | 本文件 → V23_V30_MASTER_ROADMAP.md → V23_ACCEPTANCE_MATRIX.md |
 | 环境要点 | GitHub 走 Clash 127.0.0.1:7890；pipeline 测试从仓库根跑；Node --test 用 glob 形式；模拟器最多两次受控启动；**Bash 工作目录会漂移到 WorkBuddy 会话目录，跑测试前必须显式 cd app/** |
 
