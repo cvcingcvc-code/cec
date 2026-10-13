@@ -909,6 +909,13 @@ export default function App() {
           projects={wbProjects}
           notes={detailTask ? WBStore.getNotes({ taskId: detailTask.id }) : []}
           onAddNote={addTaskNote}
+          onDelete={(id) => {
+            WBStore.deleteTask(id);
+            setWbTasks(WBStore.getTasks());
+            setWbLog(WBStore.getLog());
+            setDetailTaskId(null);
+            flash("任务已删除（30 天内可在工作记录回收站恢复）");
+          }}
           agentRuns={detailAgentRuns} />
       ) : (
         <TasksScreen tasks={wbTasks} onStatusChange={changeTaskStatus}
@@ -965,7 +972,22 @@ export default function App() {
       <ProgressCenterScreen data={progressCenterData} onOpenProject={openProjectDetail} />
     ),
     history: (
-      <HistoryScreen tasks={wbTasks} log={wbLog} onOpenTask={openTaskDetail} />
+      <HistoryScreen tasks={wbTasks} log={wbLog} onOpenTask={openTaskDetail}
+        deletedTasks={WBStore.getDeletedTasks()}
+        onRestoreTask={(id) => {
+          if (WBStore.restoreTask(id)) {
+            setWbTasks(WBStore.getTasks());
+            setWbLog(WBStore.getLog());
+            flash("任务已恢复");
+          } else {
+            flash("恢复失败（任务不存在或未删除）");
+          }
+        }}
+        onDeleteTaskForever={(id) => {
+          WBStore.deleteTaskForever(id);
+          setWbTasks(WBStore.getTasks());
+          flash("已彻底删除");
+        }} />
     ),
     settings: <SettingsScreen />,
   };

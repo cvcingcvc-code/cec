@@ -110,8 +110,29 @@ export function tryTransitionTask(id, status, opts = {}) {
   return Repo.tryTransitionTask(id, status, opts);
 }
 
+// V3E (任务包 A): deleteTask is now SOFT delete (undo window); the old
+// destructive behavior moved to deleteTaskForever. restoreTask/getDeletedTasks/
+// purgeExpiredDeletedTasks back the回收站 surface in HistoryScreen.
 export function deleteTask(id) {
   return Repo.deleteTask(id);
+}
+
+export function restoreTask(id) {
+  const next = Repo.restoreTask(id);
+  if (next) logEvent("task_restore", "任务已从回收站恢复");
+  return next;
+}
+
+export function getDeletedTasks() {
+  return Repo.getDeletedTasks();
+}
+
+export function deleteTaskForever(id) {
+  return Repo.deleteTaskForever(id);
+}
+
+export function purgeExpiredDeletedTasks(nowIso) {
+  return Repo.purgeExpiredDeletedTasks(nowIso);
 }
 
 export function addTaskStep(id, stepInput) {

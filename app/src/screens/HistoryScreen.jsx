@@ -4,6 +4,9 @@
 // timestamp, newest first (§19). The Phase-1 flat local log is still shown
 // as a secondary section (cross-surface events like search/approvals that
 // do not belong to a single task). No mock history data.
+//
+// V3E (任务包 A): the 回收站 section lists soft-deleted tasks (deletedAt
+// set, kept for 30 days). Restore clears the marker; 彻底删除 is explicit.
 
 import React from "react";
 import { STATUS_LABELS } from "../workbench/task-status-labels.js";
@@ -17,6 +20,8 @@ const EVENT_META = {
   source_added: { icon: "link", label: "添加来源" },
   result_saved: { icon: "file-check", label: "保存结果" },
   task_failed: { icon: "alert-triangle", label: "任务失败" },
+  // V3E (任务包 A): soft delete / restore events.
+  task_restored: { icon: "rotate-ccw", label: "任务恢复" },
 };
 
 const LOG_META = {
@@ -49,9 +54,23 @@ export function collectRecentActivity(tasks) {
   return rows;
 }
 
-export function HistoryScreen({ tasks, log, onOpenTask }) {
+// V3E (任务包 A): days left before an auto-purge (30-day window). Pure helper.
+const RETENTION_DAYS = 30;
+export function remainingDays(deletedAtIso) {
+  const t = Date.parse(deletedAtIso);
+  if (!Number.isFinite(t)) return RETENTION_DAYS;
+  const elapsed = Date.now() - t;
+  const left = Math.ceil((RETENTION_DAYS * 24 * 3600 * 1000 - elapsed) / (24 * 3600 * 1000));
+  return Math.max(0, left);
+}
+
+export function HistoryScreen({ tasks, log, onOpenTask, deletedTasks = [], onRestoreTask = null, onDeleteTaskForever = null }) {
   const activity = React.useMemo(() => collectRecentActivity(tasks), [tasks]);
   const entries = (log && log.length > 0) ? log : [];
+  // V3E (任务包 A): the软删除回收站 — the caller passes WB.getDeletedTasks()
+  // (soft-deleted records are hidden from the visible list, so they arrive
+  // via a dedicated prop). Renders empty when nothing is deleted (honesty).
+  const trash = Array.isArray(deletedTasks) ? deletedTasks : [];
 
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }} data-gg-screen="workbench-history">
@@ -62,6 +81,67 @@ export function HistoryScreen({ tasks, log, onOpenTask }) {
         <p style={{ fontSize: 13, color: "var(--text-faint)", lineHeight: 1.7, margin: "8px 0 0" }}>
           最近活动按时间汇总你本机的任务记录（创建、排期、执行、记录）。数据只保存在本机。
         </p>
+
+        {/* V3E (任务包 A): the 回收站 — soft-deleted tasks, 30-day undo window. */}
+        <div style={{ marginTop: 18 }} data-testid="workbench-history-trash">
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-muted)", marginBottom: 9 }}>
+            回收站 ({trash.length})
+          </div>
+          {trash.length === 0 ? (
+            <div style={{ fontSize: 12.5, color: "var(--text-faint)", padding: "4px 0" }}>
+              回收站是空的。删除的任务会在这里保留 30 天。
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }} data-testid="workbench-history-trash-list">
+              {trash.map((t) => (
+                <div key={t.id} data-testid="workbench-history-trash-item" style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: "11px 14px",
+                  background: "var(--bg-sunken)", border: "1px dashed var(--border-subtle)",
+                  borderRadius: "var(--radius-md)", minWidth: 0,
+                }}>
+                  <span style={{
+                    flex: "none", width: 30, height: 30, borderRadius: "var(--radius-sm)",
+                    background: "var(--surface-card)", display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <Icon name="trash-2" style={{ width: 15, height: 15, color: "var(--text-muted)" }} />
+                  </span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 13.5, color: "var(--text-muted)", fontWeight: 600, lineHeight: 1.5 }}>
+                      {t.title}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text-faint)" }}>
+                      删除于 {fmtTime(t.deletedAt)} · {remainingDays(t.deletedAt)} 天后自动清除
+                    </div>
+                  </div>
+                  {onRestoreTask && (
+                    <button data-testid="workbench-trash-restore" onClick={() => onRestoreTask(t.id)}
+                      style={{
+                        flex: "none", border: "1px solid var(--border-subtle)", background: "var(--surface-card)",
+                        color: "var(--brand)", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                        padding: "10px 13px", minHeight: 44, borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
+                      }}>
+                      恢复
+                    </button>
+                  )}
+                  {onDeleteTaskForever && (
+                    <button data-testid="workbench-trash-delete-forever" onClick={() => {
+                      if (window.confirm("彻底删除「" + t.title + "」？此操作不可撤销。")) {
+                        onDeleteTaskForever(t.id);
+                      }
+                    }}
+                      style={{
+                        flex: "none", border: "none", background: "transparent",
+                        color: "var(--danger)", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                        padding: "10px 8px", minHeight: 44, borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
+                      }}>
+                      彻底删除
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* A. aggregated task timelines */}
         <div style={{ marginTop: 18 }} data-testid="workbench-history-recent">

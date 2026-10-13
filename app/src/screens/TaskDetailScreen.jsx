@@ -47,6 +47,8 @@ const EVENT_LABEL = {
   place_linked: "地点关联",
   // V3 Phase A events.
   reminder_changed: "提醒调整",
+  // V3E (任务包 A): soft delete / restore.
+  task_restored: "任务恢复",
 };
 
 const EVENT_ICON = {
@@ -75,6 +77,8 @@ const EVENT_ICON = {
   place_linked: "map-pin",
   // V3 Phase A events.
   reminder_changed: "bell",
+  // V3E (任务包 A): soft delete / restore.
+  task_restored: "rotate-ccw",
 };
 
 // Phase 3 Router result rendering (§25): map skill ids / intent → labels.
@@ -231,6 +235,10 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
   // ── V3 Phase A (gap 1): local reminder. onSetReminder(taskId, { remindAt })
   //    | null → the reminder card renders only when wired (honesty).
   onSetReminder = null,
+  // ── V3E (任务包 A): soft delete with undo. onDelete(taskId) | null →
+  //    the delete button renders only when wired (honesty). Soft delete is
+  //    recoverable for 30 days from the History 回收站.
+  onDelete = null,
   // ── Phase B3: PC agent-run records (from the gateway runs.json mirror).
   //    Optional — the card renders only when records exist.
   agentRuns = [] }) {
@@ -779,6 +787,28 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
             </span>
           )}
         </div>
+
+        {/* V3E (任务包 A): soft delete — recoverable for 30 days from the
+            History 回收站. confirm() states the undo path honestly. */}
+        {onDelete && (
+          <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--border-subtle)" }}>
+            <button data-testid="workbench-detail-delete" onClick={() => {
+              if (window.confirm("删除任务「" + task.title + "」？删除后 30 天内可在工作记录的回收站中恢复。")) {
+                onDelete(task.id);
+              }
+            }}
+              style={{
+                border: "1px solid var(--border-subtle)", background: "transparent",
+                color: "var(--danger)", fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                padding: "10px 14px", minHeight: 44, borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)",
+              }}>
+              删除任务
+            </button>
+            <span style={{ fontSize: 11.5, color: "var(--text-faint)", marginLeft: 10 }}>
+              删除后 30 天内可恢复，数据保留在本机。
+            </span>
+          </div>
+        )}
 
         {/* steps */}
         <Section title={`步骤 (${task.steps.length})`} testid="workbench-detail-steps">

@@ -160,12 +160,20 @@ export function getStorageHealth() {
 
 // ── Repository API (§7) ───────────────────────────────────────────────
 
+// V3E (任务包 A): listTasks() returns the VISIBLE list — soft-deleted
+// records (deletedAt set) are hidden from every consumer (screens, helpers,
+// progress center) exactly like a回收站. Mutations below read the RAW full
+// list via listTasksRaw() so soft-deleted records stay recoverable.
 export function listTasks() {
+  return loadEnvelope().tasks.filter((t) => !t.deletedAt);
+}
+
+export function listTasksRaw() {
   return loadEnvelope().tasks;
 }
 
 export function getTask(id) {
-  return listTasks().find((t) => t.id === id) || null;
+  return listTasksRaw().find((t) => t.id === id) || null;
 }
 
 export function createTaskEntry(goal, opts = {}) {
@@ -177,7 +185,7 @@ export function createTaskEntry(goal, opts = {}) {
 }
 
 export function updateTask(id, patch, { eventType, eventMessage, eventMetadata } = {}) {
-  const tasks = listTasks();
+  const tasks = listTasksRaw();
   const idx = tasks.findIndex((t) => t.id === id);
   if (idx < 0) return tasks;
   const cur = tasks[idx];
@@ -199,7 +207,7 @@ export function updateTask(id, patch, { eventType, eventMessage, eventMetadata }
 
 /** The ONLY legal path for status changes (§5/§7). Throws on illegal moves. */
 export function transitionTask(id, nextStatus, opts = {}) {
-  const tasks = listTasks();
+  const tasks = listTasksRaw();
   const idx = tasks.findIndex((t) => t.id === id);
   if (idx < 0) throw new InvalidTransitionError("(missing)", String(nextStatus));
   const updated = transitionTaskState(tasks[idx], nextStatus, opts);
@@ -219,12 +227,73 @@ export function tryTransitionTask(id, nextStatus, opts = {}) {
   }
 }
 
+// V3E (任务包 A) — soft delete / undo / restore. Additive semantics:
+//   * deleteTask(id)       -> soft delete (sets task.deletedAt, keeps ALL data)
+//   * restoreTask(id)      -> clears deletedAt, records a task_restored event
+//   * getDeletedTasks()    -> only records with deletedAt, newest deletion first
+//   * deleteTaskForever(id)-> hard delete (the old destructive behavior)
+//   * purgeExpiredDeletedTasks(nowIso) -> drops records deleted >30 days ago
+// `deletedAt` is an ADDITIVE field: old records normalize to null/undefined
+// (normalizeTask leaves unknown fields intact), so pre-V3E data loads unchanged.
+export const DELETED_RETENTION_MS = 30 * 24 * 3600 * 1000; // 30 days
+
 export function deleteTask(id) {
-  const tasks = listTasks();
+  const tasks = listTasksRaw();
+  const idx = tasks.findIndex((t) => t.id === id);
+  if (idx < 0) return tasks; // missing — no-op
+  if (tasks[idx].deletedAt) return tasks; // already soft-deleted — keep first timestamp
+  const updated = Object.assign({}, tasks[idx], { deletedAt: nowIso() });
+  const next = tasks.slice();
+  next[idx] = updated;
+  persist(next);
+  return next.filter((t) => !t.deletedAt); // V3E: return the VISIBLE list
+}
+
+export function restoreTask(id) {
+  const tasks = listTasksRaw();
+  const idx = tasks.findIndex((t) => t.id === id);
+  if (idx < 0 || !tasks[idx].deletedAt) return null; // not soft-deleted — no-op
+  const merged = Object.assign({}, tasks[idx]);
+  delete merged.deletedAt; // additive field removal, all user data intact
+  merged.updatedAt = nowIso();
+  merged.timeline = (merged.timeline || []).concat([
+    makeTimelineEvent("task_restored", "任务已从回收站恢复", {}),
+  ]).slice(-MAX_TIMELINE_EVENTS);
+  const next = tasks.slice();
+  next[idx] = normalizeTask(merged) || tasks[idx];
+  persist(next);
+  return next.filter((t) => !t.deletedAt); // V3E: return the VISIBLE list
+}
+
+export function getDeletedTasks() {
+  return listTasksRaw()
+    .filter((t) => !!t.deletedAt)
+    .sort((a, b) => String(b.deletedAt).localeCompare(String(a.deletedAt)));
+}
+
+export function deleteTaskForever(id) {
+  const tasks = listTasksRaw();
   const next = tasks.filter((t) => t.id !== id);
   if (next.length === tasks.length) return tasks;
   persist(next);
   return next;
+}
+
+export function purgeExpiredDeletedTasks(nowIsoStr) {
+  const now = Date.parse(nowIsoStr || nowIso());
+  const cutoff = Number.isFinite(now) ? now - DELETED_RETENTION_MS : Infinity;
+  const tasks = listTasksRaw();
+  const keep = [];
+  let dropped = 0;
+  for (const t of tasks) {
+    if (t.deletedAt) {
+      const d = Date.parse(t.deletedAt);
+      if (Number.isFinite(d) && d < cutoff) { dropped += 1; continue; } // expired — drop
+    }
+    keep.push(t);
+  }
+  if (dropped > 0) persist(keep);
+  return { tasks: keep, dropped };
 }
 
 export function appendTimelineEvent(id, type, message, metadata) {
@@ -234,7 +303,7 @@ export function appendTimelineEvent(id, type, message, metadata) {
 export function addTaskStep(id, stepInput, opts = {}) {
   const step = makeStep(typeof stepInput === "string" ? stepInput : stepInput && stepInput.title, stepInput && typeof stepInput === "object" ? stepInput : {});
   if (!step) return listTasks();
-  const tasks = listTasks();
+  const tasks = listTasksRaw();
   const idx = tasks.findIndex((t) => t.id === id);
   if (idx < 0) return tasks;
   const cur = tasks[idx];
@@ -252,7 +321,7 @@ export function addTaskStep(id, stepInput, opts = {}) {
 }
 
 export function updateTaskStep(taskId, stepId, patch, opts = {}) {
-  const tasks = listTasks();
+  const tasks = listTasksRaw();
   const idx = tasks.findIndex((t) => t.id === taskId);
   if (idx < 0) return tasks;
   const cur = tasks[idx];
@@ -293,7 +362,7 @@ export function setTaskResult(id, resultInput) {
 export function addTaskSource(id, sourceInput) {
   const source = makeSource(sourceInput);
   if (!source) return listTasks();
-  const tasks = listTasks();
+  const tasks = listTasksRaw();
   const idx = tasks.findIndex((t) => t.id === id);
   if (idx < 0) return tasks;
   const cur = tasks[idx];
