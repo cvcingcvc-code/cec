@@ -7,6 +7,10 @@
 //   delete through the opportunity data layer) → 复盘 (outcome + next action,
 //   saved by the user, never auto-generated).
 //
+// V2.3 Phase 6 (项目统一) additions:
+//   * 进度百分比（任务完成率，projectProgressPercent；0 任务 → 不渲染，诚实）
+//   * 统一时间线（任务事件 + 进度记录 + 笔记合并，projectTimeline，最新在前）
+//
 // All mutations go through the workbench-store facade; all task status moves
 // go through the formal state machine (illegal transitions are not offered).
 
@@ -16,6 +20,7 @@ import { Icon } from "../components/Icon.jsx";
 import { canTransition } from "../workbench/task-model.js";
 import { STATUS_LABELS } from "../workbench/task-status-labels.js";
 import { PLACE_LABEL } from "../store/opportunity-repository.js";
+import { projectProgressPercent, projectTimeline, timelineSourceLabel, timelineAtLabel } from "../lib/project-view.js";
 
 const card = {
   background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
@@ -114,6 +119,15 @@ export function ProjectDetailScreen({
 
   const scheduled = tasks.filter((t) => t.scheduledDate || t.dueAt);
 
+  // V2.3 Phase 6: 进度百分比 + 统一时间线（任务/进度/笔记合并）
+  const progressPercent = projectProgressPercent(tasks);
+  const mergedTimeline = React.useMemo(() => projectTimeline({
+    tasks,
+    progress,
+    notes,
+    taskById: (id) => tasks.find((t) => t.id === id) || null,
+  }), [tasks, progress, notes]);
+
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }} data-gg-screen="workbench-project-detail">
       <div style={{ padding: "28px 16px 48px", maxWidth: 860, margin: "0 auto", width: "100%" }}>
@@ -137,8 +151,50 @@ export function ProjectDetailScreen({
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 10, fontSize: 12, color: "var(--text-faint)" }}>
             <span>创建于 {fmtDay(project.createdAt)}</span>
             <span>{project.origin === "activity" ? "来自活动" : "手动创建"}</span>
+            {progressPercent != null && (
+              <span data-testid="workbench-project-progress-percent" style={{
+                fontWeight: 700,
+                color: progressPercent >= 100 ? "var(--accent-strong, #047857)" : "var(--brand)",
+              }}>
+                任务完成 {progressPercent}%
+              </span>
+            )}
           </div>
         </div>
+
+        {/* ── unified timeline (Phase 6: 任务事件 + 进度 + 笔记合并) ── */}
+        {mergedTimeline.length > 0 && (
+          <Section title={`时间线 (${mergedTimeline.length})`} testid="workbench-project-timeline">
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {mergedTimeline.slice(0, 20).map((e, i) => (
+                <div key={i} data-testid="workbench-project-timeline-entry" style={{
+                  display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 0",
+                  borderTop: i > 0 ? "1px solid var(--border-subtle)" : "none", minWidth: 0,
+                }}>
+                  <span data-testid="workbench-project-timeline-source" style={{
+                    flex: "none", fontSize: 10.5, fontWeight: 700, padding: "3px 8px", marginTop: 2,
+                    borderRadius: "var(--radius-pill)",
+                    background: e.source === "progress" ? "var(--brand-soft)" : e.source === "note" ? "var(--bg-sunken)" : "var(--warning-soft)",
+                    color: e.source === "progress" ? "var(--brand)" : e.source === "note" ? "var(--text-faint)" : "#9A6300",
+                  }}>
+                    {timelineSourceLabel(e.source)}
+                  </span>
+                  <span style={{ minWidth: 0, flex: 1, fontSize: 12.5, color: "var(--text-body)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                    {e.label}
+                  </span>
+                  <span style={{ flex: "none", fontSize: 11, color: "var(--text-faint)", fontVariantNumeric: "tabular-nums", marginTop: 2 }}>
+                    {timelineAtLabel(e.at)}
+                  </span>
+                </div>
+              ))}
+              {mergedTimeline.length > 20 && (
+                <div style={{ fontSize: 11, color: "var(--text-faint)", padding: "8px 0" }}>
+                  仅显示最近 20 条（共 {mergedTimeline.length} 条）。
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
 
         {/* ── activities ─────────────────────────────────────────────── */}
         <Section title={`关联活动 (${project.activities.length})`} testid="workbench-project-activities">
