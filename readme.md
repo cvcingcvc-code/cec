@@ -34,17 +34,18 @@ Gorgon Workbench 让 AI 从「回答问题的助手」，变成帮助个人**整
 
 | 能力 | 说明 |
 |---|---|
-| 任务系统 | 创建（goal 输入）、7 态状态机（非法流转拒绝）、截止时间、子任务/步骤、执行记录（timeline）、完成历史 |
-| 日程系统 | 今日待办、周视图、日期选择器（DatePickerSheet）、ICS 导出 |
+| 任务系统 | 创建（goal 输入）、7 态状态机（非法流转拒绝）、截止时间、优先级、失败重试（failed→ready）、标题编辑、子任务/步骤、执行记录（timeline）、完成历史 |
+| 本地提醒 | 任务提醒时间（remindAt）、快捷预设、精确选择（DatePickerSheet）、系统通知（Capacitor LocalNotifications，需授权）、Web/无插件环境诚实降级为应用内提示 |
+| 日程系统 | 今日待办、周视图、月历网格、日期选择器（DatePickerSheet）、ICS 导出 |
 | 地点管理 | CRUD、走访记录、复访计划、4 态状态机、搜索与历史 |
-| 笔记中心 | 文字笔记 CRUD、跨对象四向关联（活动/地点/任务/项目）、搜索/导出/过滤 |
+| 笔记中心 | 文字笔记 CRUD、跨对象四向关联（活动/地点/任务/项目）、搜索/导出/过滤、TXT/Markdown 导入（系统文件选择器，追加不覆盖，2MB 上限） |
 | 自建活动 | user origin envelope + 创建入口 + 周末/项目互通 |
 | 项目统一 | 项目 CRUD（软删除）、origin 诚实标注、聚合视图（任务/笔记/地点/复盘/报名/进度）、进度中心 |
 | AI 行动辅助 | provider contract + Mock 兜底 + HunyuanProvider + budget/cache + eligibility gate；opt-in 接线已交付，provider 失败自动降级本地（任务仍完成） |
 | Android 壳 | Capacitor 8（cn.gorgon.workbench）、离线持久化（localStorage → Preferences 镜像）、崩溃恢复（损坏存档不清除） |
 | Windows 桌面壳 | pywebview onedir 打包（`desktop/build.ps1` 一键重打包） |
 
-测试基线：**App 单测 411/411、build-smoke 18/18（含 secret 扫描）、vite build PASS。**
+测试基线：**App 单测 441/441、build-smoke 18/18（含 secret 扫描）、vite build PASS。**
 
 ### ⬜ 未实现 / 未验收（如实标注）
 
@@ -52,8 +53,7 @@ Gorgon Workbench 让 AI 从「回答问题的助手」，变成帮助个人**整
 |---|---|
 | 物理真机完整流程验收 | **NOT_TESTED**（Issue #1/#2 OPEN） |
 | E2E 全绿 | **BLOCKED_ENVIRONMENT**（CDP 长会话 wedge，31/55 首轮） |
-| 任务优先级 / 失败重试 / 标题编辑 / 任务↔地点 / 跨字段搜索 | NOT_IMPLEMENTED / PARTIAL |
-| 月视图 / 系统通知 / TXT·Markdown 导入 | NOT_IMPLEMENTED |
+| 真机通知授权与提醒触发 | NOT_TESTED（代码已交付，等待真机验证） |
 | Android 录音 / 回放 / 转写 | NOT_IMPLEMENTED（字段形状已就绪） |
 | 真实地图 | NOT_IMPLEMENTED |
 | 电脑 AI 智能体远程联动 | **仅设计**（见下文规划，未开发） |
@@ -133,7 +133,7 @@ Gorgon Workbench 让 AI 从「回答问题的助手」，变成帮助个人**整
 cd app
 npm install
 npm run dev        # 开发（代理 /api → 127.0.0.1:8000）
-npm test           # 单元测试（411/411）
+npm test           # 单元测试（441/441）
 npm run build      # 生产构建
 
 # 后端检索服务（项目根）
