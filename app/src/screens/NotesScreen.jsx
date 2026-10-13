@@ -13,6 +13,10 @@
 //   * 导出（plain-text digest，clipboard 写入）
 //   * 删除（facade onRemoveNote）
 //
+// V3 Phase A (gap 2): TXT/Markdown 导入。系统文件选择器（<input type="file">
+// accept=".txt,.md,.markdown">）→ App.handleImportNotes（解析 + 追加创建，
+// 绝不覆盖已有数据）。导入成功/失败都通过 flash 如实报告。
+//
 // 录音诚实纪律：audio 笔记以指针形状展示（audioPath + 时长）；真机录音
 // 入口在 Capacitor 录音插件安装前标 NOT_IMPLEMENTED —— 本屏不渲染一个
 // 假的录音按钮。
@@ -50,10 +54,12 @@ function fmtDuration(ms) {
 
 export function NotesScreen({
   notes, tasks, places, projects,
-  onRemoveNote, onOpenTask, flash,
+  onRemoveNote, onOpenTask, flash, onImportNotes,
 }) {
   const [query, setQuery] = React.useState("");
   const [kind, setKind] = React.useState("all");
+  // V3 Phase A (gap 2): hidden file input for the system file picker.
+  const fileInputRef = React.useRef(null);
 
   const list = React.useMemo(() => {
     let out = notes || [];
@@ -102,6 +108,32 @@ export function NotesScreen({
             <span style={{ fontSize: 12, color: "var(--text-faint)" }}>
               {(notes || []).length} 条 · 本地数据
             </span>
+            {onImportNotes && (
+              <button data-testid="workbench-notes-import" onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                style={{
+                  border: "1px solid var(--border-subtle)", background: "var(--surface-card)",
+                  color: "var(--text-body)",
+                  fontSize: 12, fontWeight: 600, cursor: "pointer",
+                  padding: "7px 13px", minHeight: 40, borderRadius: "var(--radius-pill)", fontFamily: "var(--font-sans)",
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                }}>
+                <Icon name="download" style={{ width: 13, height: 13 }} />导入
+              </button>
+            )}
+            {/* V3 Phase A: hidden file input — the SYSTEM file picker.
+                Same input is reused across picks (value reset after each). */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".txt,.md,.markdown,text/plain,text/markdown"
+              data-testid="workbench-notes-import-input"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files && e.target.files[0];
+                if (f && onImportNotes) onImportNotes(f);
+                e.target.value = ""; // allow re-picking the same file
+              }}
+            />
             <button data-testid="workbench-notes-export" onClick={doExport}
               disabled={(notes || []).length === 0}
               style={{

@@ -14,8 +14,9 @@
 
 import React from "react";
 import {
-  ArrowLeft, ArrowRight, BadgeCheck, BatteryFull, Bell, Calendar, CalendarClock,
-  CalendarHeart, Check, ChevronLeft, ChevronRight, Clock, Compass, ExternalLink,
+  ArrowLeft, ArrowRight, BadgeCheck, BatteryFull, Bell, Bot, Calendar, CalendarClock,
+  CalendarHeart, Check, ChevronLeft, ChevronRight, Clock, Compass, Download,
+  ExternalLink,
   FileCheck, Flag, FlaskConical, FolderKanban, FolderPlus, GitBranch, GitMerge,
   Globe, Heart, HeartOff, Hexagon, History, ImageOff, Info, LayoutDashboard, Link,
   ListPlus, ListTodo, LocateFixed, Map, MapPin, MapPinOff, Menu, Navigation,
@@ -36,11 +37,13 @@ const ICONS = {
   "badge-check": BadgeCheck,
   "battery-full": BatteryFull,
   "bell": Bell,
+  "bot": Bot,
   "calendar": Calendar,
   "calendar-heart": CalendarHeart,
   "check": Check,
   "clock": Clock,
   "compass": Compass,
+  "download": Download,
   "external-link": ExternalLink,
   "flask-conical": FlaskConical,
   "git-merge": GitMerge,

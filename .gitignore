@@ -43,3 +43,8 @@ app/android/app/*.jks
 # rebuildable from commit 9f05f9d; only its SHA256 is recorded in
 # docs/screenshots/ui-v22-touch/README.md.
 docs/screenshots/ui-v22-touch/BEFORE-app-release.apk
+
+# V3 Phase A (Task #3): agent gateway runtime state — pairing token, audit
+# log, run records. Machine-local and SECRET (token grants executor access).
+# Only the gateway script itself is committed.
+scripts/.agent-gateway/

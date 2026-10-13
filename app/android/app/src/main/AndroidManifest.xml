@@ -38,4 +38,11 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- V3 Phase A (gap 1): local reminders via Capacitor LocalNotifications.
+         POST_NOTIFICATIONS is the Android 13+ runtime permission (the JS side
+         requests it through the plugin on a user gesture). SCHEDULE_EXACT_ALARM
+         backs schedule.at with allowWhileIdle; USE_EXACT_ALARM is not used
+         because it is restricted to alarm/calendar core apps on Play. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 </manifest>

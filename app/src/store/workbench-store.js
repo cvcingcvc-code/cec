@@ -173,6 +173,41 @@ function describeSchedule(patch) {
   return "调整排期：" + (parts.join("；") || "无变化");
 }
 
+// ── V3 Phase A (gap 1): task reminders — remindAt on the task record ──
+//
+// The user sets reminder times; the engine never does. Same pattern as
+// setTaskSchedule: writes go through updateTask so the timeline records
+// what actually happened. Native notification scheduling is a SEPARATE,
+// fire-and-forget concern handled by lib/native-reminders.js — the data
+// layer stays platform-pure (unit-testable without a device).
+
+export function setTaskReminder(id, { remindAt } = {}) {
+  const task = Repo.getTask(id);
+  if (!task) return null;
+  if (remindAt === undefined) return task;
+  const v = remindAt === null ? null : normIsoOrNull(remindAt);
+  if (remindAt !== null && !v) return null; // invalid input — refuse, never guess
+  if (v === task.remindAt) return task;
+  return Repo.updateTask(id, { remindAt: v }, {
+    eventType: "reminder_changed",
+    eventMessage: v
+      ? "设置提醒：" + describeReminderLocal(v)
+      : "清除提醒",
+    eventMetadata: { remindAt: v },
+  }) && Repo.getTask(id);
+}
+
+function describeReminderLocal(iso) {
+  try {
+    const d = new Date(iso);
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${d.getMonth() + 1}月${d.getDate()}日 ${hh}:${mm}`;
+  } catch (e) {
+    return iso;
+  }
+}
+
 export function linkTaskToProject(taskId, projectId) {
   const task = Repo.getTask(taskId);
   const project = projectId ? Projects.getProject(projectId) : null;

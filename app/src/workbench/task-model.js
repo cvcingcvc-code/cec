@@ -73,6 +73,7 @@ export const WORKBENCH_EVENT_TYPES = [
   "priority_changed",   // V2.3 (Phase 1 gap #1): priority set by the user
   "task_title_changed", // V2.3 (Phase 1 gap #3): task renamed by the user
   "place_linked",       // V2.3 (Phase 1 gap #4): task attached to a place
+  "reminder_changed",   // V3 Phase A (gap 1): remindAt set or cleared by the user
 ];
 
 // ── §5 legal transition table ─────────────────────────────────────────
@@ -235,6 +236,9 @@ export function createTask(goal, opts = {}) {
 
     // V2.3 (Phase 1 gap #1) — priority (additive; "normal" = default).
     priority: normPriorityOrNull(opts.priority) || TASK_PRIORITY.NORMAL,
+
+    // V3 Phase A (gap 1) — local reminder time (additive; null = not set).
+    remindAt: normIsoOrNull(opts.remindAt),
 
     steps: [],
     result: null,
@@ -399,6 +403,8 @@ export function normalizeTask(t) {
     // V2.3 additive — old records normalize to null / "normal" (compatible).
     placeId: t.placeId ? String(t.placeId) : null,
     priority: normPriorityOrNull(t.priority) || TASK_PRIORITY.NORMAL,
+    // V3 Phase A additive — old records normalize to null (compatible).
+    remindAt: normIsoOrNull(t.remindAt),
     steps: Array.isArray(t.steps) ? t.steps.map(normalizeStep).filter(Boolean) : [],
     result: t.result && typeof t.result === "object" ? (makeResult(t.result) || null) : null,
     sources: Array.isArray(t.sources) ? t.sources.map((s) => makeSource(s) || s).filter(Boolean) : [],

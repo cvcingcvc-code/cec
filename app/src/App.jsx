@@ -34,6 +34,7 @@ import { TasksScreen } from "./screens/TasksScreen.jsx";
 import { TaskDetailScreen } from "./screens/TaskDetailScreen.jsx";
 import { ScheduleScreen } from "./screens/ScheduleScreen.jsx";
 import { NotesScreen } from "./screens/NotesScreen.jsx";
+import { AgentScreen } from "./screens/AgentScreen.jsx";
 import { UserActivitiesScreen } from "./screens/UserActivitiesScreen.jsx";
 import { ReviewCenterScreen } from "./screens/ReviewCenterScreen.jsx";
 import { HistoryScreen } from "./screens/HistoryScreen.jsx";
@@ -48,6 +49,10 @@ import {
   WORKBENCH_TABS, WORKBENCH_SETTINGS, LEGACY_TABS, LEGACY_SIDEBAR_KEYS,
   WORKBENCH_TO_LEGACY, MOBILE_TABS, MOBILE_MORE_TABS,
 } from "./workbench/navigation.js";
+// V3 Phase A (gap 2): TXT/Markdown note import (pure parser).
+import { isImportableFileName, parseNoteText, MAX_IMPORT_BYTES } from "./lib/note-import.js";
+// V3 Phase A (gap 1): native reminder scheduling (Capacitor LocalNotifications).
+import * as NativeReminders from "./lib/native-reminders.js";
 
 /* ── legacy-mode detection (§17/§18) ────────────────────────────────── */
 // /?legacy=1 boots into the Phase-1 default (discover). Anything else
@@ -529,6 +534,54 @@ export default function App() {
     flash("笔记已删除");
   };
 
+  // ── V3 Phase A (gap 2): TXT / Markdown note import ──────────────────
+  // 防覆盖纪律：导入永远创建新笔记（append-only），绝不改写/覆盖已有数据。
+  // 解析在纯模块 lib/note-import.js 中；这里只负责读文件（UTF-8）、
+  // 逐条调用 facade、刷新 React 状态并如实报告结果（成功/部分/失败）。
+  const handleImportNotes = async (file) => {
+    if (!file) return;
+    const fileName = file.name || "";
+    if (!isImportableFileName(fileName)) {
+      flash("仅支持 .txt / .md 文件");
+      return;
+    }
+    if (file.size > MAX_IMPORT_BYTES) {
+      flash("文件过大（上限 2MB）");
+      return;
+    }
+    let rawText = "";
+    try {
+      rawText = await file.text();
+    } catch (e) {
+      flash("读取文件失败：" + String((e && e.message) || e));
+      return;
+    }
+    const parsed = parseNoteText(fileName, rawText);
+    if (!parsed || !parsed.ok) {
+      const why = parsed && parsed.reason === "empty" ? "文件内容为空"
+        : parsed && parsed.reason === "too-large" ? "文件过大（上限 2MB）"
+        : "不支持的文件类型";
+      flash("导入失败：" + why);
+      return;
+    }
+    let added = 0;
+    let failed = 0;
+    for (const n of parsed.notes) {
+      try {
+        const created = WBStore.addNote({ kind: "text", text: n.text, source: "导入" });
+        if (created) added += 1; else failed += 1;
+      } catch (e) {
+        failed += 1;
+      }
+    }
+    setWbNotes(WBStore.getNotes());
+    setWbLog(WBStore.getLog());
+    setProjectRev((r) => r + 1);
+    if (added > 0 && failed === 0) flash(`已导入 ${added} 条笔记（未覆盖任何已有数据）`);
+    else if (added > 0) flash(`已导入 ${added} 条，${failed} 条失败`);
+    else flash("导入失败：没有任何笔记写入");
+  };
+
   // ── V2.3 Phase 5 (真实活动源): user-created activities handlers ──────
   const refreshUserActs = () => {
     setWbUserActs(WBStore.getUserActivities());
@@ -670,6 +723,43 @@ export default function App() {
     flash("标题已更新");
   };
 
+  // ── V3 Phase A (gap 1): task reminder — data first, notification second ──
+  // 1. remindAt is saved through the facade (invalid input refused there).
+  // 2. Then the native notification is scheduled via the REAL Capacitor
+  //    plugin — fire-and-forget; a notification failure never undoes the
+  //    data write. Permission is requested ONLY inside the native shell on
+  //    a user gesture; web degrades to in-app hints (honest, no fake state).
+  const handleSetReminder = async (taskId, { remindAt }) => {
+    const out = WBStore.setTaskReminder(taskId, { remindAt });
+    if (!out) { flash("提醒时间无效，未保存"); return; }
+    setWbTasks(WBStore.getTasks());
+    setWbLog(WBStore.getLog());
+    setProjectRev((r) => r + 1);
+    if (!remindAt) {
+      const c = await NativeReminders.cancelReminder(taskId);
+      flash(c.cancelled ? "提醒已清除" : "提醒已清除（无系统通知可取消）");
+      return;
+    }
+    // Native shell: ensure permission, then schedule. Web: data-only.
+    if (NativeReminders.hasLocalNotifications()) {
+      const perm = await NativeReminders.checkPermission();
+      if (perm.value !== "granted") {
+        const req = await NativeReminders.requestPermission();
+        if (req.value !== "granted") {
+          flash("提醒已保存，但未获得通知授权（可在系统设置中开启）");
+          return;
+        }
+      }
+      const st = await NativeReminders.scheduleReminder(out);
+      if (st.scheduled) flash("提醒已保存，系统通知已安排");
+      else if (st.reason === "permission-denied") flash("提醒已保存，但未获得通知授权（可在系统设置中开启）");
+      else if (st.reason === "past") flash("提醒已保存（时间已过，不再通知）");
+      else flash("提醒已保存（当前环境仅应用内提示）");
+    } else {
+      flash("提醒已保存（当前环境仅应用内提示）");
+    }
+  };
+
   /** V2.3 (Phase 1): task ↔ place link (unknown place refused). */
   const handleLinkTaskToPlace = (taskId, placeId) => {
     const out = WBStore.linkTaskToPlace(taskId, placeId);
@@ -757,6 +847,7 @@ export default function App() {
         onOpenTask={openTaskDetail}
         todayTasks={homeToday}
         openTaskCount={homeOpenCount}
+
         projects={wbProjects}
         projectStats={projectStats}
         recentNotes={homeRecentNotes}
@@ -806,6 +897,7 @@ export default function App() {
           onSetPriority={handleSetPriority}
           onSetTitle={handleSetTitle}
           onLinkPlace={handleLinkTaskToPlace}
+          onSetReminder={handleSetReminder}
           places={wbPlaces}
           onConflicts={wbTasks}
           projects={wbProjects}
@@ -822,6 +914,10 @@ export default function App() {
         reviewTasks={wbTasks} onResumeTask={resumeReviewTask}
         proposals={wbProposals} onProposal={decideProposal} />
     ),
+    // V3 Phase A (Task #3/E): PC agent gateway entry.
+    agent: (
+      <AgentScreen flash={flash} />
+    ),
     places: (
       <PlacesScreen places={wbPlaces} projects={wbProjects} tasks={wbTasks} notes={wbNotes}
         onCreate={handleCreatePlace} onStatus={handlePlaceStatus}
@@ -834,7 +930,8 @@ export default function App() {
     ),
     notes: (
       <NotesScreen notes={wbNotes} tasks={wbTasks} places={wbPlaces} projects={wbProjects}
-        onRemoveNote={handleRemovePlaceNote} onOpenTask={openTaskDetail} flash={flash} />
+        onRemoveNote={handleRemovePlaceNote} onOpenTask={openTaskDetail} flash={flash}
+        onImportNotes={handleImportNotes} />
     ),
     useract: (
       <UserActivitiesScreen activities={wbUserActs} weekend={weekend} projects={wbProjects}

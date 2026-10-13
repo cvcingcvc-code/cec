@@ -157,8 +157,10 @@ test("workbench tabs cover the shell surfaces", () => {
   // "schedule" — the formal 周/月 calendar view. V2.3 (Phase 4) adds
   // "notes" — the notes center (global search + export). V2.3 (Phase 5)
   // adds "useract" — user-created activities (the honest real data source).
+  // V3 Phase A (Task #3/E) adds "agent" — the PC agent gateway entry
+  // (submit runs + view results, real execution, allowlist only).
   // The rest is unchanged.
-  assert.deepEqual(keys, ["home", "projects", "progress", "tasks", "schedule", "notes", "places", "useract", "search", "review", "history"]);
+  assert.deepEqual(keys, ["home", "projects", "progress", "tasks", "schedule", "notes", "places", "useract", "search", "agent", "review", "history"]);
   assert.equal(Nav.WORKBENCH_SETTINGS.key, "settings");
 });
 

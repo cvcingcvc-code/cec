@@ -14,6 +14,7 @@ import { summarizeResult, RESULT_TYPE_LABEL } from "../workbench/result-summary.
 import { Icon } from "../components/Icon.jsx";
 import { DatePickerSheet } from "../components/mobile/DatePickerSheet.jsx";
 import { findConflictFor, formatCN, formatCNTime } from "../lib/calendar.js";
+import { reminderMode, describeReminder, REMINDER_LEAD_CHOICES, REMINDER_MODE } from "../workbench/reminder-model.js";
 
 const STATUS_LABEL = {
   created: "已创建",
@@ -44,6 +45,8 @@ const EVENT_LABEL = {
   priority_changed: "优先级调整",
   task_title_changed: "标题修改",
   place_linked: "地点关联",
+  // V3 Phase A events.
+  reminder_changed: "提醒调整",
 };
 
 const EVENT_ICON = {
@@ -70,6 +73,8 @@ const EVENT_ICON = {
   priority_changed: "flag",
   task_title_changed: "pencil",
   place_linked: "map-pin",
+  // V3 Phase A events.
+  reminder_changed: "bell",
 };
 
 // Phase 3 Router result rendering (§25): map skill ids / intent → labels.
@@ -222,7 +227,10 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
   // ── Phase 2 (#4): other tasks (for conflict detection); pass the full list.
   onConflicts = null,
   // ── Phase 4 (P0-C): task-linked notes (execution records).
-  notes = [], onAddNote = null }) {
+  notes = [], onAddNote = null,
+  // ── V3 Phase A (gap 1): local reminder. onSetReminder(taskId, { remindAt })
+  //    | null → the reminder card renders only when wired (honesty).
+  onSetReminder = null }) {
   const [stepTitle, setStepTitle] = React.useState("");
   const [sourceTitle, setSourceTitle] = React.useState("");
   const [resultText, setResultText] = React.useState("");
@@ -247,12 +255,31 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
   const [pickerOpen, setPickerOpen] = React.useState(null);
   // Phase 2 (#4): conflict warning for the current due value.
   const [conflictTask, setConflictTask] = React.useState(null);
+  // V3 Phase A (gap 1): reminder picker state — "remind" sheet | null.
+  const [reminderOpen, setReminderOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (!task) return;
     setSchedDate(task.scheduledDate || "");
     setDueInput(task.dueAt ? task.dueAt.slice(0, 16) : "");
   }, [task && task.id, task && task.scheduledDate, task && task.dueAt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // V3 Phase A (gap 1): quick reminder presets — local now + offset minutes.
+  const reminderPresets = React.useMemo(() => {
+    const mk = (minutes) => {
+      const d = new Date(Date.now() + minutes * 60000);
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      return { iso: new Date(d.getTime() - d.getSeconds() * 1000 - d.getMilliseconds()).toISOString(), label: `${hh}:${mm}` };
+    };
+    return [
+      { minutes: 30, label: "30分钟后", iso: mk(30).iso },
+      { minutes: 60, label: "1小时后", iso: mk(60).iso },
+      { minutes: 120, label: "2小时后", iso: mk(120).iso },
+      { minutes: 1440, label: "明天此时", iso: mk(1440).iso },
+    ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task && task.id]);
 
   // Phase 2 (#4/#5): conflict warning recomputes whenever the task's dueAt
   // changes. Pure function over the passed-in task list — nothing is written.
@@ -523,6 +550,75 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
           }}
           onCancel={() => setPickerOpen(null)}
         />
+
+        {/* ── V3 Phase A (gap 1): local reminder ─────────────────────────
+            remindAt lives on the task record (one source of truth). The
+            native notification is scheduled by lib/native-reminders.js via
+            the App handler — fire-and-forget, honest degradation on web.
+            The card renders only when onSetReminder is wired. */}
+        {onSetReminder && (
+          <div style={{ ...card, marginTop: 12 }} data-testid="workbench-detail-reminder">
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-faint)", marginBottom: 9, letterSpacing: "0.03em" }}>
+              <Icon name="bell" style={{ width: 13, height: 13, verticalAlign: "-2px", marginRight: 5 }} />
+              本地提醒（由你设置，系统通知需授权）
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <button
+                aria-label={task.remindAt ? `提醒时间：${describeReminder(task.remindAt)}，点击修改` : "提醒时间：未设置，点击选择"}
+                aria-haspopup="dialog"
+                data-testid="workbench-detail-reminder-time"
+                onClick={() => setReminderOpen(true)}
+                style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)", border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "8px 13px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", minHeight: 48, cursor: "pointer", textAlign: "left" }}>
+                提醒时间
+                <span style={{ fontSize: 13.5, color: "var(--text-strong)" }}>
+                  {task.remindAt ? describeReminder(task.remindAt) : "未设置"}
+                </span>
+              </button>
+              {task.remindAt && (
+                <Button size="sm" variant="ghost" data-testid="workbench-detail-reminder-clear"
+                  onClick={() => onSetReminder(task.id, { remindAt: null })}>
+                  清除提醒
+                </Button>
+              )}
+              {reminderMode() === REMINDER_MODE.UNSUPPORTED && (
+                <span data-testid="workbench-detail-reminder-mode" style={{ fontSize: 11.5, color: "var(--text-faint)" }}>
+                  当前环境不支持系统通知，提醒仅在应用内提示
+                </span>
+              )}
+            </div>
+            {/* quick presets */}
+            {!task.remindAt && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 9 }}>
+                {reminderPresets.map((p) => (
+                  <button key={p.label} data-testid={"workbench-detail-reminder-preset-" + p.minutes}
+                    onClick={() => onSetReminder(task.id, { remindAt: p.iso })}
+                    style={{
+                      border: "1px solid var(--border-subtle)", background: "var(--surface-card)",
+                      color: "var(--text-body)", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                      padding: "7px 12px", minHeight: 40, borderRadius: "var(--radius-pill)", fontFamily: "var(--font-sans)",
+                    }}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {onSetReminder && (
+          <DatePickerSheet
+            open={reminderOpen}
+            mode="datetime"
+            title="选择提醒时间"
+            initialDueAt={task.remindAt || null}
+            onConfirm={(dayStr, hhmm) => {
+              setReminderOpen(false);
+              if (!onSetReminder) return;
+              if (!dayStr || !hhmm) { onSetReminder(task.id, { remindAt: null }); return; }
+              onSetReminder(task.id, { remindAt: new Date(`${dayStr}T${hhmm}`).toISOString() });
+            }}
+            onCancel={() => setReminderOpen(false)}
+          />
+        )}
 
         {/* ── Phase 4 (P0-A): project link ─────────────────────────────── */}
         {onLinkProject && projects.length > 0 && (

@@ -35,6 +35,8 @@ export const WORKBENCH_TABS = [
   // Phase 5 (V2.3): user-created activities — the honest real data source.
   { key: "useract", label: "自建活动", icon: "compass" },
   { key: "search", label: "智能搜索", icon: "search" },
+  // V3 Phase A (Task #3/E): PC agent gateway entry — submit + view runs.
+  { key: "agent", label: "智能体", icon: "bot" },
   { key: "review", label: "审核中心", icon: "shield-check" },
   { key: "history", label: "工作记录", icon: "history" },
 ];
@@ -82,6 +84,8 @@ export const MOBILE_MORE_TABS = [
   { key: "smart", label: "智能找活动", icon: "sparkles", legacy: true },
   { key: "weekend", label: "我的周末", icon: "calendar-heart", legacy: true },
   { key: "map", label: "地图", icon: "map", legacy: true },
+  // V3 Phase A (Task #3/E): PC agent gateway entry.
+  { key: "agent", label: "智能体", icon: "bot", workbench: true },
   { key: "review", label: "审核中心", icon: "shield-check", workbench: true },
   { key: "history", label: "工作记录", icon: "history", workbench: true },
   { key: "settings", label: "模型与设置", icon: "settings", workbench: true },
