@@ -76,6 +76,13 @@ export const WORKBENCH_EVENT_TYPES = [
   "reminder_changed",   // V3 Phase A (gap 1): remindAt set or cleared by the user
 ];
 
+// Phase B3 (Task #11): PC agent-run vocabulary (ADDITIVE — old types untouched).
+// Records when a phone task is linked to a PC gateway execution record, so the
+// task timeline stays the single truthful history of the whole loop.
+export const AGENT_EVENT_TYPES = [
+  "agent_run_linked",   // a PC gateway runId was attached to this task
+];
+
 // ── §5 legal transition table ─────────────────────────────────────────
 // created -> planning | ready (Phase-2 local shortcut) | failed | cancelled is NOT enabled (unused)
 // V2.3 (Phase 1 gap #2): failed -> ready is the RETRY path ("重新就绪再执行").
@@ -239,6 +246,10 @@ export function createTask(goal, opts = {}) {
 
     // V3 Phase A (gap 1) — local reminder time (additive; null = not set).
     remindAt: normIsoOrNull(opts.remindAt),
+
+    // Phase B3 (gap: agent-run link) — PC gateway run records linked to this
+    // task (additive; [] = none). Old records normalize to [] (compatible).
+    agentRunIds: [],
 
     steps: [],
     result: null,
@@ -405,6 +416,10 @@ export function normalizeTask(t) {
     priority: normPriorityOrNull(t.priority) || TASK_PRIORITY.NORMAL,
     // V3 Phase A additive — old records normalize to null (compatible).
     remindAt: normIsoOrNull(t.remindAt),
+    // Phase B3 additive — old records normalize to [] (compatible).
+    agentRunIds: Array.isArray(t.agentRunIds)
+      ? t.agentRunIds.map((x) => String(x)).filter(Boolean)
+      : [],
     steps: Array.isArray(t.steps) ? t.steps.map(normalizeStep).filter(Boolean) : [],
     result: t.result && typeof t.result === "object" ? (makeResult(t.result) || null) : null,
     sources: Array.isArray(t.sources) ? t.sources.map((s) => makeSource(s) || s).filter(Boolean) : [],

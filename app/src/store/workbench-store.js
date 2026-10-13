@@ -280,6 +280,37 @@ export function linkTaskToPlace(taskId, placeId) {
   return updated ? Repo.getTask(taskId) : null;
 }
 
+// ── Phase B3: task ↔ PC agent-run link ──────────────────────────────────
+//
+// Additive task.agentRunIds (string[]). Idempotent: linking the same runId
+// twice does NOT duplicate the entry or the timeline event. Unknown / empty
+// runIds are refused (never guess). This closes the phone↔PC loop: the task
+// keeps its gateway execution records so the user can find results from the
+// task itself, without copying data between screens.
+
+export function linkTaskToAgentRun(taskId, runId, { executor = null, summary = null } = {}) {
+  const task = Repo.getTask(taskId);
+  if (!task) return null;
+  const rid = String(runId || "").trim();
+  if (!rid) return null; // empty runId — refuse
+  const runIds = Array.isArray(task.agentRunIds) ? task.agentRunIds.map(String) : [];
+  if (runIds.indexOf(rid) >= 0) return task; // idempotent — already linked
+  const updated = Repo.updateTask(taskId, { agentRunIds: runIds.concat([rid]) }, {
+    eventType: "agent_run_linked",
+    eventMessage: executor
+      ? `关联电脑执行 ${rid.slice(0, 12)}…（${executor}${summary ? "： " + String(summary).slice(0, 60) : ""}）`
+      : `关联电脑执行 ${rid.slice(0, 12)}…`,
+    eventMetadata: { runId: rid, executor: executor || null, summary: summary ? String(summary).slice(0, 200) : null },
+  });
+  return updated ? Repo.getTask(taskId) : null;
+}
+
+export function getTaskAgentRunIds(taskId) {
+  const task = Repo.getTask(taskId);
+  if (!task) return [];
+  return Array.isArray(task.agentRunIds) ? task.agentRunIds.map(String) : [];
+}
+
 // ── V2.3 (Phase 1 gap #5): cross-field task search ─────────────────────
 //
 // PURE HELPER. Query matches task title and goal (case-insensitive

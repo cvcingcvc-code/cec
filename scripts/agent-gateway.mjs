@@ -243,10 +243,13 @@ function processQueue() {
 
   const ex = EXECUTORS[run.executor];
   const timer = setTimeout(() => {
-    run.status = "failed";
+    // Phase B (gap #3): TIMED_OUT is its own status (not generic "failed"),
+    // so the phone can distinguish a timeout from a real execution error.
+    // Old records keep their stored status; only NEW timeouts use this.
+    run.status = "timed_out";
     run.error = `hard timeout (${HARD_TIMEOUT_MS}ms)`;
     run.finishedAt = new Date().toISOString();
-    run.timeline.push({ ts: new Date().toISOString(), type: "failed", message: run.error });
+    run.timeline.push({ ts: new Date().toISOString(), type: "timed_out", message: run.error });
     audit({ kind: "run_timeout", runId: run.runId });
     saveRuns(runs);
     executing = false;

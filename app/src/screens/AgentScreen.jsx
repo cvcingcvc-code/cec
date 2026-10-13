@@ -23,6 +23,7 @@ const RUN_STATUS_LABEL = {
   running: "执行中",
   completed: "已完成",
   failed: "失败",
+  timed_out: "已超时",
   cancelled: "已取消",
 };
 
@@ -31,6 +32,7 @@ const RUN_STATUS_TONE = {
   running: { color: "var(--brand)", bg: "var(--brand-soft)" },
   completed: { color: "var(--accent-strong, #047857)", bg: "var(--accent-soft)" },
   failed: { color: "var(--danger)", bg: "var(--danger-soft)" },
+  timed_out: { color: "var(--warning, #B45309)", bg: "var(--warning-soft, #FFF6E6)" },
   cancelled: { color: "var(--text-muted)", bg: "var(--bg-sunken)" },
 };
 
@@ -56,7 +58,7 @@ function saveLocal(key, value) {
   } catch (e) { /* private mode — session only */ }
 }
 
-export function AgentScreen({ flash }) {
+export function AgentScreen({ flash, linkTask = null, linkableTasks = [] }) {
   const [url, setUrl] = React.useState(() => loadLocal(K_GATEWAY, "http://192.168.1.100:8765"));
   const [token, setToken] = React.useState(() => loadLocal(K_TOKEN, ""));
   const [executors, setExecutors] = React.useState([]);
@@ -292,6 +294,15 @@ export function AgentScreen({ flash }) {
                             style={{ border: "1px solid var(--border-subtle)", background: "transparent", color: "var(--danger)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "8px 12px", minHeight: 38, borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)" }}>
                             取消
                           </button>
+                        )}
+                        {linkTask && (r.status === "completed" || r.status === "failed" || r.status === "timed_out" || r.status === "cancelled") && (
+                          <select aria-label="关联到任务" data-testid="workbench-agent-run-link"
+                            value=""
+                            onChange={(e) => { if (e.target.value) linkTask(r.runId, e.target.value, r); }}
+                            style={{ border: "1px solid var(--border-subtle)", background: "transparent", color: "var(--text-body)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "8px 12px", minHeight: 38, borderRadius: "var(--radius-sm)", fontFamily: "var(--font-sans)", maxWidth: 180 }}>
+                            <option value="">关联到任务…</option>
+                            {linkableTasks.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                          </select>
                         )}
                       </div>
                     </div>

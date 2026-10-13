@@ -915,8 +915,24 @@ export default function App() {
         proposals={wbProposals} onProposal={decideProposal} />
     ),
     // V3 Phase A (Task #3/E): PC agent gateway entry.
+    // Phase B3: linkTask lets the user attach a finished gateway run back to
+    // a phone task (agentRunIds on the task) — closes the phone↔PC loop.
     agent: (
-      <AgentScreen flash={flash} />
+      <AgentScreen flash={flash}
+        linkTask={(runId, taskId, run) => {
+          const updated = WBStore.linkTaskToAgentRun(taskId, runId, {
+            executor: run && run.executor ? run.executor : null,
+            summary: run && run.summary ? run.summary : null,
+          });
+          if (updated) {
+            setWbTasks(WBStore.getTasks());
+            setWbLog(WBStore.getLog());
+            flash(`结果已关联到任务「${updated.title}」`);
+          } else {
+            flash("关联失败（任务不存在或已关联）");
+          }
+        }}
+        linkableTasks={wbTasks} />
     ),
     places: (
       <PlacesScreen places={wbPlaces} projects={wbProjects} tasks={wbTasks} notes={wbNotes}
