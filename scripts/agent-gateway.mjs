@@ -51,21 +51,44 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
-const STATE_DIR = path.join(__dirname, ".agent-gateway");
-const TOKEN_FILE = path.join(STATE_DIR, "token.json");
-const AUDIT_FILE = path.join(STATE_DIR, "audit.log");
-const RUNS_FILE = path.join(STATE_DIR, "runs.json");
 
 const NAME = "gorgon-agent-gateway";
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 const HARD_TIMEOUT_MS = 60_000;
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_RUNS_KEPT = 200;
+
+// Phase C: the state dir can be redirected for isolated tests (GORGON_GATEWAY_STATE_DIR).
+// Production default is unchanged: scripts/.agent-gateway/ (gitignored).
+const STATE_DIR = process.env.GORGON_GATEWAY_STATE_DIR
+  ? path.resolve(process.env.GORGON_GATEWAY_STATE_DIR)
+  : path.join(__dirname, ".agent-gateway");
+const TOKEN_FILE = path.join(STATE_DIR, "token.json");
+const AUDIT_FILE = path.join(STATE_DIR, "audit.log");
+const RUNS_FILE = path.join(STATE_DIR, "runs.json");
 
 // ── Executor allowlist (S2) ────────────────────────────────────────────
 // Every executor: { description, input schema, run(input) }.
 // run() MUST be bounded: no shell, no dynamic paths outside the repo,
 // hard size caps on output. Results are structured, never fabricated.
+
+// Phase C (§3.3): the real Codex adapter — read-only project diagnosis.
+// Adapter module import is dynamic so the gateway still starts when the
+// adapter file is missing (older checkouts).
+let CODEX_ADAPTER = null;
+try {
+  const mod = await import("./agent-adapters/codex-adapter.mjs");
+  CODEX_ADAPTER = mod;
+} catch (e) {
+  audit({ kind: "codex_adapter_load_error", error: String((e && e.message) || e) });
+}
+
+function gitSnapshot(label, runId) {
+  // §3.4: record git status before/after an AI run — read-only proof.
+  return execGit(["status", "--porcelain=v1"], REPO_ROOT)
+    .then((out) => ({ label, dirty: out.trim().length, output: out.slice(0, 2000) }))
+    .catch((e) => ({ label, error: String((e && e.message) || e) }));
+}
 
 function safeReadText(absPath, maxBytes) {
   const st = fs.statSync(absPath);
@@ -145,10 +168,141 @@ const EXECUTORS = {
   },
 };
 
+// Phase C: test-only executor injection hooks live BELOW the run engine
+// (GORGON_GATEWAY_EXTRA_EXECUTORS + GORGON_GATEWAY_EXTRA_EXECUTORS_FILE).
+// Production never sets these env vars, so the production allowlist above
+// is unchanged.
+
+// Phase C: tests can inject extra executors via GORGON_GATEWAY_EXTRA_EXECUTORS
+// (path to a JSON file of { id: { description, input, runSource } }). The run
+// function is passed as source text and evaluated with `new Function` INSIDE
+// this gateway process — production never sets the env var, so the production
+// allowlist is exactly the three executors above.
+const EXTRA_FILE = process.env.GORGON_GATEWAY_EXTRA_EXECUTORS;
+if (EXTRA_FILE) {
+  try {
+    const patch = JSON.parse(fs.readFileSync(path.resolve(EXTRA_FILE), "utf8"));
+    for (const [id, spec] of Object.entries(patch)) {
+      if (!spec || typeof spec !== "object" || typeof spec.runSource !== "string") continue;
+      // eslint-disable-next-line no-new-func
+      const fn = new Function(`"use strict"; return (${spec.runSource});`)();
+      if (typeof fn !== "function") continue;
+      EXECUTORS[id] = { description: String(spec.description || id), input: spec.input || {}, run: fn };
+    }
+  } catch (e) { /* test-only hook: ignore bad patches */ }
+}
+
+// Phase C: GORGON_GATEWAY_EXTRA_EXECUTORS_FILE — ESM module injection (the
+// module form keeps real functions and child_process imports; the JSON+new
+// Function form above is kept for compatibility with earlier test drafts).
+// Production never sets either env var. Failures never crash startup.
+function loadExtraExecutorModule() {
+  const file = process.env.GORGON_GATEWAY_EXTRA_EXECUTORS_FILE;
+  if (!file) return;
+  try {
+    const mod_url = process.platform === "win32"
+      ? "file:///" + String(file).replace(/\\/g, "/")
+      : "file://" + String(file);
+    import(mod_url)
+      .then((mod) => {
+        const extra = mod && mod.default;
+        if (extra && typeof extra === "object") {
+          Object.assign(EXECUTORS, extra);
+          audit({ kind: "extra_executors_module_loaded", file, count: Object.keys(extra).length });
+        }
+      })
+      .catch((e) => audit({ kind: "extra_executors_module_error", file, error: String((e && e.message) || e) }));
+  } catch (e) {
+    audit({ kind: "extra_executors_module_error", file, error: String((e && e.message) || e) });
+  }
+}
+loadExtraExecutorModule();
+
+// ── Phase C (§3.3): whitelisted real-AI executor ────────────────────────
+// codex.readonly-diagnosis: runs the pre-approved read-only diagnosis
+// template through the real Codex CLI, in the FIXED workspace
+// F:\Gorgon-Workbench. Input from the phone is IGNORED by design — the
+// prompt is server-side only. Status maps onto the unified state machine;
+// BLOCKED_* statuses surface honestly (never disguised as completed).
+if (CODEX_ADAPTER) {
+  const CODEX_WORKSPACE = process.env.GORGON_CODEX_WORKSPACE || "F:\\Gorgon-Workbench";
+  const CODEX_TIMEOUT_MS = Math.min(600_000, Math.max(30_000,
+    parseInt(process.env.GORGON_CODEX_TIMEOUT_MS || "420000", 10) || 420000));
+
+  // availability is resolved async once at startup (detectCodex is async).
+  let codexAvailability = "UNAVAILABLE";
+  CODEX_ADAPTER.detectCodex().then((det) => {
+    codexAvailability = det.ok ? "AVAILABLE" : "UNAVAILABLE";
+  }).catch(() => {});
+
+  EXECUTORS["codex.readonly-diagnosis"] = {
+    description: "Codex · 项目只读诊断（真实 AI 分析 Gorgon 项目，只读沙箱，约 3-7 分钟）",
+    agent: "codex",
+    get availability() { return codexAvailability; },
+    input: {}, // no phone input: pre-approved template only
+    async run(_input, ctx) {
+      const det = await CODEX_ADAPTER.detectCodex();
+      if (!det.ok) {
+        throw Object.assign(new Error(`Codex CLI 不可用：${det.error}`), { kind: "UNAVAILABLE" });
+      }
+      // §3.4: git snapshot BEFORE the run (read-only proof).
+      const before = await gitSnapshot("before", null);
+      const res = await CODEX_ADAPTER.execCodex({
+        codexPath: det.codexPath,
+        cwd: CODEX_WORKSPACE,
+        prompt: CODEX_ADAPTER.READONLY_DIAGNOSIS_PROMPT,
+        timeoutMs: CODEX_TIMEOUT_MS,
+        onChild: (child) => { if (ctx && typeof ctx.setCancellable === "function") ctx.setCancellable(child); },
+      });
+      // §3.4: git snapshot AFTER — confirm no working-tree changes.
+      const after = await gitSnapshot("after", null);
+      const clean = before.dirty === after.dirty && !(after.output && before.output && after.output !== before.output);
+
+      // Map adapter status onto the unified run result. BLOCKED_* are
+      // honest failures — they become run.status via a thrown error so
+      // the gateway records them as `failed` with the real reason.
+      if (res.ok) {
+        return {
+          summary: `Codex 只读诊断完成（${Math.round(res.durationMs / 1000)}s，git 干净：${clean ? "是" : "需检查"}）`,
+          output: res.output,
+          meta: {
+            codexVersion: det.version,
+            sessionId: res.sessionId || null,
+            durationMs: res.durationMs,
+            gitClean: clean,
+            workspace: CODEX_WORKSPACE,
+          },
+        };
+      }
+      // blocked/failed: surface the real reason (no fabrication)
+      const err = new Error(`[${res.status}] ${res.error || "codex 执行失败"}`);
+      err.kind = res.status;
+      err.output = res.output || "";
+      throw err;
+    },
+  };
+}
+
 // ── State: token / audit / runs ────────────────────────────────────────
 
 function ensureStateDir() {
   fs.mkdirSync(STATE_DIR, { recursive: true });
+}
+
+// Phase C (§6.3): runs.json survives gateway restarts; stale "running" rows
+// from a previous process can never resume — mark them failed honestly.
+function reconcileStaleRuns() {
+  let changed = false;
+  for (const r of runs) {
+    if (r.status === "running" || r.status === "queued") {
+      r.status = "failed";
+      r.error = "gateway restarted while the run was in flight";
+      r.finishedAt = new Date().toISOString();
+      r.timeline = (r.timeline || []).concat([{ ts: new Date().toISOString(), type: "failed", message: r.error }]);
+      changed = true;
+    }
+  }
+  if (changed) saveRuns(runs);
 }
 
 function loadOrCreateToken() {
@@ -190,6 +344,7 @@ function saveRuns(runsList) {
 // ── Run engine: one concurrent execution (S7), hard timeout (S3) ──────
 
 const runs = loadRuns();
+reconcileStaleRuns();
 let executing = false;
 const queue = [];
 const cancelled = new Set();
@@ -240,48 +395,122 @@ function processQueue() {
   run.startedAt = new Date().toISOString();
   run.timeline.push({ ts: new Date().toISOString(), type: "running", message: "开始执行" });
   audit({ kind: "run_start", runId: run.runId, executor: run.executor });
+  executeRun(run);
+}
 
+// ── Phase C: single-final-state run engine ─────────────────────────────
+// Invariants (docs/AGENT_REMOTE_DESIGN.md + phase-c task §2.1):
+//   1. a run enters its final state EXACTLY ONCE (first writer wins);
+//   2. a timed-out run can never flip to completed afterwards (the late
+//      Promise result is discarded, and the executor's cancel hook fires);
+//   3. a cancelled run can never flip to completed (same discard rule);
+//   4. the execution slot is ALWAYS released (finally), the queue keeps
+//      flowing after timeouts/cancels/crashes;
+//   5. an executor throwing synchronously or a run() without a cancel hook
+//      never crashes the gateway process.
+
+function killProcessTree(pid, label) {
+  // Windows: taskkill /T /F /PID kills the tree (codex/git spawn children).
+  // POSIX: negative-PID group kill when available, fallback SIGKILL.
+  try {
+    if (process.platform === "win32") {
+      spawn("taskkill", ["/T", "/F", "/PID", String(pid)], { shell: false, windowsHide: true })
+        .on("error", () => { /* best effort */ });
+    } else {
+      try { process.kill(-pid, "SIGKILL"); } catch (e) { /* not a group leader */ }
+    }
+  } catch (e) {
+    audit({ kind: "kill_tree_error", pid, label, error: String((e && e.message) || e) });
+  }
+}
+
+function finalizeRunOnce(run, status, patch) {
+  if (run.__finalized) return false; // invariant 1/2/3: first final state wins
+  run.__finalized = true;
+  run.status = status;
+  if (patch && typeof patch === "object") {
+    if (patch.result !== undefined) run.result = patch.result;
+    if (patch.error !== undefined) run.error = patch.error;
+  }
+  run.finishedAt = new Date().toISOString();
+  return true;
+}
+
+function executeRun(run) {
   const ex = EXECUTORS[run.executor];
+  let child = null; // Phase C: track the executor's spawned child (if any)
+  let done = false;
+
+  const setCancellable = (c) => {
+    child = c;
+    if (child && cancelled.has(run.runId)) {
+      // cancel arrived between enqueue and spawn — kill immediately
+      killProcessTree(child.pid, run.executor);
+    }
+  };
+
+  const ctx = {
+    setCancellable,
+    // Adapters call this to register the real child process for
+    // timeout/cancel tree-kill. No hook = pure in-process promise.
+  };
+
   const timer = setTimeout(() => {
-    // Phase B (gap #3): TIMED_OUT is its own status (not generic "failed"),
-    // so the phone can distinguish a timeout from a real execution error.
-    // Old records keep their stored status; only NEW timeouts use this.
-    run.status = "timed_out";
-    run.error = `hard timeout (${HARD_TIMEOUT_MS}ms)`;
-    run.finishedAt = new Date().toISOString();
-    run.timeline.push({ ts: new Date().toISOString(), type: "timed_out", message: run.error });
-    audit({ kind: "run_timeout", runId: run.runId });
-    saveRuns(runs);
-    executing = false;
-    processQueue();
+    // Phase C: kill the real child tree FIRST, then finalize as timed_out.
+    if (child && child.pid) killProcessTree(child.pid, "timeout");
+    if (finalizeRunOnce(run, "timed_out", { error: `hard timeout (${HARD_TIMEOUT_MS}ms)` })) {
+      run.timeline.push({ ts: new Date().toISOString(), type: "timed_out", message: run.error });
+      audit({ kind: "run_timeout", runId: run.runId });
+      saveRuns(runs);
+      executing = false;
+      processQueue();
+    }
   }, HARD_TIMEOUT_MS);
 
-  Promise.resolve()
-    .then(() => ex.run(run.input || {}))
+  let promise;
+  try {
+    promise = Promise.resolve().then(() => ex.run(run.input || {}, ctx));
+  } catch (e) {
+    // synchronous throw — must not crash the gateway (invariant 5)
+    promise = Promise.reject(e);
+  }
+
+  promise
     .then((res) => {
       clearTimeout(timer);
       if (cancelled.has(run.runId)) {
-        run.status = "cancelled";
-        run.timeline.push({ ts: new Date().toISOString(), type: "cancelled", message: "执行后标记取消（结果丢弃）" });
-      } else {
-        run.status = "completed";
-        run.result = res; // { summary, output }
+        if (finalizeRunOnce(run, "cancelled", {})) {
+          run.timeline.push({ ts: new Date().toISOString(), type: "cancelled", message: "执行后标记取消（结果丢弃）" });
+          audit({ kind: "run_done", runId: run.runId, status: "cancelled" });
+          saveRuns(runs);
+        }
+      } else if (finalizeRunOnce(run, "completed", { result: res })) {
         run.timeline.push({ ts: new Date().toISOString(), type: "completed", message: (res && res.summary) || "执行完成" });
+        audit({ kind: "run_done", runId: run.runId, status: "completed" });
+        saveRuns(runs);
       }
-      run.finishedAt = new Date().toISOString();
-      audit({ kind: "run_done", runId: run.runId, status: run.status });
-      saveRuns(runs);
     })
     .catch((e) => {
       clearTimeout(timer);
-      run.status = "failed";
-      run.error = String((e && e.message) || e);
-      run.finishedAt = new Date().toISOString();
-      run.timeline.push({ ts: new Date().toISOString(), type: "failed", message: run.error });
-      audit({ kind: "run_error", runId: run.runId, error: run.error });
-      saveRuns(runs);
+      if (cancelled.has(run.runId) && run.__finalized) {
+        // already timed out/cancelled — keep that state, record the noise
+        audit({ kind: "run_late_error", runId: run.runId, error: String((e && e.message) || e) });
+        return;
+      }
+      if (finalizeRunOnce(run, "failed", { error: String((e && e.message) || e) })) {
+        run.timeline.push({ ts: new Date().toISOString(), type: "failed", message: run.error });
+        audit({ kind: "run_error", runId: run.runId, error: run.error });
+        saveRuns(runs);
+      }
     })
     .finally(() => {
+      clearTimeout(timer);
+      done = true;
+      if (!run.__finalized) {
+        // safety net: never leave a run stuck in "running" (invariant 4)
+        finalizeRunOnce(run, "failed", { error: "executor ended without a final state (gateway bug)" });
+        saveRuns(runs);
+      }
       executing = false;
       processQueue();
     });
@@ -345,7 +574,12 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === "GET" && p === "/v1/executors") {
-    const list = Object.entries(EXECUTORS).map(([id, ex]) => ({ id, description: ex.description, input: ex.input }));
+    const list = Object.entries(EXECUTORS).map(([id, ex]) => ({
+      id, description: ex.description, input: ex.input,
+      // Phase C (§6.1): backward-compatible capability fields.
+      agent: ex.agent || "gateway",
+      availability: ex.availability || "AVAILABLE",
+    }));
     return sendJson(res, 200, { ok: true, executors: list });
   }
 
@@ -368,10 +602,15 @@ const server = http.createServer(async (req, res) => {
     if (!run) return sendJson(res, 404, { ok: false, error: "run not found" });
     if (req.method === "GET") return sendJson(res, 200, { ok: true, run });
     if (req.method === "POST" && runMatch[2] === "/cancel") {
+      // Phase C: distinguish「已申请取消」from「已实际取消」. The final
+      // cancelled status is only written by the engine (queue skip /
+      // finalize-once); here we only mark the request and kill the live
+      // child tree when the run is already executing.
       cancelled.add(run.runId);
-      run.timeline.push({ ts: new Date().toISOString(), type: "cancel_requested", message: "收到取消请求" });
+      const isFinal = ["completed", "failed", "timed_out", "cancelled"].includes(run.status);
+      if (!isFinal) run.timeline.push({ ts: new Date().toISOString(), type: "cancel_requested", message: "收到取消请求" });
       saveRuns(runs);
-      return sendJson(res, 202, { ok: true, runId: run.runId, status: run.status, cancelRequested: true });
+      return sendJson(res, 202, { ok: true, runId: run.runId, status: run.status, cancelRequested: !isFinal });
     }
   }
 
