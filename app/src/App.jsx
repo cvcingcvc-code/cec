@@ -55,6 +55,11 @@ import { isImportableFileName, parseNoteText, MAX_IMPORT_BYTES } from "./lib/not
 import { readAgentRunsMirror } from "./lib/agent-runs-mirror.js";
 // V3 Phase A (gap 1): native reminder scheduling (Capacitor LocalNotifications).
 import * as NativeReminders from "./lib/native-reminders.js";
+// V3E 任务包 B: in-app reminder firing — the App polls pickDueReminders()
+// every REMINDER_POLL_MS and toasts each due reminder once (firedKey dedupe).
+import {
+  pickDueReminders, firedKey, NOTIFIED_STORE_KEY, REMINDER_POLL_MS,
+} from "./workbench/reminder-fire.js";
 
 /* ── legacy-mode detection (§17/§18) ────────────────────────────────── */
 // /?legacy=1 boots into the Phase-1 default (discover). Anything else
@@ -289,6 +294,47 @@ export default function App() {
   const [wbUserActs, setWbUserActs] = React.useState(() => WBStore.getUserActivities());
 
   const { isMobile } = useResponsive();
+
+  // ── V3E 任务包 B: in-app reminder firing ─────────────────────────────
+  // Gap closed: reminders were save-only on web — nothing fired when the
+  // time came. The App polls pickDueReminders() every REMINDER_POLL_MS and
+  // toasts each due reminder ONCE (firedKey dedupe persisted in localStorage;
+  // re-setting the same time does not re-fire, a NEW time re-arms).
+  // Native shells get system notifications via handleSetReminder already;
+  // this in-app path is the honest fallback for web/no-plugin sessions.
+  const readNotifiedKeys = () => {
+    try {
+      const raw = localStorage.getItem(NOTIFIED_STORE_KEY);
+      const v = raw ? JSON.parse(raw) : [];
+      return Array.isArray(v) ? v : [];
+    } catch (e) { return []; }
+  };
+  const persistNotifiedKeys = (keys) => {
+    try {
+      // cap 500 — the dedupe set never grows unbounded (§32 boundary)
+      localStorage.setItem(NOTIFIED_STORE_KEY, JSON.stringify(keys.slice(-500)));
+    } catch (e) { /* private mode — dedupe degrades to per-session */ }
+  };
+  React.useEffect(() => {
+    let alive = true;
+    const tick = () => {
+      if (!alive) return;
+      try {
+        const tasks = WBStore.getTasks();
+        const notified = readNotifiedKeys();
+        const notifiedSet = new Set(notified);
+        const due = pickDueReminders(tasks, new Date().toISOString(), { notifiedIds: notifiedSet });
+        if (due.length > 0) {
+          const next = notified.concat(due.map((t) => firedKey(t.id, t.remindAt)));
+          persistNotifiedKeys(next);
+          // one toast per tick (the earliest due) — never a toast storm
+          flash(`⏰ 提醒：${due[0].title}` + (due.length > 1 ? `（还有 ${due.length - 1} 条提醒到期）` : ""));
+        }
+      } catch (e) { /* polling must never crash the app */ }
+    };
+    const timer = setInterval(tick, REMINDER_POLL_MS);
+    return () => { alive = false; clearInterval(timer); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setDistrict = (d) => {
     setDistrictState(Store.setDistrict(d));

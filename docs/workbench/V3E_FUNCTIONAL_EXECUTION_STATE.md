@@ -92,3 +92,49 @@
 
 任务包 B：日程与提醒完善（P0）——今日/周/月视图已有（schedule-view/calendar + ScheduleScreen），
 本地通知已桥接（native-reminders），重点核对：提醒取消、过期处理、权限降级的真实状态，补缺口。
+
+## 任务包 B：日程与提醒完善（P0）— DONE
+
+### 缺口评估结论（2026-10-13）
+
+| # | 重点 | 状态 | 证据 |
+|---|------|------|------|
+| 1 | 今日/周/月视图 | REAL | ScheduleScreen 月历+本周 SegmentedControl、WorkbenchHome 今日待办、schedule-view 纯助手（weekRange/monthRange/groupTasksByDate） |
+| 2 | 本地通知 | REAL | native-reminders 完整桥接（schedule/cancel/权限/31-bit 哈希去重） |
+| 3 | 提醒取消 | REAL | 详情页清除提醒按钮 + cancelReminder + null 清除路径 + fire-and-forget |
+| 4 | 过期处理 | REAL | overdueTaskIds banner + isOverdue + 过去时间诚实跳过通知 |
+| 5 | 权限降级 | REAL | checkPermission/requestPermission 真实 API + unsupported 诚实提示 |
+| 6 | 应用内提醒触发 | **NOT_IMPLEMENTED→REAL（本轮补齐）** | reminderDueTasks 纯查询存在但无 UI 轮询——Web 环境提醒保存后到期无反应 |
+
+### 本轮实现（in-app reminder firing）
+
+1. `app/src/workbench/reminder-fire.js`（新文件，纯模块）
+   - `pickDueReminders(tasks, nowIso, { notifiedIds, graceMs })`：到期判定（remindAt ≤ now 且未超过 grace 窗口默认 6h）+ firedKey 去重（`${taskId}:${remindAt}`，同一时间只触发一次，新时间重新武装）
+   - 终态任务（completed/failed）永不提醒；无效 remindAt 跳过不猜测
+   - 导出 `REMINDER_POLL_MS`（30s）/`NOTIFIED_STORE_KEY`/`REMINDER_GRACE_MS`/`firedKey`
+
+2. `app/src/App.jsx`
+   - 30s 轮询 useEffect（cleanup 正确，轮询永不 crash 应用）
+   - 去重记录持久化 localStorage（cap 500，§32 边界；私有模式降级 per-session）
+   - 每轮最多一条 toast（最早到期的）——永不 toast 风暴；多条时提示"还有 N 条提醒到期"
+   - Native shell 已有系统通知，本路径是 Web/无插件会话的诚实 fallback
+
+### 测试（v3e-reminder-fire.test.mjs，5 用例全绿）
+
+1. 到期判定（due 触发、future 等待）
+2. firedKey 去重（同时间不重复触发、新时间重新武装）
+3. 终态/无提醒/无效日期跳过
+4. grace 窗口边界（超 6h 的陈旧提醒诚实跳过）
+5. 常量导出（轮询间隔 ≥15s、存储键 gorgon_ 命名空间）
+
+### 验证结果
+
+- 新测试：5/5 pass
+- 全量：**516 tests / 515 pass / 0 fail / 1 skipped**（511 + 5 新增，零回归）
+- Vite build：✓ built in 10.03s
+- Commit：`feat(reminders): in-app reminder firing ...`（见 git log）
+
+### 下一步
+
+任务包 C：地点、走访与笔记（P1）——核对走访状态流转（待走访/已走访/需复访/不适合）、
+地点笔记、TXT/MD 导入（v3-note-import 已有测试），补真实缺口。
