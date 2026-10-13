@@ -1,21 +1,45 @@
 # V2.3 执行状态（V23_EXECUTION_STATE）
 
 > 持续更新：每轮 10 步迭代的第 9 步刷新本文件。
-> 最后更新：2026-10-13 — Phase 5 自建活动完成并推送（ff2f964）。
+> 最后更新：2026-10-13 — Phase 7 AI Client 安全接入完成并推送（7ddefa4）。
 
 ## 1. 当前状态卡
 
 ```
-PHASE = 5（真实活动源）✅ 自建活动存储层+UI 完成 → 下一步 Phase 6（项目统一）→ Phase 7（AI Client 安全接入）
-CURRENT_HEAD = ff2f964（feature/gorgon-opportunity-v2，已推送 cec）
-FEATURES_IMPLEMENTED = Phase 1 任务系统 15/16 REAL + Phase 2 日程系统 + Phase 3 地点管理 + Phase 4 笔记中心 + Phase 5 自建活动
-TESTS_PASS = 单测 400/400、build-smoke 18/18、vite build 成功（7.70s）
+PHASE = 7（AI Client 安全接入）✅ runTask 透传 aiClient → 下一步 Android 交付轮（重打包 APK + SHA256 + E2E）
+CURRENT_HEAD = 7ddefa4（feature/gorgon-opportunity-v2，已推送 cec）
+FEATURES_IMPLEMENTED = Phase 1 任务系统 15/16 REAL + Phase 2 日程系统 + Phase 3 地点管理 + Phase 4 笔记中心 + Phase 5 自建活动 + Phase 6 项目统一 + Phase 7 AI Client 接线
+TESTS_PASS = 单测 411/411、build-smoke 18/18、vite build 成功（7.93s）
 TESTS_FAIL = 0
-ANDROID_STATUS = debug APK ebe4ca74… 有效（未含 Phase 1-5 新改动，Android 交付轮重新打包）
+ANDROID_STATUS = debug APK ebe4ca74… 有效（未含 Phase 1-7 新改动，Android 交付轮重新打包）
 REAL_DATA_STATUS = 活动数据 DEMO/MOCK + 自建活动 REAL（user origin envelope）；用户数据 localStorage REAL
-BLOCKERS = Android 录音（插件未装，BLOCKED/NOT_TESTED）；AI 端到端接线方案待用户决策（Phase 7）；真机验收无物理设备（Issue #1/#2 OPEN）
-NEXT_TASK = Phase 6：项目统一（项目概念统一收口）→ Phase 7：AI Client 安全接入
+AI_STATUS = 链路全通：runTask 透传 aiClient（opt-in）→ hostEnv GORGON_AI_* 注入（key 不进 bundle/APK）→ provider 失败 fallback 本地（任务仍完成）；默认无 client 纯确定性（demo AI_CALLS=0）
+BLOCKERS = Android 录音（插件未装，BLOCKED/NOT_TESTED）；真机验收无物理设备（Issue #1/#2 OPEN）
+NEXT_TASK = Android 交付轮：重新打包 APK（含 Phase 1-7）+ SHA256 验证 + E2E → Phase 8-10
 ```
+
+## 0.9 Phase 7 AI Client 安全接入交付记录（2026-10-13，commit 7ddefa4，已推送）
+
+| 交付 | 说明 | 测试 |
+|---|---|---|
+| workbench-store.runTask | 透传 aiClient 到 Task Runner（opt-in，签名 `{skillIds, aiClient}`）；宿主注入路径打通 | v23-ai-client.test.mjs（8 项） |
+| hostEnv 注入（方案 A，既有） | GORGON_AI_PROVIDER/API_KEY/MODEL/BASE_URL 环境变量 → resolveProviderConfig → real 模式；浏览器 bundle 内 process 不存在 = 死代码，**key 无法编译进前端** | G-4/G-4b/G-4c |
+| 诚实降级（既有） | provider 挂掉/限流/断网 → assist bridge 落 deterministic 路径，任务仍完成、内容保留、fallbackReason 上 step metadata | G-3/G-3b |
+| opt-in 语义守卫 | 默认（无 aiClient）每个 step 纯确定性 + aiAssisted:false + aiProvider:null（demo AI_CALLS=0 不变） | G-1 |
+| skillIds 回归守卫 | 手动选择路径不受影响（routed.intent=manual） | G-5 |
+
+**安全结论**：方案 A（hostEnv）已可交付——桌面壳/CLI 设 GORGON_AI_API_KEY 即真实模型；APK 内无 key（build-smoke secret 扫描 18/18 通过）。方案 B（Android 安全存储 + Capacitor bridge）留待用户决策，不阻塞。
+**测试基线**：403 → **411**（+ai-client 8）
+
+## 1.0c Phase 6 项目统一交付记录（2026-10-13，commit c2b0a48，已推送）
+
+| 交付 | 说明 | 测试 |
+|---|---|---|
+| lib/project-view.js | projectProgressPercent（0 任务→null 诚实 no-signal）+ projectTimeline（task/progress/note 三源合并，时间倒序）+ timelineSourceLabel/timelineAtLabel | v23-project-gaps.test.mjs（3 项） |
+| ProjectDetailScreen 强化 | header「任务完成 N%」（100% 绿 accent）+ 统一时间线 Section（首 20 条，source 徽标三色，cap 提示） | UI 层 |
+| 语义锚定 | 任务时间线事件字段是 `timestamp`（不是 `at`，测试捕获后修复） | 同上（G-2） |
+
+**测试基线**：400 → **403**
 
 ## 1.0b Phase 5 自建活动交付记录（2026-10-13，commit ff2f964，已推送）
 
