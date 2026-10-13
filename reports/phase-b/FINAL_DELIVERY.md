@@ -59,9 +59,11 @@
 | SHA | 说明 |
 |---|---|
 | `e8a47f1` | feat(v3b): close phone-PC loop — task↔agent-run link, TIMED_OUT status, Phase B reports |
-| `5cf79d2` | docs: unify official repo to cec — V3 APK release v0.3.0-alpha + download guide（上一任务） |
+| `d70f1c8` | docs(v3b): Phase B final delivery reports + device acceptance checklist + versionCode 7 |
+| `6c24bf1` | feat(v3b): TaskDetail agent-run records card + offline runs mirror |
+| `571801f` | fix(v3b): AgentScreen auto-mirror import（最终 HEAD，已推 cec） |
 
-（后续文档收尾 commit 见 git log；均推送 cec，未 force push）
+（全部推送 cec，未 force push）
 
 ## 7. 最新 APK 下载地址与 SHA256
 
