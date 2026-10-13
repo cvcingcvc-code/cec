@@ -34,6 +34,7 @@ import { TasksScreen } from "./screens/TasksScreen.jsx";
 import { TaskDetailScreen } from "./screens/TaskDetailScreen.jsx";
 import { ScheduleScreen } from "./screens/ScheduleScreen.jsx";
 import { NotesScreen } from "./screens/NotesScreen.jsx";
+import { UserActivitiesScreen } from "./screens/UserActivitiesScreen.jsx";
 import { ReviewCenterScreen } from "./screens/ReviewCenterScreen.jsx";
 import { HistoryScreen } from "./screens/HistoryScreen.jsx";
 import { SettingsScreen } from "./screens/SettingsScreen.jsx";
@@ -277,6 +278,8 @@ export default function App() {
   // V2.3 Phase 3: notes list for the place-notes panels (all notes; screens
   // filter by placeId). Persistence stays in the opportunities repository.
   const [wbNotes, setWbNotes] = React.useState(() => WBStore.getNotes());
+  // V2.3 Phase 5: user-created activities (the honest real data source).
+  const [wbUserActs, setWbUserActs] = React.useState(() => WBStore.getUserActivities());
 
   const { isMobile } = useResponsive();
 
@@ -524,6 +527,42 @@ export default function App() {
     setWbNotes(WBStore.getNotes());
     setWbLog(WBStore.getLog());
     flash("笔记已删除");
+  };
+
+  // ── V2.3 Phase 5 (真实活动源): user-created activities handlers ──────
+  const refreshUserActs = () => {
+    setWbUserActs(WBStore.getUserActivities());
+    setWbLog(WBStore.getLog());
+  };
+
+  const handleCreateUserAct = (input) => {
+    const a = WBStore.addUserActivity(input);
+    if (!a) return;
+    refreshUserActs();
+    flash("自建活动已创建");
+  };
+
+  const handleRemoveUserAct = (id) => {
+    const ok = WBStore.removeUserActivity(id);
+    if (!ok) return;
+    refreshUserActs();
+    flash("自建活动已删除");
+  };
+
+  // 自建活动 → 我的周末（与搜索结果同一条 weekend 流）
+  const handleSyncUserAct = (a) => {
+    toggleSync(a);
+  };
+
+  // 自建活动 → 创建项目（origin=activity，REAL 快照链接）
+  const handleCreateProjectFromUserAct = (a) => {
+    const view = asView(a);
+    if (!view) return;
+    const p = WBStore.createProjectFromActivity(view);
+    if (!p) return;
+    setWbProjects(WBStore.getProjects());
+    setWbLog(WBStore.getLog());
+    flash("已从活动创建项目");
   };
 
   // ── Module C UI (registrations): honest tracking + ICS handlers ────
@@ -796,6 +835,11 @@ export default function App() {
     notes: (
       <NotesScreen notes={wbNotes} tasks={wbTasks} places={wbPlaces} projects={wbProjects}
         onRemoveNote={handleRemovePlaceNote} onOpenTask={openTaskDetail} flash={flash} />
+    ),
+    useract: (
+      <UserActivitiesScreen activities={wbUserActs} weekend={weekend} projects={wbProjects}
+        onCreate={handleCreateUserAct} onRemove={handleRemoveUserAct}
+        onSync={handleSyncUserAct} onCreateProject={handleCreateProjectFromUserAct} />
     ),
     progress: (
       <ProgressCenterScreen data={progressCenterData} onOpenProject={openProjectDetail} />

@@ -32,6 +32,8 @@ export const WORKBENCH_TABS = [
   { key: "notes", label: "笔记", icon: "notebook-pen" },
   // Module D UI: field-visit places closing the P1 loop.
   { key: "places", label: "走访地点", icon: "map-pin" },
+  // Phase 5 (V2.3): user-created activities — the honest real data source.
+  { key: "useract", label: "自建活动", icon: "compass" },
   { key: "search", label: "智能搜索", icon: "search" },
   { key: "review", label: "审核中心", icon: "shield-check" },
   { key: "history", label: "工作记录", icon: "history" },
@@ -76,6 +78,7 @@ export const MOBILE_MORE_TABS = [
   { key: "schedule", label: "日程", icon: "calendar-clock", workbench: true },
   { key: "notes", label: "笔记", icon: "notebook-pen", workbench: true },
   { key: "places", label: "走访地点", icon: "map-pin", workbench: true },
+  { key: "useract", label: "自建活动", icon: "compass", workbench: true },
   { key: "smart", label: "智能找活动", icon: "sparkles", legacy: true },
   { key: "weekend", label: "我的周末", icon: "calendar-heart", legacy: true },
   { key: "map", label: "地图", icon: "map", legacy: true },

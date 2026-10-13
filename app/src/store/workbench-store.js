@@ -24,6 +24,7 @@ import * as Proposals from "./proposal-repository.js";
 import * as Projects from "./project-repository.js";
 import * as Opportunities from "./opportunity-repository.js";
 import * as JobsRepo from "./job-repository.js";
+import * as UserActs from "./user-activity-repository.js";
 
 const K_TASKS_V2 = Repo.SCHEMA_VERSION ? "gorgon_workbench_tasks_v2" : "gorgon_workbench_tasks_v2";
 const K_V1_TASKS = "gorgon_workbench_tasks";
@@ -361,6 +362,39 @@ export function archiveProject(id) {
   const p = Projects.archiveProject(id);
   if (p) logEvent("project_archive", `归档项目「${p.title}」`);
   return p;
+}
+
+// ── V2.3 Phase 5: user-created activities — facade ──────────────────────
+// The honest "real data source" that works without any backend: activities
+// the USER creates by hand, marked dataOrigin "user" (never impersonating
+// pipeline/api/DEMO data). The repository owns persistence via its own
+// versioned envelope key; this facade adds the activity-log trail.
+
+export function getUserActivities() {
+  return UserActs.listActivities();
+}
+
+export function getUserActivity(id) {
+  return UserActs.getActivity(id);
+}
+
+export function addUserActivity(input) {
+  const a = UserActs.addActivity(input || {});
+  if (a) logEvent("activity_create", `自建活动「${a.title}」`);
+  return a;
+}
+
+export function updateUserActivity(id, patch) {
+  const a = UserActs.updateActivity(id, patch);
+  if (a) logEvent("activity_update", `更新自建活动「${a.title}」`);
+  return a;
+}
+
+export function removeUserActivity(id) {
+  const prev = UserActs.getActivity(id);
+  const ok = UserActs.removeActivity(id);
+  if (ok && prev) logEvent("activity_remove", `删除自建活动「${prev.title}」`);
+  return ok;
 }
 
 /** Everything a project detail surface needs, assembled from the real stores. */

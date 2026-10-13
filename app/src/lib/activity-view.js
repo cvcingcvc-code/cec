@@ -534,7 +534,9 @@ export function toView(rec, extra) {
     sources: sources || [],
     provenance: [].concat(extra.provenance || []),
     bucket: extra.bucket || null,
-    dataOrigin: extra.dataOrigin || null,
+    // dataOrigin: prefer the search-result extra, fall back to the record's
+    // own marker (user-activity-repository records carry dataOrigin "user").
+    dataOrigin: extra.dataOrigin || rec.dataOrigin || null,
 
     agenda: [].concat(rec.agenda || []),
     demo: !!rec.demo,

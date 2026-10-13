@@ -155,9 +155,10 @@ test("workbench tabs cover the shell surfaces", () => {
   // screen closing the P1 loop. V2.2 (Stage 4) adds "progress" — the
   // cross-project plain-language progress center. V2.3 (Phase 2) adds
   // "schedule" — the formal 周/月 calendar view. V2.3 (Phase 4) adds
-  // "notes" — the notes center (global search + export). The rest is
-  // unchanged.
-  assert.deepEqual(keys, ["home", "projects", "progress", "tasks", "schedule", "notes", "places", "search", "review", "history"]);
+  // "notes" — the notes center (global search + export). V2.3 (Phase 5)
+  // adds "useract" — user-created activities (the honest real data source).
+  // The rest is unchanged.
+  assert.deepEqual(keys, ["home", "projects", "progress", "tasks", "schedule", "notes", "places", "useract", "search", "review", "history"]);
   assert.equal(Nav.WORKBENCH_SETTINGS.key, "settings");
 });
 
@@ -169,6 +170,11 @@ test("schedule tab is reachable on mobile via the more drawer (V2.3)", () => {
 test("notes tab is reachable on mobile via the more drawer (V2.3 Phase 4)", () => {
   const keys = Nav.MOBILE_MORE_TABS.map((t) => t.key);
   assert.ok(keys.includes("notes"), "mobile more drawer must expose the notes center");
+});
+
+test("user activities tab is reachable on mobile via the more drawer (V2.3 Phase 5)", () => {
+  const keys = Nav.MOBILE_MORE_TABS.map((t) => t.key);
+  assert.ok(keys.includes("useract"), "mobile more drawer must expose user activities");
 });
 
 test("projects tab is reachable on mobile via the more drawer", () => {
