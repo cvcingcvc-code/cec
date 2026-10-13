@@ -27,6 +27,10 @@ import { buildICS } from "../lib/ics.js";
 const K = "gorgon_opportunities_v1";
 export const SCHEMA_VERSION = 1;
 
+// V3E (任务包 C): soft-delete retention window for places/notes — same
+// 30-day semantics as task-repository's DELETED_RETENTION_MS (任务包 A).
+export const DELETED_RETENTION_MS = 30 * 24 * 3600 * 1000; // 30 days
+
 /**
  * Registration states — the ONLY vocabulary the UI may render.
  * 未报名 / 已打开报名页 / 报名中 / 已报名(用户确认) / 未成功 / 已取消
@@ -152,6 +156,9 @@ function normalizePlace(p) {
     // Phase 4 (P0-A): optional project link. Old records normalize to null,
     // so existing data keeps loading unchanged.
     projectId: p.projectId ? String(p.projectId) : null,
+    // V3E (任务包 C): soft-delete marker. ADDITIVE — old envelopes have no
+    // deletedAt and normalize to null, so pre-V3E data loads unchanged.
+    deletedAt: p.deletedAt ? String(p.deletedAt) : null,
     createdAt: p.createdAt || nowIso(),
     updatedAt: p.updatedAt || nowIso(),
   };
@@ -175,6 +182,8 @@ function normalizeNote(n) {
     // Phase 4 (P0-A/P0-C): project link. Additive — null for all pre-Phase-4
     // records, which keeps them readable and simply "unassigned".
     projectId: n.projectId ? String(n.projectId) : null,
+    // V3E (任务包 C): soft-delete marker. ADDITIVE — normalizes to null.
+    deletedAt: n.deletedAt ? String(n.deletedAt) : null,
     createdAt: n.createdAt || nowIso(),
     updatedAt: n.updatedAt || nowIso(),
   };
@@ -400,14 +409,22 @@ export function exportICS(activityId, view) {
 /* ── Module D: places & field visits ──────────────────────────────── */
 
 export function listPlaces(statusFilter) {
+  // V3E (任务包 C): visible list — soft-deleted places are hidden (回收站语义).
   const env = load();
-  if (!statusFilter) return env.places.slice();
+  const visible = env.places.filter((p) => !p.deletedAt);
+  if (!statusFilter) return visible.slice();
   const want = Array.isArray(statusFilter) ? statusFilter : [statusFilter];
-  return env.places.filter((p) => want.includes(p.status));
+  return visible.filter((p) => want.includes(p.status));
+}
+
+export function listPlacesRaw() {
+  return load().places; // V3E: full list incl. soft-deleted (internal paths)
 }
 
 export function getPlace(id) {
-  return load().places.find((p) => p.id === String(id)) || null;
+  // V3E: soft-deleted places report null (回收站隐藏)，recovery goes via
+  // getDeletedPlaces/restorePlace.
+  return load().places.find((p) => p.id === String(id) && !p.deletedAt) || null;
 }
 
 export function upsertPlace(input) {
@@ -455,7 +472,50 @@ export function addVisit(id, { at, note, nextPlan, status } = {}) {
   });
 }
 
+/**
+ * V3E (任务包 C) — SOFT delete for places, aligned with task-repository's
+ * task soft delete (任务包 A): sets `deletedAt`, keeps ALL data (visits,
+ * nextPlan, project link), hides the record from every visible list.
+ * Repeat deletes keep the FIRST timestamp (no overwrite). The old
+ * destructive behavior moved to removePlaceForever.
+ */
 export function removePlace(id) {
+  const env = load();
+  const idx = env.places.findIndex((p) => p.id === String(id));
+  if (idx < 0) return false;
+  if (env.places[idx].deletedAt) return false; // already soft-deleted
+  const updated = Object.assign({}, env.places[idx], { deletedAt: nowIso(), updatedAt: nowIso() });
+  const next = env.places.slice();
+  next[idx] = updated;
+  env.places = next;
+  save();
+  return true;
+}
+
+/** V3E: clear the soft-delete marker — visits/nextPlan/project link intact. */
+export function restorePlace(id) {
+  const env = load();
+  const idx = env.places.findIndex((p) => p.id === String(id));
+  if (idx < 0 || !env.places[idx].deletedAt) return null; // not soft-deleted — no-op
+  const merged = Object.assign({}, env.places[idx]);
+  delete merged.deletedAt; // additive field removal, all user data intact
+  merged.updatedAt = nowIso();
+  const next = env.places.slice();
+  next[idx] = normalizePlace(merged) || env.places[idx];
+  env.places = next;
+  save();
+  return next[idx];
+}
+
+/** V3E: only soft-deleted places, newest deletion first (回收站列表). */
+export function getDeletedPlaces() {
+  return load().places
+    .filter((p) => !!p.deletedAt)
+    .sort((a, b) => String(b.deletedAt).localeCompare(String(a.deletedAt)));
+}
+
+/** V3E: explicit hard delete (the old removePlace behavior). */
+export function removePlaceForever(id) {
   const env = load();
   const idx = env.places.findIndex((p) => p.id === String(id));
   if (idx < 0) return false;
@@ -464,16 +524,42 @@ export function removePlace(id) {
   return true;
 }
 
+/** V3E: drop places soft-deleted more than DELETED_RETENTION_MS ago. */
+export function purgeExpiredDeletedPlaces(nowIsoStr) {
+  const now = Date.parse(nowIsoStr || nowIso());
+  const cutoff = Number.isFinite(now) ? now - DELETED_RETENTION_MS : Infinity;
+  const env = load();
+  const keep = [];
+  let dropped = 0;
+  for (const p of env.places) {
+    if (p.deletedAt) {
+      const d = Date.parse(p.deletedAt);
+      if (Number.isFinite(d) && d < cutoff) { dropped += 1; continue; } // expired — drop
+    }
+    keep.push(p);
+  }
+  if (dropped > 0) {
+    env.places = keep;
+    save();
+  }
+  return { dropped };
+}
+
 /* ── Module E: notes ───────────────────────────────────────────────── */
 
 export function listNotes(filter = {}) {
-  let notes = load().notes.slice();
+  // V3E (任务包 C): visible list — soft-deleted notes are hidden (回收站语义).
+  let notes = load().notes.filter((n) => !n.deletedAt);
   if (filter.activityId) notes = notes.filter((n) => n.activityId === String(filter.activityId));
   if (filter.placeId) notes = notes.filter((n) => n.placeId === String(filter.placeId));
   if (filter.taskId) notes = notes.filter((n) => n.taskId === String(filter.taskId));
   if (filter.projectId) notes = notes.filter((n) => n.projectId === String(filter.projectId));
   if (filter.kind) notes = notes.filter((n) => n.kind === filter.kind);
   return notes;
+}
+
+export function listNotesRaw() {
+  return load().notes; // V3E: full list incl. soft-deleted (internal paths)
 }
 
 export function addNote(input) {
@@ -489,6 +575,7 @@ export function addNote(input) {
 }
 
 export function updateNote(id, patch) {
+  // V3E: read via the RAW list so soft-deleted notes stay addressable by id.
   const env = load();
   const idx = env.notes.findIndex((n) => n.id === String(id));
   if (idx < 0) return null;
@@ -501,13 +588,76 @@ export function updateNote(id, patch) {
   return next;
 }
 
+/**
+ * V3E (任务包 C) — SOFT delete for notes, aligned with the task soft delete
+ * (任务包 A): sets `deletedAt`, keeps ALL data (text, associations), hides
+ * the record from every visible list. Repeat deletes are a no-op (false).
+ * The old destructive behavior moved to removeNoteForever.
+ */
 export function removeNote(id) {
+  const env = load();
+  const idx = env.notes.findIndex((n) => n.id === String(id));
+  if (idx < 0) return false;
+  if (env.notes[idx].deletedAt) return false; // already soft-deleted
+  const updated = Object.assign({}, env.notes[idx], { deletedAt: nowIso(), updatedAt: nowIso() });
+  const next = env.notes.slice();
+  next[idx] = updated;
+  env.notes = next;
+  save();
+  return true;
+}
+
+/** V3E: clear the soft-delete marker — text/associations intact. */
+export function restoreNote(id) {
+  const env = load();
+  const idx = env.notes.findIndex((n) => n.id === String(id));
+  if (idx < 0 || !env.notes[idx].deletedAt) return null; // not soft-deleted — no-op
+  const merged = Object.assign({}, env.notes[idx]);
+  delete merged.deletedAt; // additive field removal, all user data intact
+  merged.updatedAt = nowIso();
+  const next = env.notes.slice();
+  next[idx] = normalizeNote(merged) || env.notes[idx];
+  env.notes = next;
+  save();
+  return next[idx];
+}
+
+/** V3E: only soft-deleted notes, newest deletion first (回收站列表). */
+export function getDeletedNotes() {
+  return load().notes
+    .filter((n) => !!n.deletedAt)
+    .sort((a, b) => String(b.deletedAt).localeCompare(String(a.deletedAt)));
+}
+
+/** V3E: explicit hard delete (the old removeNote behavior). */
+export function removeNoteForever(id) {
   const env = load();
   const idx = env.notes.findIndex((n) => n.id === String(id));
   if (idx < 0) return false;
   env.notes.splice(idx, 1);
   save();
   return true;
+}
+
+/** V3E: drop notes soft-deleted more than DELETED_RETENTION_MS ago. */
+export function purgeExpiredDeletedNotes(nowIsoStr) {
+  const now = Date.parse(nowIsoStr || nowIso());
+  const cutoff = Number.isFinite(now) ? now - DELETED_RETENTION_MS : Infinity;
+  const env = load();
+  const keep = [];
+  let dropped = 0;
+  for (const n of env.notes) {
+    if (n.deletedAt) {
+      const d = Date.parse(n.deletedAt);
+      if (Number.isFinite(d) && d < cutoff) { dropped += 1; continue; } // expired — drop
+    }
+    keep.push(n);
+  }
+  if (dropped > 0) {
+    env.notes = keep;
+    save();
+  }
+  return { dropped };
 }
 
 /* ── Module F: review (predicted vs actual, kept apart) ───────────── */

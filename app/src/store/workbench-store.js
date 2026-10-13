@@ -37,22 +37,35 @@ export const KEYS = { tasks: K_TASKS_V2, tasksV1: K_V1_TASKS, review: K_REVIEW, 
 // migrated tasks surface as "created" (see migrateV1TasksToV2).
 export { TASK_STATUS, canTransition, InvalidTransitionError };
 
+// V3E: in-memory mirror for the facade-owned UI surfaces (review cards +
+// activity log) — same degrade path as the repositories. Plain Node tests
+// and private-mode browser sessions keep working when localStorage is blocked.
+const memoryStore = new Map();
+
 function read(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
-    if (raw == null) return fallback;
+    if (raw == null) {
+      // Browser with working storage, key absent — a memory mirror here can
+      // only be stale (e.g. after reset), so drop it and report empty.
+      memoryStore.delete(key);
+      return fallback;
+    }
     const v = JSON.parse(raw);
     return v == null ? fallback : v;
   } catch (e) {
-    return fallback;
+    // localStorage blocked / unavailable (plain Node, private mode) — the
+    // in-session mirror is the source of truth for facade surfaces.
+    return memoryStore.has(key) ? memoryStore.get(key) : fallback;
   }
 }
 
 function write(key, value) {
+  memoryStore.set(key, value); // always mirror in memory first
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (e) {
-    /* private mode / quota — degrade to in-memory */
+    /* private mode / quota — memory fallback keeps the session working */
   }
 }
 
@@ -721,6 +734,49 @@ export function removePlace(id) {
   const ok = Opportunities.removePlace(id);
   if (ok && prev) logEvent("place_remove", `删除走访地点「${prev.name}」`);
   return ok;
+}
+
+// ── V3E (任务包 C): place/note trash — facade passthrough ───────────────
+// Mirrors the task trash surface (restoreTask/getDeletedTasks). The
+// repository owns soft-delete semantics + the 30-day window; this facade
+// adds the activity-log trail for restores so History shows what happened.
+// removePlace/removeNote above already log ONLY on the first successful
+// soft delete (repeat delete returns false → no duplicate log).
+
+export function restorePlace(id) {
+  const restored = Opportunities.restorePlace(id);
+  if (restored) logEvent("place_restore", `恢复了走访地点「${restored.name || restored.id}」`);
+  return restored;
+}
+
+export function getDeletedPlaces() {
+  return Opportunities.getDeletedPlaces();
+}
+
+export function removePlaceForever(id) {
+  return Opportunities.removePlaceForever(id);
+}
+
+export function purgeExpiredDeletedPlaces(nowIso) {
+  return Opportunities.purgeExpiredDeletedPlaces(nowIso);
+}
+
+export function restoreNote(id) {
+  const restored = Opportunities.restoreNote(id);
+  if (restored) logEvent("note_restore", "恢复了笔记");
+  return restored;
+}
+
+export function getDeletedNotes() {
+  return Opportunities.getDeletedNotes();
+}
+
+export function removeNoteForever(id) {
+  return Opportunities.removeNoteForever(id);
+}
+
+export function purgeExpiredDeletedNotes(nowIso) {
+  return Opportunities.purgeExpiredDeletedNotes(nowIso);
 }
 
 // ── Module C facade: registration tracking + prep + ICS ────────────────
