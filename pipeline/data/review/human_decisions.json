@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "decisions": {
+    "douban_36988401": {
+      "decision": "approved",
+      "reviewedAt": "2026-10-14T11:32:07+08:00"
+    },
+    "douban_37611085": {
+      "decision": "approved",
+      "reviewedAt": "2026-10-14T11:32:07+08:00"
+    },
+    "douban_36947253": {
+      "decision": "approved",
+      "reviewedAt": "2026-10-14T11:32:07+08:00"
+    },
+    "douban_36737403": {
+      "decision": "approved",
+      "reviewedAt": "2026-10-14T11:32:07+08:00"
+    },
+    "douban_36977803": {
+      "decision": "approved",
+      "reviewedAt": "2026-10-14T11:32:07+08:00"
+    },
+    "douban_36737272": {
+      "decision": "approved",
+      "reviewedAt": "2026-10-14T11:32:07+08:00"
+    },
+    "douban_36737390": {
+      "decision": "approved",
+      "reviewedAt": "2026-10-14T11:32:07+08:00"
+    },
+    "douban_37485604": {
+      "decision": "approved",
+      "reviewedAt": "2026-10-14T11:32:07+08:00"
+    },
+    "douban_37497883": {
+      "decision": "approved",
+      "reviewedAt": "2026-10-14T11:32:07+08:00"
+    },
+    "douban_36976894": {
+      "decision": "approved",
+      "reviewedAt": "2026-10-14T11:32:07+08:00"
+    }
+  }
+}

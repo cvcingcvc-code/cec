@@ -1,0 +1,21 @@
+{
+  "source": "douban",
+  "city": "上海",
+  "startedAt": "2026-10-14T11:30:19",
+  "finishedAt": "2026-10-14T11:30:25",
+  "maxPages": 1,
+  "pagesFetched": 1,
+  "activitiesDiscovered": 10,
+  "uniqueActivityUrls": 10,
+  "detailsFetched": 10,
+  "success": 10,
+  "failed": 0,
+  "missingDate": 0,
+  "missingVenue": 10,
+  "missingAddress": 0,
+  "stopReason": "max_pages",
+  "listingUrls": [
+    "https://shanghai.douban.com/events/future-all"
+  ],
+  "failures": []
+}

@@ -27,7 +27,7 @@ import json
 import os
 import sys
 
-from pipeline.crawlers.base import STOP_BLOCKED, STOP_SOURCE_UNAVAILABLE
+from pipeline.crawlers.base import STOP_BLOCKED, STOP_SOURCE_UNAVAILABLE, canonical_url
 from pipeline.crawlers.douban import build_crawler
 from pipeline.store.repository import EventRepository
 
@@ -122,8 +122,11 @@ def main(argv=None):
     freshness = None
     db_path_used = None
     if not args.no_store:
-        from pipeline.crawlers.base import (
-            STOP_BLOCKED, STOP_SOURCE_UNAVAILABLE, canonical_url)
+        # NOTE: STOP_BLOCKED / STOP_SOURCE_UNAVAILABLE / canonical_url are
+        # imported at module level. A previous version re-imported them
+        # inside this block, which made them function-local names — with
+        # --no-store the block never ran and the exit-code check below
+        # raised UnboundLocalError even after a successful crawl.
         from datetime import date as _date
         with EventRepository(db_path) as repo:
             counters = _persist(repo, events)

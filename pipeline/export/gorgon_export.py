@@ -165,7 +165,7 @@ def export_approved_json(approved, out_path):
 
 
 def export_gorgon_js(approved, out_path):
-    """Write ui_kits/app/generated-data.js: window.GORGON_GENERATED_DATA=[...]"""
+    """Write ui_kits/app/generated-data.js: window.GORGON_GENERATED_DATA={...}"""
     path = Path(out_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     records = [to_gorgon_record(a) for a in approved]
@@ -176,6 +176,20 @@ def export_gorgon_js(approved, out_path):
         "// and serves as fallback when this file is missing or empty.\n"
     )
     body = json.dumps(records, ensure_ascii=False, indent=2)
+    # V3F B4: freshness metadata — the frontend reads generatedAt to show the
+    # user HOW OLD this snapshot is, instead of silently serving stale
+    # activities. Stamped at export time, timezone-aware (Asia/Shanghai).
+    from datetime import datetime, timezone, timedelta
+    tz = timezone(timedelta(hours=8))
+    generated_at = datetime.now(tz).strftime("%Y-%m-%dT%H:%M:%S+08:00")
+    dates = sorted({a.get("startDate", "")[:10] for a in approved if a.get("startDate")})
+    meta = {
+        "DEMO_DATA": True,
+        "generatedAt": generated_at,
+        "dateRange": {"min": dates[0] if dates else None, "max": dates[-1] if dates else None},
+        "activities": records,
+    }
+    meta_body = json.dumps(meta, ensure_ascii=False, indent=2)
     with open(path, "w", encoding="utf-8") as fh:
-        fh.write(header + "window.GORGON_GENERATED_DATA = " + body + ";\n")
+        fh.write(header + "window.GORGON_GENERATED_DATA = " + meta_body + ";\n")
     return str(path)
