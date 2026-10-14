@@ -33,7 +33,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 // api.js reads import.meta.env — guarded, so plain Node is fine. But
 // VITE_API_BASE_URL is build-time; in Node it is undefined -> API_BASE_URL "".
 const { validateActivitiesPayload, readCachedDataset, readSyncState,
-        formatSyncTime, SYNC_DATASET_KEY, SYNC_STATE_KEY, nowShanghai } =
+        formatSyncTime, SYNC_DATASET_KEY, SYNC_STATE_KEY, nowShanghai,
+        stampDemoFlags } =
   await import("../src/lib/data-sync.js");
 
 beforeEach(() => store.clear());
@@ -101,4 +102,49 @@ test("F6: readSyncState round-trips and survives corrupt data", () => {
 test("F7: nowShanghai produces an ISO-like stamp with +08:00", () => {
   const stamp = nowShanghai();
   assert.match(stamp, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+08:00$/);
+});
+
+test("F8: validateActivitiesPayload stamps demo from sourceName (V3F.2)", () => {
+  // /api/activities serves RAW approved records — sourceName present, demo
+  // absent. Douban rows are real; demo-seed sources must be marked demo.
+  const out = validateActivitiesPayload({
+    generatedAt: "2026-10-14T15:00:00+08:00",
+    count: 3,
+    activities: [
+      { id: "douban_1", sourceName: "豆瓣同城", startDate: "2026-10-17" },
+      { id: "seed_1", sourceName: "ai_community" },
+      { id: "seed_2", sourceName: "campus_bbs" },
+    ],
+  });
+  assert.ok(out);
+  const byId = Object.fromEntries(out.activities.map((a) => [a.id, a]));
+  assert.equal(byId.douban_1.demo, false, "douban row is real");
+  assert.equal(byId.seed_1.demo, true, "ai_community is a demo seed");
+  assert.equal(byId.seed_2.demo, true, "campus_bbs is a demo seed");
+});
+
+test("F9: stampDemoFlags never overwrites an explicit demo field", () => {
+  const acts = [
+    { id: "x1", sourceName: "ai_community", demo: false },
+    { id: "x2", sourceName: "豆瓣同城" },
+    null,
+    "junk",
+  ];
+  stampDemoFlags(acts);
+  assert.equal(acts[0].demo, false, "explicit false is preserved");
+  assert.equal(acts[1].demo, false, "douban (not whitelisted) is real");
+  assert.equal(acts[2], null, "null rows pass through untouched");
+  assert.equal(acts[3], "junk", "non-object rows pass through untouched");
+});
+
+test("F10: city_portal and demo_source stamp as demo; unknown source is real", () => {
+  const acts = [
+    { id: "s1", sourceName: "city_portal" },
+    { id: "s2", sourceName: "demo_source" },
+    { id: "r1", sourceName: "dianping" }, // a future real crawler
+  ];
+  stampDemoFlags(acts);
+  assert.equal(acts[0].demo, true);
+  assert.equal(acts[1].demo, true);
+  assert.equal(acts[2].demo, false, "unknown sources default to REAL");
 });

@@ -21,7 +21,7 @@
 import "../../../ui_kits/app/data.js";
 import "../../../ui_kits/app/generated-data.js";
 import "../../../ui_kits/app/generated-search-demo.js";
-import { readCachedDataset } from "./data-sync.js";
+import { readCachedDataset, stampDemoFlags } from "./data-sync.js";
 
 const data = window.GORGON_DATA;
 let gen = window.GORGON_GENERATED_DATA;
@@ -43,6 +43,9 @@ if (Array.isArray(gen) && gen.length > 0 && data && typeof data === "object") {
 const synced = readCachedDataset();
 if (synced && Array.isArray(synced.activities) && synced.activities.length > 0
     && data && typeof data === "object") {
+  // V3F.2: cached copies written before the demo stamping fix carry raw
+  // records without `demo` — re-stamp on restore so the filter stays honest.
+  stampDemoFlags(synced.activities);
   data.activities = synced.activities;
   data.generatedAt = synced.generatedAt || data.generatedAt;
   data.syncedFromServer = true;

@@ -28,6 +28,26 @@
 
 import { API_BASE_URL } from "./api.js";
 
+// V3F.2: /api/activities serves the RAW approved records, which carry
+// `sourceName` but NOT the `demo` flag the UI filters on (DiscoverScreen
+// keeps `!a.demo` rows only). Without stamping, the 17 demo seeds would
+// leak into the real list after every refresh. The whitelist mirrors the
+// server-side exporter (pipeline/export/gorgon_export.py _DEMO_SOURCES):
+// everything NOT listed here is real (douban, future crawlers).
+const DEMO_SOURCE_NAMES = new Set([
+  "ai_community", "campus_bbs", "city_portal", "demo_source",
+]);
+
+/** Stamp the demo flag from provenance — same rule as the exporter. */
+export function stampDemoFlags(activities) {
+  for (const a of activities || []) {
+    if (a && typeof a === "object" && typeof a.demo !== "boolean") {
+      a.demo = DEMO_SOURCE_NAMES.has(a.sourceName);
+    }
+  }
+  return activities;
+}
+
 export const SYNC_DATASET_KEY = "gorgon_sync_dataset";
 export const SYNC_STATE_KEY = "gorgon_sync_state";
 export const REFRESH_TIMEOUT_MS = 30000;
@@ -109,6 +129,10 @@ export function validateActivitiesPayload(data) {
   // corrupt dataset and the cache keeps winning.
   const clean = acts.filter((a) => a && typeof a === "object" && a.id);
   if (!clean.length) return null;
+  // V3F.2: raw approved records carry sourceName but not `demo` — stamp it
+  // here (one place) so the refreshed list honours the same demo rule as
+  // the bundled snapshot and demo seeds never leak into the real list.
+  stampDemoFlags(clean);
   return { generatedAt: data.generatedAt || null, activities: clean };
 }
 
