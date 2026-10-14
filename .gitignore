@@ -8,6 +8,13 @@ __pycache__/
 # re-fetch every event page. It is a CACHE: safe to delete at any time.
 pipeline/data/cache/
 
+# PHASE 2 — SQLite primary event store. Machine-local runtime state: every
+# crawl upserts into it and apply_lifecycle marks rows in place. The JSON
+# exports under pipeline/data/crawl/ are the canonical per-run record and
+# stay tracked; the DB is reproducible at any time via
+#     python -m pipeline.store.import_json --events pipeline/data/crawl/douban_events.json
+pipeline/data/gorgon.db
+
 # Local search configuration. NEVER commit API keys.
 .env
 .env.local
