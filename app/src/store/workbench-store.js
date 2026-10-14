@@ -497,6 +497,68 @@ export function removeUserActivity(id) {
   return ok;
 }
 
+/**
+ * V3F 任务 C — execute a user activity: click 执行 → create (or reuse) a
+ * workbench task linked to the activity → write it into the schedule →
+ * persist everything so it survives a cold restart.
+ *
+ * Dedupe contract: at most ONE live task per activity. Dedupe key is
+ * metadata.activityId on the task side; the fresh read (listTasks) is the
+ * restart-equivalent store, so a re-click can never create a duplicate —
+ * including across app restarts. Executed tasks moved to the 回收站
+ * (soft-deleted) allow re-execution: the user deleted the result, asking
+ * again is a fresh request.
+ *
+ * Schedule rule (honest): scheduledDate is written ONLY from a real ISO
+ * date on the activity (startDate "YYYY-MM-DD…"); a loose dateText is
+ * display-only and NEVER parsed into a schedule claim. No date → the task
+ * lands in the schedule's _undated bucket, visible, no invented day.
+ *
+ * Returns { ok, task, alreadyExecuted } — callers surface honest errors,
+ * never a fake success.
+ */
+export function executeUserActivity(a) {
+  const id = a && a.id != null ? String(a.id) : null;
+  if (!id) return { ok: false, reason: "invalid-activity" };
+  // Fresh read — the restart-equivalent store, not a stale prop.
+  const act = UserActs.getActivity(id);
+  if (!act) return { ok: false, reason: "not-found" };
+
+  // Dedupe against the LIVE task list (soft-deleted tasks excluded by
+  // listTasks): re-click after success re-opens the existing task.
+  const existing = Repo.listTasks().find(
+    (t) => t.metadata && t.metadata.activityId === id);
+  if (existing) {
+    return { ok: true, task: existing, alreadyExecuted: true };
+  }
+
+  // scheduledDate only from a real ISO date; dateText is display-only.
+  let scheduledDate = null;
+  const iso = act.startDate ? /^(\d{4}-\d{2}-\d{2})/.exec(String(act.startDate)) : null;
+  if (iso) scheduledDate = iso[1];
+
+  const goal = "参加活动：" + act.title;
+  const tasks = Repo.createTaskEntry(goal, {
+    source: "自建活动",
+    scheduledDate,
+    metadata: { activityId: id },
+  });
+  const task = Array.isArray(tasks) ? tasks[0] : null;
+  if (!task) return { ok: false, reason: "task-create-failed" };
+
+  // Execution state lives on BOTH sides: the task metadata (above) and the
+  // activity record (below). The activity side survives restart via its own
+  // envelope; the task side survives via the tasks envelope.
+  const updated = UserActs.updateActivity(id, {
+    executedAt: new Date().toISOString(),
+    executionTaskId: task.id,
+  });
+  if (!updated) return { ok: false, reason: "activity-update-failed", task };
+
+  logEvent("activity_execute", `执行自建活动「${act.title}」→ 任务「${task.title}」`);
+  return { ok: true, task, alreadyExecuted: false };
+}
+
 /** Everything a project detail surface needs, assembled from the real stores. */
 export function getProjectBundle(projectId) {
   const project = Projects.getProject(projectId);

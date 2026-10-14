@@ -102,6 +102,12 @@ function normalizeActivity(a) {
     // links — never invented: null when the user did not provide one
     sourceUrl: a.sourceUrl ? String(a.sourceUrl) : null,
     registrationUrl: a.registrationUrl ? String(a.registrationUrl) : null,
+    // V3F 任务 C — execution status (additive; null = never executed).
+    // executedAt records WHEN the user clicked 执行; executionTaskId links
+    // the created workbench task. Old records normalize to null
+    // (compatible); both survive cold restart via the v1 envelope.
+    executedAt: a.executedAt || null,
+    executionTaskId: a.executionTaskId || null,
     createdAt: a.createdAt || nowIso(),
     updatedAt: a.updatedAt || nowIso(),
   };

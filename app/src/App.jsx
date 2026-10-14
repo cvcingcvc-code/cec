@@ -666,6 +666,33 @@ export default function App() {
     flash("已从活动创建项目");
   };
 
+  // V3F 任务 C — 自建活动执行：点击执行 → 建任务 → 写日程 → 持久化 →
+  // 跳转任务详情（用户能找到结果）。失败诚实提示，不显示假成功。
+  const handleExecuteUserAct = (a) => {
+    const out = WBStore.executeUserActivity(a);
+    if (!out || !out.ok) {
+      const reasons = {
+        "invalid-activity": "执行失败：活动数据无效",
+        "not-found": "执行失败：活动不存在（可能已被删除）",
+        "task-create-failed": "执行失败：任务创建未成功，请重试",
+        "activity-update-failed": "执行失败：任务已创建，但执行状态保存失败",
+      };
+      flash((out && reasons[out.reason]) || "执行失败，请重试");
+      setWbTasks(WBStore.getTasks());
+      setWbLog(WBStore.getLog());
+      return;
+    }
+    setWbTasks(WBStore.getTasks());
+    setWbLog(WBStore.getLog());
+    refreshUserActs();
+    if (out.alreadyExecuted) {
+      flash("该活动已执行过，已为你打开关联任务");
+    } else {
+      flash("已执行：任务已创建" + (out.task && out.task.scheduledDate ? "并写入日程" : "") + "，已加入任务列表");
+    }
+    openTaskDetail(out.task.id);
+  };
+
   // ── Module C UI (registrations): honest tracking + ICS handlers ────
   // Opening the official page records「已打开报名页」— NEVER 已报名;
   // REGISTERED is only an explicit user confirm through the status buttons.
@@ -1012,7 +1039,8 @@ export default function App() {
     useract: (
       <UserActivitiesScreen activities={wbUserActs} weekend={weekend} projects={wbProjects}
         onCreate={handleCreateUserAct} onRemove={handleRemoveUserAct}
-        onSync={handleSyncUserAct} onCreateProject={handleCreateProjectFromUserAct} />
+        onSync={handleSyncUserAct} onCreateProject={handleCreateProjectFromUserAct}
+        onExecute={handleExecuteUserAct} tasks={wbTasks} />
     ),
     progress: (
       <ProgressCenterScreen data={progressCenterData} onOpenProject={openProjectDetail} />

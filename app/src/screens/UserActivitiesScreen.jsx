@@ -4,6 +4,8 @@
 // creates an activity by hand, it lands in its own envelope store
 // (user-activity-repository.js, dataOrigin "user"), and from here it can:
 //
+//   * 执行（onExecute → executeUserActivity: 建任务 + 写日程 + 持久化，
+//     V3F 任务 C；执行后按钮变「查看任务」跳转任务详情）
 //   * 加入我的周末（onSync → weekend flow, same as search results）
 //   * 创建项目（onCreateProject → createProjectFromActivity, origin=activity）
 //   * 删除（onRemove, confirmation required)
@@ -11,6 +13,8 @@
 // Honesty rules:
 //   * user activities are marked 「自建」 — never rendered as DEMO or as
 //     pipeline/api data;
+//   * 执行状态展示是诚实的：已执行显示「已执行 · 查看任务」，从未执行
+//     显示「执行」；执行失败有明确提示（App.jsx flash），不显示假成功;
 //   * title is required; everything else optional;
 //   * 删除 asks for confirmation (one click, no undo).
 //
@@ -28,8 +32,8 @@ const inputStyle = {
 };
 
 export function UserActivitiesScreen({
-  activities, weekend, projects,
-  onCreate, onRemove, onSync, onCreateProject,
+  activities, weekend, projects, tasks,
+  onCreate, onRemove, onSync, onCreateProject, onExecute,
 }) {
   const [title, setTitle] = React.useState("");
   const [dateText, setDateText] = React.useState("");
@@ -139,6 +143,14 @@ export function UserActivitiesScreen({
               const linkedProject = (projects || []).find(
                 (p) => !p.archived && (p.activities || []).some((x) => x.activityId === a.id)
               );
+              // V3F 任务 C — execution state: task side is the source of
+              // truth (metadata.activityId), the activity record's
+              // executionTaskId is the restart-persisted mirror. Both are
+              // read-only here; dedupe is the store's job.
+              const execTaskId = (a.executionTaskId && tasks && tasks.some((t) => t.id === a.executionTaskId && !t.deletedAt))
+                ? a.executionTaskId
+                : ((tasks || []).find((t) => t.metadata && t.metadata.activityId === a.id && !t.deletedAt) || {}).id || null;
+              const executed = !!execTaskId;
               return (
                 <div key={a.id} data-testid="workbench-useract-item" style={{
                   background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
@@ -166,6 +178,14 @@ export function UserActivitiesScreen({
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
+                    {onExecute && (
+                      <Button variant={executed ? "mint" : "primary"} size="sm"
+                        data-testid={executed ? "workbench-useract-view-task" : "workbench-useract-execute"}
+                        onClick={() => onExecute(a)}
+                        leadingIcon={<Icon name={executed ? "check" : "play"} style={{ width: 13, height: 13 }} />}>
+                        {executed ? "已执行 · 查看任务" : "执行"}
+                      </Button>
+                    )}
                     <Button variant={isSynced ? "mint" : "secondary"} size="sm" onClick={() => onSync(a)}
                       leadingIcon={<Icon name={isSynced ? "check" : "plus"} style={{ width: 13, height: 13 }} />}>
                       {isSynced ? "已在我的周末" : "加入我的周末"}
