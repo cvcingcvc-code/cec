@@ -58,3 +58,4 @@ scripts/.agent-gateway/
 
 # Isolated runtime diagnostics, test state and dependency cache.
 /work/
+app/android/local.properties
