@@ -8,7 +8,8 @@
 // here, never copied.
 //
 // Adapter rule (same as ui_kits/app/data-adapter.js):
-//   - GORGON_GENERATED_DATA exists and is a non-empty array
+//   - GORGON_GENERATED_DATA exists and is a non-empty array (bare array, or
+//     the V3F freshness envelope { generatedAt, activities })
 //       -> use pipeline output as the activity list.
 //   - otherwise -> keep data.js DEMO DATA untouched (fallback).
 // data.js is NEVER overwritten by anyone.
@@ -18,7 +19,14 @@ import "../../../ui_kits/app/generated-data.js";
 import "../../../ui_kits/app/generated-search-demo.js";
 
 const data = window.GORGON_DATA;
-const gen = window.GORGON_GENERATED_DATA;
+let gen = window.GORGON_GENERATED_DATA;
+
+// V3F B4: unwrap the freshness envelope if present.
+if (gen && !Array.isArray(gen) && Array.isArray(gen.activities)) {
+  if (gen.generatedAt) data.generatedAt = gen.generatedAt;
+  if (gen.dateRange) data.generatedDateRange = gen.dateRange;
+  gen = gen.activities;
+}
 
 if (Array.isArray(gen) && gen.length > 0 && data && typeof data === "object") {
   data.activities = gen;

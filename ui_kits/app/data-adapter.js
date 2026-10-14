@@ -10,10 +10,21 @@
 
 (function () {
   var gen = window.GORGON_GENERATED_DATA;
+  // V3F B4: accept BOTH shapes — the legacy bare array [...] and the new
+  // freshness envelope { generatedAt, activities: [...] }. Old artifacts
+  // keep working; new artifacts carry their export timestamp.
+  if (gen && !Array.isArray(gen) && Array.isArray(gen.activities)) gen = gen.activities;
   if (!Array.isArray(gen) || gen.length === 0) return; // fallback: data.js
   var data = window.GORGON_DATA;
   if (!data || typeof data !== "object") return;       // data.js missing? do nothing
 
   data.activities = gen;
   data.generatedFromPipeline = true;
+  // Freshness metadata (V3F B4): expose the export stamp + date range so the
+  // UI can say how old this snapshot is, honestly.
+  var env = window.GORGON_GENERATED_DATA;
+  if (env && !Array.isArray(env) && env.generatedAt) {
+    data.generatedAt = env.generatedAt;
+    data.generatedDateRange = env.dateRange || null;
+  }
 })();

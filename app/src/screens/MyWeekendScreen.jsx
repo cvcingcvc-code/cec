@@ -12,6 +12,7 @@
 import React from "react";
 import { Button, StatBlock, SegmentedControl } from "../lib/ds.js";
 import * as V from "../lib/activity-view.js";
+import * as R from "../lib/activity-recency.js";
 import * as C from "../components/atoms.jsx";
 import { GORGON_DATA } from "../lib/data.js";
 import { Icon } from "../components/Icon.jsx";
@@ -143,7 +144,8 @@ export function MyWeekendScreen({ weekend, onSync, onOpen, onDiscover, favorites
   const [tab, setTab] = React.useState("我的周末");
 
   const views = React.useMemo(
-    () => Object.keys(weekend || {}).map((k) => weekend[k]).filter(Boolean),
+    () => Object.keys(weekend || {}).map((k) => weekend[k]).filter(Boolean)
+      .map((v) => Object.assign({}, v, { recencyGroup: R.recencyGroupOf(v) })),
     [weekend]);
 
   const favViews = React.useMemo(() => {
@@ -164,9 +166,13 @@ export function MyWeekendScreen({ weekend, onSync, onOpen, onDiscover, favorites
   }), [views]);
 
   const groups = [
-    { key: "sat", label: "周六", items: sorted.filter((v) => v.dayKey === "sat") },
-    { key: "sun", label: "周日", items: sorted.filter((v) => v.dayKey === "sun") },
-    { key: "tbd", label: "时间待定", items: sorted.filter((v) => v.dayKey !== "sat" && v.dayKey !== "sun") },
+    { key: "sat", label: "周六", items: sorted.filter((v) => v.dayKey === "sat" && v.recencyGroup !== "expired") },
+    { key: "sun", label: "周日", items: sorted.filter((v) => v.dayKey === "sun" && v.recencyGroup !== "expired") },
+    { key: "tbd", label: "时间待定", items: sorted.filter((v) => v.dayKey !== "sat" && v.dayKey !== "sun" && v.recencyGroup !== "expired") },
+    // V3F B2: saved views that have fully ended stay visible under 已结束 —
+    // the user saved them on purpose, but they no longer mix into the live
+    // weekend timeline.
+    { key: "expired", label: "已结束", items: sorted.filter((v) => v.recencyGroup === "expired") },
   ];
 
   const freeCount = views.filter((v) => v.priceType === "free").length;

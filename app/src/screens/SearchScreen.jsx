@@ -12,6 +12,8 @@
 import React from "react";
 import { ActivityCard } from "../components/ds/ActivityCard.jsx";
 import { SearchField } from "../components/ds/SearchField.jsx";
+import * as V from "../lib/activity-view.js";
+import * as R from "../lib/activity-recency.js";
 import * as D from "../lib/district.js";
 import { DistrictPicker } from "../components/DistrictPicker.jsx";
 import { GORGON_DATA } from "../lib/data.js";
@@ -71,11 +73,20 @@ export function SearchScreen({ synced, onSync, onOpen, district, onDistrictChang
 
   const keyword = q.trim();
 
+  // V3F B2: expired activities never surface in search results. The recency
+  // filter runs FIRST (device clock — no hard-coded date), then keyword,
+  // then district. Undated rows pass through (they are "日期待定", not
+  // "已结束").
+  const liveActivities = React.useMemo(
+    () => activities.filter((a) => !R.isExpired(V.toView(a))),
+    [activities]
+  );
+
   // The keyword pool (before the district filter) drives the picker's counts,
   // so the numbers in the sheet describe THIS search, not the whole dataset.
   const keywordPool = React.useMemo(
-    () => (keyword ? activities.filter((a) => matches(a, q)) : activities),
-    [activities, q, keyword]
+    () => (keyword ? liveActivities.filter((a) => matches(a, q)) : liveActivities),
+    [liveActivities, q, keyword]
   );
 
   // AND: keyword first, then district. `scoped` is the one list everything

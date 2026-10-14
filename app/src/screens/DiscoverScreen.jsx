@@ -15,11 +15,17 @@ import { SegmentedControl, Avatar, Button, Tag } from "../lib/ds.js";
 import { SearchField } from "../components/ds/SearchField.jsx";
 import { useResponsive } from "../lib/useResponsive.js";
 import * as V from "../lib/activity-view.js";
+import * as R from "../lib/activity-recency.js";
 import * as C from "../components/atoms.jsx";
 import * as D from "../lib/district.js";
 import { DistrictPicker } from "../components/DistrictPicker.jsx";
 import { GORGON_DATA } from "../lib/data.js";
 import { Icon } from "../components/Icon.jsx";
+
+// V3F B3: the "when" switch is now a REAL filter. Rows route through the
+// recency model first (expired rows never appear under 今天/未来N天), then
+// the category/free/district filters run on what is left.
+const WHEN_OPTIONS = ["今天", "未来7天", "未来30天", "全部"];
 
 const HOME_DISTRICT = (GORGON_DATA.user.campus || "").split("·")[1] || "";
 
@@ -63,6 +69,24 @@ function dateSpan(list) {
   const ds = days.filter((x) => x.mo === mo).map((x) => x.d).sort((a, b) => a - b);
   return ds[0] === ds[ds.length - 1] ? `${mo} 月 ${ds[0]} 日` : `${mo} 月 ${ds[0]}–${ds[ds.length - 1]} 日`;
 }
+
+// V3F B4: HOW OLD is this bundled snapshot? Derived from the pipeline's
+// generatedAt stamp (not the device clock alone) — the user deserves to see
+// "数据导出于 X 天前" instead of silently browsing stale activities.
+function freshnessNote(data) {
+  if (!data || !data.generatedAt) return null;
+  const t = Date.parse(data.generatedAt);
+  if (isNaN(t)) return null;
+  const days = Math.floor((Date.now() - t) / (24 * 3600 * 1000));
+  if (days <= 0) return "数据今天导出";
+  if (days === 1) return "数据昨天导出";
+  return `数据导出于 ${days} 天前`;
+}
+
+// V3F 数据线: HOW to get fresher data. The bundled snapshot is a pipeline
+// artifact — honest guidance tells the user the real refresh path (re-run
+// the pipeline / crawler on the PC, then rebuild), never a fake "已刷新".
+const REFRESH_HINT = "刷新方式：在电脑端运行 python pipeline/run.py --export-gorgon 重新生成数据，随下个版本打包更新";
 
 /* ── Image card ──────────────────────────────────────────────────── */
 
@@ -134,9 +158,11 @@ export function DiscoverScreen({ synced, onSync, onOpen, onGoSearch, onGoSmart, 
   const { user, activities } = GORGON_DATA;
   const { isMobile } = useResponsive();
   const [cat, setCat] = React.useState("all");
-  const [when, setWhen] = React.useState("本周末");
+  const [when, setWhen] = React.useState("未来7天");
   const [showFilters, setShowFilters] = React.useState(false);
   const [onlyFree, setOnlyFree] = React.useState(false);
+
+  const fresh = freshnessNote(GORGON_DATA);
 
   // The picker's menu: the baseline districts plus whatever this dataset
   // actually contains — never a district that exists nowhere in the data.
@@ -144,12 +170,21 @@ export function DiscoverScreen({ synced, onSync, onOpen, onGoSearch, onGoSmart, 
 
   const districtActive = !D.isAll(district);
 
+  // V3F B2/B3: recency first (the device clock decides, never a hard-coded
+  // date), then the user's own filters on what is left. Expired rows are
+  // excluded under every window except "全部".
+  const whenActive = React.useMemo(
+    () => R.whenFilter(activities.map((a) => V.toView(a)), when),
+    [activities, when]);
+  const whenIds = React.useMemo(() => new Set(whenActive.map((v) => v.id)), [whenActive]);
+
   const list = React.useMemo(() => activities.filter((a) => {
+    if (when !== "全部" && !whenIds.has(a.id)) return false;
     if (cat !== "all" && a.category !== cat) return false;
     if (onlyFree && a.price !== "免费" && a.priceType !== "free") return false;
     if (!D.matches(a, district)) return false;
     return true;
-  }), [activities, cat, onlyFree, district]);
+  }), [activities, whenIds, when, cat, onlyFree, district]);
 
   const views = React.useMemo(() => list.map((a) => V.toView(a)), [list]);
 
@@ -206,7 +241,11 @@ export function DiscoverScreen({ synced, onSync, onOpen, onGoSearch, onGoSmart, 
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, fontSize: 13.5, color: "var(--text-muted)", fontWeight: 500, flexWrap: "wrap" }}>
               <DistrictPicker value={district} onChange={onDistrictChange} activities={activities} />
               {spans && <span>· {spans}</span>}
-              <span style={{ color: "var(--text-faint)" }}>· 本地演示数据集（非实时检索）</span>
+              <span style={{ color: "var(--text-faint)" }}>· 本地数据集（含真实采集活动，非实时检索）</span>
+              {fresh && <span style={{ color: "var(--warning-ink)" }}>· {fresh}</span>}
+              <span title={REFRESH_HINT} style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "help", color: "var(--text-faint)" }}>
+                <Icon name="rotate-ccw" style={{ width: 13, height: 13 }} />
+              </span>
             </div>
           </div>
           <div style={{ width: "min(420px, 100%)", flex: "0 1 420px", cursor: "pointer" }} onClick={onGoSearch} role="button" aria-label="打开搜索">
@@ -260,7 +299,7 @@ export function DiscoverScreen({ synced, onSync, onOpen, onGoSearch, onGoSmart, 
       <div style={{ marginBottom: 14 }}><CategoryRail value={cat} onChange={setCat} /></div>
 
       <div style={{ padding: "0 var(--gg-gutter) 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-        <SegmentedControl options={["本周末", "下周末", "全部"]} value={when} onChange={setWhen} />
+        <SegmentedControl options={WHEN_OPTIONS} value={when} onChange={setWhen} />
         <button onClick={() => setShowFilters((v) => !v)} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "none", background: "transparent", color: (showFilters || anyFilter) ? "var(--brand)" : "var(--text-muted)", fontSize: 13, fontWeight: 600, cursor: "pointer", flex: "none" }}>
           <Icon name="sliders-horizontal" style={{ width: 16, height: 16 }} />筛选{anyFilter ? " ·" + (districtActive ? 1 : 0) + (onlyFree ? 1 : 0) : ""}
         </button>
