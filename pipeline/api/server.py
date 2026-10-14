@@ -239,6 +239,30 @@ def public_activity(activity, debug=False):
     return out
 
 
+# V3F.2: the KNOWN demo-seed source names, mirroring the exporter's
+# _DEMO_SOURCES (gorgon_export.py) AND the client-side whitelist in
+# data-sync.js. Everything else (douban, any future real crawler source)
+# is REAL data — demo=false. A missing sourceName is demo (same as the
+# exporter); an explicit demo field on the record is preserved as-is.
+DEMO_SOURCE_NAMES = frozenset({
+    None, "ai_community", "campus_bbs", "city_portal", "demo_source",
+})
+
+
+def public_activity_with_demo(activity):
+    """One approved record + an EXPLICIT boolean `demo` field (V3F.2).
+
+    Copies the record shallowly and sets `demo` from provenance; an
+    existing boolean demo field on the record wins (never overwritten).
+    The input dict is NOT mutated — the approved dataset on disk stays
+    untouched, and ids / dates / source links pass through verbatim.
+    """
+    out = dict(activity)
+    if not isinstance(out.get("demo"), bool):
+        out["demo"] = out.get("sourceName") in DEMO_SOURCE_NAMES
+    return out
+
+
 def public_provenance(rows):
     """One source entry per contributing record: who said it, and where."""
     out = []
@@ -834,6 +858,22 @@ class GorgonRequestHandler(SimpleHTTPRequestHandler):
         generated-data.js, read from disk at request time so a re-run of the
         pipeline is visible on the next refresh without shipping a new APK.
 
+        V3F.2 (cloud-compat): every record leaves with an EXPLICIT boolean
+        `demo` field, stamped from the same source whitelist the exporter
+        uses (gorgon_export.py _DEMO_SOURCES): ai_community / campus_bbs /
+        city_portal / demo_source (and a missing sourceName) = demo=true;
+        everything else (douban, future real crawlers) = demo=false. The
+        stamp happens on the in-memory copy ONLY — the approved file on
+        disk is never written back, and no other field is touched, so the
+        ids / dates / source links the client already holds stay verbatim.
+
+        WHY: the 6.0.3 client filters `!a.demo` after a refresh but trusts
+        whatever the payload says; without an explicit field every record
+        would fall back to the client-side whitelist, which the oldest
+        bundles do not carry. With the field stamped server-side, both the
+        old (falls back to nothing to stamp — field already there) and the
+        new (explicit field wins) clients agree on the same 16 real rows.
+
         Read-only, no internals echoed: the file is parsed defensively and a
         missing/corrupt dataset answers 503 with a readable message (the
         client keeps its cached copy and reports the failure honestly).
@@ -864,7 +904,7 @@ class GorgonRequestHandler(SimpleHTTPRequestHandler):
         self._send_json({
             "generatedAt": generated_at,
             "count": len(acts),
-            "activities": acts,
+            "activities": [public_activity_with_demo(a) for a in acts],
         })
 
     def do_POST(self):
