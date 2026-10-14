@@ -7,6 +7,8 @@
 //   F4  readCachedDataset returns null on corrupt cache data
 //   F5  formatSyncTime renders a readable stamp
 //   F6  readSyncState round-trips and never throws on corrupt data
+//   F8-F10  demo stamping from sourceName whitelist (V3F.2)
+//   F11 offline: server down -> cache kept, honest report (V3F.2 P0)
 //
 // Run:  node --test tests/v3f1-data-sync.test.mjs   (from app/)
 
@@ -34,7 +36,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 // VITE_API_BASE_URL is build-time; in Node it is undefined -> API_BASE_URL "".
 const { validateActivitiesPayload, readCachedDataset, readSyncState,
         formatSyncTime, SYNC_DATASET_KEY, SYNC_STATE_KEY, nowShanghai,
-        stampDemoFlags } =
+        stampDemoFlags, refreshFromServer } =
   await import("../src/lib/data-sync.js");
 
 beforeEach(() => store.clear());
@@ -147,4 +149,34 @@ test("F10: city_portal and demo_source stamp as demo; unknown source is real", (
   assert.equal(acts[0].demo, true);
   assert.equal(acts[1].demo, true);
   assert.equal(acts[2].demo, false, "unknown sources default to REAL");
+});
+
+test("F11: offline refresh keeps cache and reports honestly (V3F.2 P0)", async () => {
+  // Simulate a cached dataset from an earlier successful refresh.
+  localStorage.setItem(SYNC_DATASET_KEY, JSON.stringify({
+    generatedAt: "2026-10-14T12:00:00+08:00",
+    fetchedAt: "2026-10-14T12:01:00+08:00",
+    activities: [{ id: "douban_1", sourceName: "豆瓣同城", demo: false }],
+  }));
+  // Simulate server down: fetch rejects (network layer failure).
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new TypeError("fetch failed"); };
+  try {
+    const out = await refreshFromServer();
+    assert.equal(out.kind, "unavailable", "network failure maps to unavailable");
+    assert.match(out.message, /保留本地数据/, "honest report, no fake 已刷新");
+    assert.equal(out.lastSuccessAt, null, "no fake success stamp");
+    // The cache must survive untouched — readCachedDataset still serves it.
+    const cached = readCachedDataset();
+    assert.ok(cached, "cache survives server-down refresh");
+    assert.equal(cached.activities.length, 1);
+    assert.equal(cached.activities[0].id, "douban_1");
+    // lastError recorded, lastSuccessAt never faked.
+    const st = readSyncState();
+    assert.match(st.lastError, /无法连接数据服务/);
+    assert.equal(st.lastErrorCode, "unavailable");
+    assert.equal(st.lastSuccessAt, undefined);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
