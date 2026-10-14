@@ -11,6 +11,7 @@
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -34,9 +35,19 @@ STAGES = ["ingest", "normalize", "clean", "dedupe", "trust", "review", "export"]
 
 
 def _write(path, payload):
+    """Atomic JSON write (V3F.1): tmp file + os.replace.
+
+    A parallel process (another worktree's pipeline, the API server, the
+    crawler) must never observe a HALF-WRITTEN JSON file — os.replace is
+    atomic on Windows and POSIX, so a reader either sees the old file or
+    the complete new one. Mirrors geocoder.py's cache-write pattern.
+    """
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as fh:
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, ensure_ascii=False, indent=2)
+    os.replace(tmp, path)
 
 
 def _read(path, fallback):

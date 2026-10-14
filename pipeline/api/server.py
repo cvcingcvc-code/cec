@@ -41,7 +41,7 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -826,6 +826,47 @@ class GorgonRequestHandler(SimpleHTTPRequestHandler):
             response["ignoredParameters"] = ignored
         self._send_json(response, status=200)
 
+    def _serve_activities(self):
+        """GET /api/activities — the phone refresh endpoint (V3F.1).
+
+        Serves the CURRENT approved dataset (pipeline/data/approved/
+        activities.json) — the SAME records `--export-gorgon` bundles into
+        generated-data.js, read from disk at request time so a re-run of the
+        pipeline is visible on the next refresh without shipping a new APK.
+
+        Read-only, no internals echoed: the file is parsed defensively and a
+        missing/corrupt dataset answers 503 with a readable message (the
+        client keeps its cached copy and reports the failure honestly).
+        """
+        approved_path = Path(self.repo_root) / "pipeline" / "data" / "approved" / "activities.json"
+        try:
+            with open(approved_path, "r", encoding="utf-8") as fh:
+                doc = json.load(fh)
+        except FileNotFoundError:
+            self._fail(503, "no_dataset", "服务器上还没有数据集，请先在电脑端运行数据管道。")
+            return
+        except (OSError, json.JSONDecodeError, ValueError):
+            self._fail(503, "dataset_unreadable", "数据集暂时无法读取，请稍后重试。")
+            return
+        acts = doc.get("activities") if isinstance(doc, dict) else doc
+        if not isinstance(acts, list):
+            self._fail(503, "dataset_unreadable", "数据集格式无效，请重新生成。")
+            return
+        # Freshness: mtime of the dataset file + the record count. The client
+        # shows "最近成功更新" from this, never a fake real-time claim.
+        try:
+            generated_at = datetime.fromtimestamp(
+                approved_path.stat().st_mtime,
+                tz=timezone(timedelta(hours=8)),
+            ).strftime("%Y-%m-%dT%H:%M:%S+08:00")
+        except OSError:
+            generated_at = None
+        self._send_json({
+            "generatedAt": generated_at,
+            "count": len(acts),
+            "activities": acts,
+        })
+
     def do_POST(self):
         if urlparse(self.path).path.rstrip("/") != "/api/search":
             self._fail(404, "not_found", "没有这个接口。")
@@ -873,6 +914,9 @@ class GorgonRequestHandler(SimpleHTTPRequestHandler):
             except Exception:  # noqa: BLE001
                 traceback.print_exc(file=sys.stderr)
                 self._fail(500, "providers_failed", "来源状态暂时不可用。")
+            return
+        if parsed.path.rstrip("/") == "/api/activities":
+            self._serve_activities()
             return
         if parsed.path.rstrip("/") == "/api/search":
             params = parse_qs(parsed.query)

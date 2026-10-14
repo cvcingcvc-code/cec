@@ -1,21 +1,24 @@
 {
   "source": "douban",
   "city": "上海",
-  "startedAt": "2026-10-14T11:30:19",
-  "finishedAt": "2026-10-14T11:30:25",
-  "maxPages": 1,
-  "pagesFetched": 1,
-  "activitiesDiscovered": 10,
-  "uniqueActivityUrls": 10,
-  "detailsFetched": 10,
-  "success": 10,
+  "startedAt": "2026-10-14T12:32:35",
+  "finishedAt": "2026-10-14T12:32:55",
+  "maxPages": 4,
+  "pagesFetched": 4,
+  "activitiesDiscovered": 40,
+  "uniqueActivityUrls": 40,
+  "detailsFetched": 40,
+  "success": 40,
   "failed": 0,
   "missingDate": 0,
-  "missingVenue": 10,
+  "missingVenue": 40,
   "missingAddress": 0,
   "stopReason": "max_pages",
   "listingUrls": [
-    "https://shanghai.douban.com/events/future-all"
+    "https://shanghai.douban.com/events/future-all",
+    "https://shanghai.douban.com/events/future-all?start=10",
+    "https://shanghai.douban.com/events/future-all?start=20",
+    "https://shanghai.douban.com/events/future-all?start=30"
   ],
   "failures": []
 }

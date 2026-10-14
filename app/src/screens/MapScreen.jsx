@@ -92,8 +92,10 @@ function MapEmpty({ district, onClear }) {
 
 export function MapScreen({ synced, onSync, onOpen, focusId, district, onDistrictChange }) {
   // ONE filtered dataset for the whole screen.
+  // V3F.1: demo activities are excluded from the map by default — pins show
+  // real crawled rows (demo=false) only.
   const acts = React.useMemo(
-    () => D.filter(GORGON_DATA.activities, district)
+    () => D.filter(GORGON_DATA.activities.filter((a) => !a.demo), district)
       .map((a) => Object.assign({}, a, { __district: D.districtOf(a) })),
     [district]
   );
@@ -141,7 +143,7 @@ export function MapScreen({ synced, onSync, onOpen, focusId, district, onDistric
           <Tag tone="ink" size="sm">{D.isAll(district) ? "附近" : district} {acts.length} 场</Tag>
         </span>
         <DistrictPicker value={district} onChange={onDistrictChange}
-          activities={GORGON_DATA.activities} size="sm" />
+          activities={GORGON_DATA.activities.filter((a) => !a.demo)} size="sm" />
       </div>
 
       {acts.length === 0 && <MapEmpty district={district} onClear={() => onDistrictChange(D.ALL)} />}

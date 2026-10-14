@@ -101,7 +101,7 @@ const ICONS = {
  * width/height/color passed through `style` reproduce the legacy look
  * exactly (the legacy <i data-lucide> carried the same inline styles).
  */
-export function Icon({ name, style, size }) {
+export function Icon({ name, style, size, className }) {
   const Cmp = ICONS[name];
   if (!Cmp) {
     // An unknown icon is a developer error, but a missing glyph must never
@@ -111,5 +111,5 @@ export function Icon({ name, style, size }) {
     }
     return null;
   }
-  return <Cmp size={size || 24} style={style} aria-hidden="true" />;
+  return <Cmp size={size || 24} style={style} className={className} aria-hidden="true" />;
 }

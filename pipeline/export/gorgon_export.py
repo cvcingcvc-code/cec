@@ -9,10 +9,26 @@
 
 import json
 import math
+import os
 from pathlib import Path
 
 from pipeline.normalize.datetime import date_label, weekday_key
 from pipeline.normalize.activity import price_label
+
+
+def _atomic_write(path, text):
+    """Atomic file write (V3F.1): tmp file + os.replace.
+
+    The API server / another pipeline process must never read a HALF-WRITTEN
+    export — os.replace is atomic, so a reader sees the old file or the
+    complete new one. Mirrors pipeline/run.py's _write pattern.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    os.replace(tmp, path)
 
 # Presentation-only district centroids (lng, lat) for the demo map fallback.
 _DISTRICT_CENTROIDS = {
@@ -53,6 +69,17 @@ _KNOWN_CATEGORIES = {k for k, _ in _CATEGORY_RULES}
 #   status == "approved"    -> 已确认
 #   anything else           -> 待核验
 _TRUST_LABEL = {"confirmed": "已确认", "pending": "待核验", "conflict": "存在冲突"}
+
+# V3F.1: the KNOWN demo-seed source names. Everything else (douban, any
+# future real crawler source) is treated as REAL data — demo=false.
+# A new demo seed must be added here, never defaulted to real.
+_DEMO_SOURCES = frozenset({
+    None, "ai_community", "campus_bbs", "city_portal", "demo_source",
+})
+
+
+def _is_demo_source(act):
+    return act.get("sourceName") in _DEMO_SOURCES
 
 
 def _trust_status(act):
@@ -105,7 +132,9 @@ def to_gorgon_record(act):
         tags.append("免费")
     return {
         "id": act.get("id"),
-        "demo": True,  # pipeline MVP output is still demo-tagged end to end
+        # V3F.1: the demo flag reflects REAL data provenance — douban rows
+        # come from real crawls (demo=false), demo seeds stay demo=true.
+        "demo": _is_demo_source(act),
         "image": act.get("imageUrl"),
         "imageUrl": act.get("imageUrl"),
         "imageSource": act.get("imageSource"),
@@ -115,6 +144,11 @@ def to_gorgon_record(act):
         "category": _match_category(act),
         "date": date_label(act.get("startDate")) or "日期待定",
         "day": weekday_key(act.get("startDate")) or "tbd",
+        # V3F.1: emit machine-readable dates so the frontend recency model
+        # (activity-recency.js) can classify these rows into 今天/未来N天.
+        # Display labels (`date`) stay unchanged for the UI.
+        "startDate": act.get("startDate"),
+        "endDate": act.get("endDate"),
         "time": act.get("startTime") or "待定",
         "end": act.get("endTime"),
         "location": _location_label(act),
@@ -131,14 +165,14 @@ def to_gorgon_record(act):
         "tags": tags,
         "trust": "aggregated" if "confirmed_by_multiple_sources" in (act.get("trustReasons") or []) else "pipeline",
         "trustScore": act.get("trustScore"),
-        "source": "DEMO DATA · pipeline (%s)" % (act.get("sourceName") or "unknown"),
+        "source": ("DEMO DATA · pipeline (%s)" if _is_demo_source(act) else "REAL DATA · 豆瓣同城爬取 (%s)") % (act.get("sourceName") or "unknown"),
         "updated": "今天",
         "host": act.get("organizer") or "主办方待确认",
         "contact": act.get("registrationUrl"),
         "desc": act.get("description") or "详情暂未提供。",
         "transit": [],
         "bring": [],
-        "notes": "PIPELINE DEMO 数据，由 Gorgon data pipeline 自动生成。",
+        "notes": "PIPELINE 数据，由 Gorgon data pipeline 自动生成（真实采集数据不标注 demo）。",
         "refund": None,
         "registrationUrl": act.get("registrationUrl"),
         "sourceUrl": act.get("sourceUrl"),
@@ -154,13 +188,15 @@ def to_gorgon_record(act):
 def export_approved_json(approved, out_path):
     path = Path(out_path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    # V3F.1: DEMO_DATA reflects real provenance — false when any record comes
+    # from a real crawl (douban), true only for pure demo-seed datasets.
+    is_demo = all(_is_demo_source(a) for a in approved) if approved else True
     payload = {
-        "DEMO_DATA": True,
+        "DEMO_DATA": is_demo,
         "count": len(approved),
         "activities": approved,
     }
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, ensure_ascii=False, indent=2)
+    _atomic_write(path, json.dumps(payload, ensure_ascii=False, indent=2))
     return str(path)
 
 
@@ -171,9 +207,12 @@ def export_gorgon_js(approved, out_path):
     records = [to_gorgon_record(a) for a in approved]
     header = (
         "// Gorgon generated data — DO NOT EDIT BY HAND.\n"
-        "// ⚠️ DEMO DATA — produced by `python pipeline/run.py --export-gorgon`.\n"
-        "// This file is a pipeline artifact; ui_kits/app/data.js stays untouched\n"
-        "// and serves as fallback when this file is missing or empty.\n"
+        "// ⚠️ Produced by `python pipeline/run.py --export-gorgon`.\n"
+        "// V3F.1: contains REAL crawled activities (demo=false) mixed with\n"
+        "// demo seeds (demo=true) — read each record's demo flag, not the\n"
+        "// dataset-level DEMO_DATA. This file is a pipeline artifact;\n"
+        "// ui_kits/app/data.js stays untouched and serves as fallback when\n"
+        "// this file is missing or empty.\n"
     )
     body = json.dumps(records, ensure_ascii=False, indent=2)
     # V3F B4: freshness metadata — the frontend reads generatedAt to show the
@@ -182,14 +221,14 @@ def export_gorgon_js(approved, out_path):
     from datetime import datetime, timezone, timedelta
     tz = timezone(timedelta(hours=8))
     generated_at = datetime.now(tz).strftime("%Y-%m-%dT%H:%M:%S+08:00")
-    dates = sorted({a.get("startDate", "")[:10] for a in approved if a.get("startDate")})
+    dates = sorted({(a.get("startDate") or "")[:10] for a in approved if a.get("startDate")})
+    is_demo = all(_is_demo_source(a) for a in approved) if approved else True
     meta = {
-        "DEMO_DATA": True,
+        "DEMO_DATA": is_demo,
         "generatedAt": generated_at,
         "dateRange": {"min": dates[0] if dates else None, "max": dates[-1] if dates else None},
         "activities": records,
     }
     meta_body = json.dumps(meta, ensure_ascii=False, indent=2)
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(header + "window.GORGON_GENERATED_DATA = " + meta_body + ";\n")
+    _atomic_write(path, header + "window.GORGON_GENERATED_DATA = " + meta_body + ";\n")
     return str(path)

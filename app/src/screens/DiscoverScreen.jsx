@@ -20,6 +20,7 @@ import * as C from "../components/atoms.jsx";
 import * as D from "../lib/district.js";
 import { DistrictPicker } from "../components/DistrictPicker.jsx";
 import { GORGON_DATA } from "../lib/data.js";
+import * as Sync from "../lib/data-sync.js";
 import { Icon } from "../components/Icon.jsx";
 
 // V3F B3: the "when" switch is now a REAL filter. Rows route through the
@@ -84,10 +85,9 @@ function freshnessNote(data) {
 }
 
 // V3F 数据线: HOW to get fresher data. The bundled snapshot is a pipeline
-// artifact — honest guidance tells the user the real refresh path (re-run
-// the pipeline / crawler on the PC, then rebuild), never a fake "已刷新".
-const REFRESH_HINT = "刷新方式：在电脑端运行 python pipeline/run.py --export-gorgon 重新生成数据，随下个版本打包更新";
-
+// artifact — the refresh button pulls the CURRENT server dataset (no new
+// APK needed); failures keep the local data and say so honestly.
+const REFRESH_HINT = "刷新方式：点击刷新按钮拉取电脑端最新数据；需电脑端数据服务在线";
 /* ── Image card ──────────────────────────────────────────────────── */
 
 function DiscoverCard({ v, synced, onSync, onOpen }) {
@@ -162,11 +162,54 @@ export function DiscoverScreen({ synced, onSync, onOpen, onGoSearch, onGoSmart, 
   const [showFilters, setShowFilters] = React.useState(false);
   const [onlyFree, setOnlyFree] = React.useState(false);
 
+  // V3F.1: the production surface EXCLUDES demo activities by default —
+  // demo-seed rows (demo=true) never appear in the discovery list. Real
+  // crawled rows (demo=false) are the default content. One filter here, so
+  // the counts, the date span and the district picker all describe the same
+  // honest list.
+  const realActivities = React.useMemo(
+    () => activities.filter((a) => !a.demo),
+    [activities]);
+
   const fresh = freshnessNote(GORGON_DATA);
+  // V3F.1: honest badge — "hybrid" when the dataset carries real crawled
+  // rows alongside demo seeds, "demo" for a pure demo dataset.
+  const hasReal = React.useMemo(() => realActivities.length > 0, [realActivities]);
+
+  // ── V3F.1: manual server refresh ──────────────────────────────────────
+  // One button, one explicit fetch, honest states. The swap happens through
+  // a data revision counter: GORGON_DATA.activities is replaced in place and
+  // every derived list below recomputes. Failure keeps the local data.
+  const [syncing, setSyncing] = React.useState(false);
+  const [syncRev, setSyncRev] = React.useState(0);
+  const [syncMsg, setSyncMsg] = React.useState("");
+  const syncState = React.useMemo(() => Sync.readSyncState(), [syncRev]);
+
+  const handleRefresh = async () => {
+    if (syncing) return;
+    setSyncing(true);
+    setSyncMsg("");
+    try {
+      const out = await Sync.refreshFromServer();
+      setSyncMsg(out.message || "");
+      if (out.kind === "ok" && Array.isArray(out.activities) && out.activities.length > 0) {
+        GORGON_DATA.activities = out.activities;
+        GORGON_DATA.generatedAt = out.generatedAt || GORGON_DATA.generatedAt;
+        GORGON_DATA.syncedFromServer = true;
+        setSyncRev((r) => r + 1);
+      }
+    } catch (e) {
+      setSyncMsg("刷新失败，已保留本地数据");
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncMsg(""), 4000);
+    }
+  };
+  const lastSuccessLabel = Sync.formatSyncTime(syncState && syncState.lastSuccessAt);
 
   // The picker's menu: the baseline districts plus whatever this dataset
   // actually contains — never a district that exists nowhere in the data.
-  const districts = React.useMemo(() => D.options(activities, district), [activities, district]);
+  const districts = React.useMemo(() => D.options(realActivities, district), [realActivities, district]);
 
   const districtActive = !D.isAll(district);
 
@@ -174,17 +217,17 @@ export function DiscoverScreen({ synced, onSync, onOpen, onGoSearch, onGoSmart, 
   // date), then the user's own filters on what is left. Expired rows are
   // excluded under every window except "全部".
   const whenActive = React.useMemo(
-    () => R.whenFilter(activities.map((a) => V.toView(a)), when),
-    [activities, when]);
+    () => R.whenFilter(realActivities.map((a) => V.toView(a)), when),
+    [realActivities, when]);
   const whenIds = React.useMemo(() => new Set(whenActive.map((v) => v.id)), [whenActive]);
 
-  const list = React.useMemo(() => activities.filter((a) => {
+  const list = React.useMemo(() => realActivities.filter((a) => {
     if (when !== "全部" && !whenIds.has(a.id)) return false;
     if (cat !== "all" && a.category !== cat) return false;
     if (onlyFree && a.price !== "免费" && a.priceType !== "free") return false;
     if (!D.matches(a, district)) return false;
     return true;
-  }), [activities, whenIds, when, cat, onlyFree, district]);
+  }), [realActivities, whenIds, when, cat, onlyFree, district]);
 
   const views = React.useMemo(() => list.map((a) => V.toView(a)), [list]);
 
@@ -212,12 +255,26 @@ export function DiscoverScreen({ synced, onSync, onOpen, onGoSearch, onGoSmart, 
         <div style={{ padding: "8px var(--gg-gutter) 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-              <DistrictPicker value={district} onChange={onDistrictChange} activities={activities} size="sm" />
-              <C.ProviderBadge mode="demo" size="sm" />
+              <DistrictPicker value={district} onChange={onDistrictChange} activities={realActivities} size="sm" />
+              <C.ProviderBadge mode={hasReal ? "hybrid" : "demo"} size="sm" />
             </div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 23, color: "var(--text-strong)", letterSpacing: "-0.01em", marginTop: 3 }}>
               周末好，{user.name} 👋
             </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, fontSize: 11.5, color: "var(--text-muted)", flexWrap: "wrap" }}>
+              {lastSuccessLabel && <span>最近成功更新 {lastSuccessLabel}</span>}
+              <button
+                onClick={handleRefresh}
+                disabled={syncing}
+                data-gg-refresh
+                style={{ display: "inline-flex", alignItems: "center", gap: 3, cursor: syncing ? "wait" : "pointer", border: "1px solid var(--border-subtle)", background: "var(--surface-card)", color: "var(--brand)", fontSize: 11.5, fontWeight: 600, padding: "3px 9px", borderRadius: "var(--radius-pill)" }}>
+                <Icon name="rotate-ccw" className={syncing ? "gg-spin" : undefined} style={{ width: 11, height: 11 }} />
+                {syncing ? "刷新中…" : "刷新数据"}
+              </button>
+            </div>
+            {syncMsg && (
+              <div style={{ marginTop: 3, fontSize: 11.5, color: "var(--text-muted)" }}>{syncMsg}</div>
+            )}
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <button style={{ position: "relative", width: 42, height: 42, borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)", background: "var(--surface-card)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
@@ -236,17 +293,28 @@ export function DiscoverScreen({ synced, onSync, onOpen, onGoSearch, onGoSmart, 
               <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 30, color: "var(--text-strong)", letterSpacing: "-0.02em", margin: 0 }}>
                 发现你的周末
               </h1>
-              <C.ProviderBadge mode="demo" />
+              <C.ProviderBadge mode={hasReal ? "hybrid" : "demo"} />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, fontSize: 13.5, color: "var(--text-muted)", fontWeight: 500, flexWrap: "wrap" }}>
-              <DistrictPicker value={district} onChange={onDistrictChange} activities={activities} />
+              <DistrictPicker value={district} onChange={onDistrictChange} activities={realActivities} />
               {spans && <span>· {spans}</span>}
               <span style={{ color: "var(--text-faint)" }}>· 本地数据集（含真实采集活动，非实时检索）</span>
+              <span style={{ color: "var(--text-faint)" }}>· 演示活动已隐藏</span>
               {fresh && <span style={{ color: "var(--warning-ink)" }}>· {fresh}</span>}
-              <span title={REFRESH_HINT} style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "help", color: "var(--text-faint)" }}>
-                <Icon name="rotate-ccw" style={{ width: 13, height: 13 }} />
-              </span>
+              {lastSuccessLabel && <span style={{ color: "var(--text-faint)" }}>· 最近成功更新 {lastSuccessLabel}</span>}
+              <button
+                onClick={handleRefresh}
+                disabled={syncing}
+                title={REFRESH_HINT}
+                data-gg-refresh
+                style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: syncing ? "wait" : "pointer", border: "none", background: "transparent", color: "var(--brand)", fontSize: 13, fontWeight: 600, padding: 0 }}>
+                <Icon name="rotate-ccw" className={syncing ? "gg-spin" : undefined} style={{ width: 13, height: 13 }} />
+                {syncing ? "刷新中…" : "刷新数据"}
+              </button>
             </div>
+            {syncMsg && (
+              <div style={{ marginTop: 6, fontSize: 12.5, color: "var(--text-muted)" }}>{syncMsg}</div>
+            )}
           </div>
           <div style={{ width: "min(420px, 100%)", flex: "0 1 420px", cursor: "pointer" }} onClick={onGoSearch} role="button" aria-label="打开搜索">
             <SearchField placeholder="搜索活动、地点、标签" readOnly style={{ cursor: "pointer" }} />

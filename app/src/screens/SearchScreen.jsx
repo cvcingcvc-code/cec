@@ -77,8 +77,10 @@ export function SearchScreen({ synced, onSync, onOpen, district, onDistrictChang
   // filter runs FIRST (device clock — no hard-coded date), then keyword,
   // then district. Undated rows pass through (they are "日期待定", not
   // "已结束").
+  // V3F.1: demo activities are also excluded — search only offers real
+  // crawled rows (demo=false) plus undated user content.
   const liveActivities = React.useMemo(
-    () => activities.filter((a) => !R.isExpired(V.toView(a))),
+    () => activities.filter((a) => !a.demo && !R.isExpired(V.toView(a))),
     [activities]
   );
 

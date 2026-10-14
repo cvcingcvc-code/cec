@@ -206,8 +206,24 @@ class TestGorgonRecord(unittest.TestCase):
         for key in ("id", "title", "category", "date", "day", "time", "location",
                     "venue", "price", "tags", "source", "desc"):
             self.assertIn(key, rec)
+        # V3F.1: the demo flag and the source label reflect REAL provenance.
+        # A demo-seed sourceName keeps "DEMO DATA"; a douban (real crawl)
+        # source gets "REAL DATA" + machine-readable dates.
         self.assertTrue(rec["source"].startswith("DEMO DATA"))
+        self.assertTrue(rec["demo"])
         self.assertIsNone(rec["image"])
+
+    def test_record_real_crawl_gets_real_provenance(self):
+        # V3F.1: a douban-crawled record must NOT be demo-tagged, and must
+        # carry startDate/endDate so the frontend recency model can classify
+        # it into 今天/未来N天 windows.
+        act = _full_activity(sourceName="豆瓣同城",
+                             sourceUrl="https://www.douban.com/event/36314185/")
+        rec = to_gorgon_record(act)
+        self.assertFalse(rec["demo"])
+        self.assertTrue(rec["source"].startswith("REAL DATA"))
+        self.assertEqual(rec["startDate"], "2026-09-20")
+        self.assertIn("endDate", rec)
 
 
 if __name__ == "__main__":

@@ -13,10 +13,15 @@
 //       -> use pipeline output as the activity list.
 //   - otherwise -> keep data.js DEMO DATA untouched (fallback).
 // data.js is NEVER overwritten by anyone.
+//
+// V3F.1: a manually refreshed dataset (gorgon_sync_dataset, written by
+// lib/data-sync.js on a successful server pull) is the FRESHEST source and
+// wins over the bundled snapshot. The bundled files stay untouched.
 
 import "../../../ui_kits/app/data.js";
 import "../../../ui_kits/app/generated-data.js";
 import "../../../ui_kits/app/generated-search-demo.js";
+import { readCachedDataset } from "./data-sync.js";
 
 const data = window.GORGON_DATA;
 let gen = window.GORGON_GENERATED_DATA;
@@ -31,6 +36,16 @@ if (gen && !Array.isArray(gen) && Array.isArray(gen.activities)) {
 if (Array.isArray(gen) && gen.length > 0 && data && typeof data === "object") {
   data.activities = gen;
   data.generatedFromPipeline = true;
+}
+
+// V3F.1: the cached manual refresh (fresher than the bundle) wins. The
+// envelope carries its own generatedAt so the freshness note stays honest.
+const synced = readCachedDataset();
+if (synced && Array.isArray(synced.activities) && synced.activities.length > 0
+    && data && typeof data === "object") {
+  data.activities = synced.activities;
+  data.generatedAt = synced.generatedAt || data.generatedAt;
+  data.syncedFromServer = true;
 }
 
 export const GORGON_DATA = data;
