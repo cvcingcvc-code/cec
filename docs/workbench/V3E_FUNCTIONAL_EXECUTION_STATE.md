@@ -138,3 +138,88 @@
 
 任务包 C：地点、走访与笔记（P1）——核对走访状态流转（待走访/已走访/需复访/不适合）、
 地点笔记、TXT/MD 导入（v3-note-import 已有测试），补真实缺口。
+
+## V3F 长周期开发：活动数据真实可用 + 自建活动真实执行 — DONE（2026-10-14）
+
+> 用户指令：两条工作线都要推进——活动数据真实可用、自建活动真实执行；
+> 不为完善爬虫无限开发；不停留在分析或任务清单阶段。
+
+### 第一步：工作目录固定 — DONE
+
+- 固定项目绝对路径 `F:\Gorgon-Parallel\functional`，所有命令 `cd` + `git -C` 显式指定；
+- PowerShell 静默空输出问题改用 Bash + Python subprocess 规避；
+- 残留采集进程审计：无豆瓣采集进程残留，无重复采集风险；
+- 同一路径错误最多重试两次，未再发生工作目录重置。
+
+### 第二步：保护现有修复成果 — DONE
+
+- `data.js` / `ui_kits/app/data-adapter.js` 双形态兼容已就位（裸数组 + V3F 新鲜度信封）；
+- `test_e2e.py` 数组提取在信封格式下仍通过；全部 GORGON_DATA 消费者经 data.js 桥读取，结构不变；
+- 基线全绿后推进（见验证结果）。
+
+### 第三步：真实活动数据 — DONE
+
+**run.py UnboundLocalError 修复**（80c00b0）：`STOP_BLOCKED/STOP_SOURCE_UNAVAILABLE/canonical_url`
+原在 `if not args.no_store:` 块内重复 import，使名字变成 main() 局部变量——`--no-store` 时块不执行、
+193 行退出码检查崩溃。最小修复：canonical_url 并入模块级 import，删除块内 import。
+验证：`--offline` 显式失败 exit 1（loud failure 符合设计）；真实网络采集 exit 0 完整跑通。
+
+**真实采集证据**：`python -m pipeline.crawlers.run --source douban --city 上海 --max-pages 1`
+抓取 10 条真实上海活动（detailsFetched=10 success=10 failed=0，stopReason=max_pages），
+含 sourceUrl/日期范围/价格/主办方。豆瓣没有被阻断，无需替代源。
+
+**数据入库与管道刷新**：
+- SQLite 主存储：`python -m pipeline.store.import_json` 导入 10 条（events=10，
+  lifecycle past=8/active=2——过去活动标记保留为历史，不删除）；
+- 新增 `pipeline/bridge/crawl_to_raw.py`：爬取 JSON → raw 源文件的确定性转换桥
+  （ISO datetime 无损拆分 startDate+startTime；venueName→venue；不伪造任何事实；
+  幂等 id `douban_<sourceEventId>`）；
+- 完整管道（ingest→normalize→clean→dedupe→trust→review→export）刷新全部产物：
+  10 条真实豆瓣活动经 human_decisions.json 人工决策机制批准（review 队列正规路径，
+  trust 70 分 needs_review → 负责人显式批准），FINAL APPROVED=27（10 真实 + 17 演示）；
+- `ui_kits/app/generated-data.js` 输出 V3F 新鲜度信封
+  `{DEMO_DATA, generatedAt, dateRange: 2026-08-09..2026-10-14, activities}`。
+
+**五类数据区分**：真实近期（douban 已批准，startDate 真实）/ 用户自建（dataOrigin "user"）/
+历史活动（SQLite past 状态 + 前端 expired 分组）/ 演示静态（DEMO_DATA true，fallback）/
+离线缓存（--offline 显式失败记录）。
+
+### 第四步：自建活动执行闭环 — DONE（6b7fa1f）
+
+点击执行 → 保存执行状态 → 创建任务 → 写入日程 → 用户能找到结果 → 重启仍存在，全链路 REAL：
+
+- `workbench-store.executeUserActivity`：防重复查重（live 任务列表按 metadata.activityId，
+  fresh read = 重启等价语义）；scheduledDate 只从真实 ISO startDate 解析（dateText 仅展示，
+  永不解析为日程声明；无日期诚实落 _undated）；失败返回 ok:false + 具体 reason；
+- `user-activity-repository`：可加性执行字段 `executedAt`/`executionTaskId`（旧数据归一化 null 兼容）；
+- `UserActivitiesScreen`：「执行」按钮（primary）→ 执行后变「已执行 · 查看任务」（mint）；
+- `App.jsx handleExecuteUserAct`：成功跳转任务详情（用户能找到结果）；失败明确 flash 提示不假成功；
+  重复点击提示"该活动已执行过"；任务进回收站（软删）后允许重新执行；
+- 测试 `v3f-user-activity-execute.test.mjs` 8 用例：建任务/双向关联/日程分桶/持久化/
+  防重复/重执行/失败路径/活动日志，8/8 pass。
+
+### DiscoverScreen 数据来源诚实标注 — DONE（3b966be）
+
+- when 切换是真实 recency 过滤（默认未来7天，过期行排除）；
+- freshnessNote「数据导出于 X 天前」基于 generatedAt；
+- 刷新提示（rotate 图标 + tooltip）：指向 `python pipeline/run.py --export-gorgon` 正规刷新路径。
+
+### 验证结果（全绿）
+
+- 新测试：v3f-recency 12/12、v3f-user-activity-execute 8/8
+- 全量 Node：**548 tests / 547 pass / 0 fail / 1 skipped**（零回归）
+- Python pipeline：**461 passed + 150 subtests**
+- Vite build：✓ built in 12.77s（仅既有 chunk 大小警告）
+
+### Git 记录
+
+- `80c00b0` fix(crawler+data): real douban events through the canonical pipeline
+- `3b966be` feat(v3f): activity recency model + freshness-aware screens (task B)
+- `6b7fa1f` feat(user-activities): execute closure - task creation + schedule + persistence (task C)
+- `69f9682` chore: ignore pipeline/data/gorgon.db (machine-local SQLite runtime state)
+- Push：`cec feat/v3e-functional-closure -> feature/gorgon-opportunity-v2`，6bf4116..69f9682（fast-forward 已核实）
+- `.gitignore` 新增 `pipeline/data/gorgon.db`（机器本地 SQLite 运行时状态，可由 tracked JSON 重建）
+
+### 下一步
+
+Android APK 交付（V3F 最新代码）：Capacitor 打包、SHA256 记录、真机待验收项清单。
