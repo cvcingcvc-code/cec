@@ -14,7 +14,12 @@ const RE = {
   isoDate: /\b\d{4}[-\/]\d{1,2}[-\/]\d{1,2}\b/g,
   slashDate: /\b\d{1,2}[\/．.]\d{1,2}\b/g, // 10/12  (no year)
   cnDate: /(\d{1,2})\s*月\s*(\d{1,2})\s*日?/g, // 10月12日 / 10月12
-  relDate: /(今天|今天晚上|明天|明早|明晚|后天|大后天|本周|这周末|本周末|下周|下周末|下周三|下周四|下周五|下周一|下周二)(?![一-日])/g, // 明天 / 下周 …
+  // V3H fix: the old negative lookahead (?![一-日]) covered U+4E00–U+65E5,
+  // which rejected "明天下午" (下 U+4E0B) and "明天我" (我 U+6211) — every
+  // relative date followed by a common hanzi was silently dropped. The
+  // lookahead now only excludes the characters that form ANOTHER date word
+  // (天/末/周/一~五): "今天天气" stays unrecognized, "明天下午" matches.
+  relDate: /(今天晚上|今天|明天|明早|明晚|后天|大后天|本周末|这周末|本周|下周末|下周[一二三四五]?)(?![天末周一二三四五])/g, // 明天 / 下周 …
   hhmm: /\b\d{1,2}:\d{2}\b/g, // 15:00
   cnTime: /([上下早晚]午\s*)?(\d{1,2})\s*点\s*(半|钟|钟左右)?/g, // 下午3点 / 3点半
   url: /\bhttps?:\/\/[^\s，。、）)】」]+/gi,

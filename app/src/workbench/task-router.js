@@ -21,8 +21,11 @@ const RULES = [
     keywords: ["找", "搜索", "查一下", "查询", "哪里", "有哪些", "活动", "机会", "黑客松", "比赛", "附近", "最近", "检索", "搜"],
   },
   {
+    // V3H: added 准备/清单/事项/整理 — "帮我整理准备事项" / "面试准备" used to
+    // fall through to unknown (extract had no keyword to hit), leaving the
+    // scenario-A goal with zero engine steps.
     id: "extract",
-    keywords: ["提取", "找出", "列出日期", "联系人", "截止时间", "地址", "金额", "链接", "待办", "抓取"],
+    keywords: ["提取", "找出", "列出日期", "联系人", "截止时间", "地址", "金额", "链接", "待办", "抓取", "准备", "清单", "事项", "整理"],
   },
   {
     id: "summarize",

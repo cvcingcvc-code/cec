@@ -87,3 +87,31 @@ test("validateSkillIds drops unknown ids and keeps known ones", () => {
   const out = validateSkillIds(["search", "bogus", "plan", 123]);
   assert.deepEqual(out, ["search", "plan"]);
 });
+
+/* ── V3H: interview-prep scenario (task book scenario A) ─────────────────── */
+
+test("V3H: interview-prep goal routes to extract (was unknown)", () => {
+  const r = routeTask({ goal: "明天下午我要去面试，帮我整理准备事项。" });
+  assert.equal(r.intent, "extract");
+  assert.deepEqual(r.skillIds, ["extract"]);
+  assert.ok(r.confidence > 0);
+});
+
+test("V3H: bare interview-prep goal routes to extract", () => {
+  const r = routeTask({ goal: "我要准备明天下午的面试。" });
+  assert.equal(r.intent, "extract");
+  assert.deepEqual(r.skillIds, ["extract"]);
+});
+
+test("V3H: organize-materials goal still routes (extract hits 整理/清单)", () => {
+  const r = routeTask({ goal: "帮我整理一份比赛报名所需的资料清单" });
+  // 比赛→search AND 整理/清单→extract — a workflow, never unknown.
+  assert.ok(r.intent !== "unknown");
+  assert.ok(r.skillIds.includes("extract"));
+});
+
+test("V3H: chit-chat stays unknown after keyword expansion", () => {
+  const r = routeTask({ goal: "今天天气真不错，我们聊聊天" });
+  assert.equal(r.intent, "unknown");
+  assert.deepEqual(r.skillIds, []);
+});

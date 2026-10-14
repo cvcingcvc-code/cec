@@ -106,7 +106,15 @@ async function stopGateway() {
       const closed = new Promise((resolve) => child.once("close", resolve));
       if (process.platform === "win32") {
         // Include the gateway's own version-probe/git children in cleanup.
-        execFileSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+        // V3H: taskkill fails when the child already exited on its own
+        // (exit race between the last poll and this cleanup) — that race
+        // means the process is gone, which is exactly what cleanup wants,
+        // so a taskkill failure here is non-fatal (flaky hook fix).
+        try {
+          execFileSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+        } catch {
+          /* child already exited — nothing to kill */
+        }
       } else {
         child.kill("SIGKILL");
       }

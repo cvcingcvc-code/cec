@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 
 const searchSkill = (await import("../src/workbench/skills/search-skill.js")).default;
 const extractSkill = (await import("../src/workbench/skills/extract-skill.js")).default;
+const { extractStructured } = await import("../src/workbench/skills/extract-skill.js");
 const { summarizeSkill, localSummarize } = await import("../src/workbench/skills/summarize-skill.js");
 const { planSkill, buildPlan } = await import("../src/workbench/skills/plan-skill.js");
 const writeSkill = (await import("../src/workbench/skills/write-skill.js")).default;
@@ -186,4 +187,28 @@ test("write: never performs an external write (§32)", () => {
   const a = writeSkill.execute(ctx, { now: () => "2026-01-01T00:00:00.000Z" });
   const b = writeSkill.execute(ctx, { now: () => "2026-01-01T00:00:00.000Z" });
   assert.deepEqual(a.result.content, b.result.content);
+});
+
+/* ── V3H: relative-date extraction regression (extract-skill relDate) ────── */
+
+test("V3H: relDate survives when followed by a common hanzi (明天下午)", () => {
+  // Old lookahead (?![一-日]) rejected 下(U+4E0B)/我(U+6211) — dates were
+  // silently dropped unless 明天 was followed by punctuation/EOF.
+  const d = extractStructured("明天下午我要去面试，帮我整理准备事项。");
+  assert.deepEqual(d.dates, ["明天"]);
+});
+
+test("V3H: relDate with plain continuation (明天去面试)", () => {
+  const d = extractStructured("明天去面试");
+  assert.deepEqual(d.dates, ["明天"]);
+});
+
+test("V3H: chit-chat still yields no dates (今天天气真不错)", () => {
+  const d = extractStructured("今天天气真不错，我们聊聊天");
+  assert.deepEqual(d.dates, []);
+});
+
+test("V3H: weekday words still parse (下周三 / 本周末)", () => {
+  assert.deepEqual(extractStructured("下周三有安排").dates, ["下周三"]);
+  assert.deepEqual(extractStructured("本周末参加活动").dates, ["本周末"]);
 });
