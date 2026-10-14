@@ -220,6 +220,53 @@
 - Push：`cec feat/v3e-functional-closure -> feature/gorgon-opportunity-v2`，6bf4116..69f9682（fast-forward 已核实）
 - `.gitignore` 新增 `pipeline/data/gorgon.db`（机器本地 SQLite 运行时状态，可由 tracked JSON 重建）
 
+## V3F 第五步：Android APK 交付 — DONE（2026-10-14）
+
+### 并行进程覆盖事件与恢复
+
+- 11:35:41 一个并行 worktree 会话重跑了全管道（无 --apply-reviews），把 10 条已批准的
+  douban 活动打回 needs_review 并覆盖 approved/generated-data.js；
+- `human_decisions.json` 幸存（tracked）；重跑 `pipeline/run.py --apply-reviews` 恢复
+  FINAL APPROVED=27（10 真实 douban + 17 演示），dateRange 2026-08-09..2026-10-14；
+- 恢复提交 `d035fe2`，重新构建 bundle + APK（当前 APK 的 bundle 曾含 11:35 旧数据，
+  已用 11:55 恢复后数据重建）。
+
+### APK 交付凭证
+
+- **APK 路径**：`app/android/app/build/outputs/apk/release/app-release.apk`（3,844,965 字节，2026-10-14 11:59:45 构建）
+- **APK SHA256**：`0af192a52f69971f9a03d7b9553f3e787f4f83cb51df21719ea98d8cc444dcbf`
+- **Commit**：`80414ee`（feat/v3e-functional-closure，已推送到 cec feature/gorgon-opportunity-v2）
+- **versionCode/versionName**：8 / 6.0.3（本版未 bump——V3F 无 Android 层改动；下次发版 bump 到 9/6.0.4）
+- **签名**：debug keystore（keystore.properties 缺失时的正式 fallback 路径；release 签名需 keystore 所有者）
+- **构建命令**：`node scripts/build-apk.mjs`（VITE_API_BASE_URL → 公开部署）+ gradlew assembleRelease
+  （JAVA_HOME=D:\gorgon-android-toolchain\jdk-21.0.12.1+1，GRADLE_USER_HOME=D:\gorgon-android-toolchain\gradle-home，
+  local.properties 指向 D 盘 SDK——机器本地，已 gitignore）
+
+### APK 内容验证（zip 级，全部 PASS）
+
+- bundle 含真实豆瓣活动数据（悠游海盐等 10 条 douban_3698xxxx）：PASS
+- bundle 含执行闭环代码（「已执行」按钮文案 + executeUserActivity 逻辑）：PASS
+- bundle 含 recency 模型（「已结束」分组 + freshness note 文案）：PASS
+- capacitor.config.json（appId cn.gorgon.workbench, webDir dist, https scheme）：PASS
+- bundle 内不含 API key（VITE_API_BASE_URL 仅公开部署地址）：PASS
+
+### 测试与构建结果
+
+- Node 全量：548 tests / 547 pass / 0 fail / 1 skipped（零回归）
+- Python pipeline：461 passed + 150 subtests
+- Vite build（build-apk 内含）：✓ 通过；Gradle assembleRelease：BUILD SUCCESSFUL（246 tasks）
+
+### 真机待验收项（需要真机/用户确认）
+
+1. 发现页默认「未来7天」窗口显示真实豆瓣活动（悠游海盐/莫兰迪展/脱口秀等），数据来源标注「本地数据集（含真实采集活动，非实时检索）」+ 新鲜度提示
+2. 「今天」窗口显示 10-14 当天的 2 条真实活动（Norah 脱口秀 / Fotografiska 展览通票）
+3. 过期演示活动（9.20-9.26 日期）不出现在「未来7天/未来30天」，仅「全部」可见
+4. 自建活动「执行」：创建 → 点击执行 → 跳转任务详情 → 任务列表可见 → 杀进程重启后仍存在 → 再次点击提示"已执行过"不产生重复任务
+5. 我的周末：「已结束」分组正确显示过期活动
+6. 提醒功能：任务设置 remindAt → 到期 toast（Web/无插件会话）
+7. WebView 直连公网 API（https://2109679843717304320.app.workbuddy.host）health 检查 + 智能搜索 REAL 徽标
+
 ### 下一步
 
-Android APK 交付（V3F 最新代码）：Capacitor 打包、SHA256 记录、真机待验收项清单。
+下一版本（versionCode 9）：如需 release 签名，需 keystore 所有者配置 keystore.properties。
+
