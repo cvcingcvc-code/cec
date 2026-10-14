@@ -270,3 +270,85 @@
 
 下一版本（versionCode 9）：如需 release 签名，需 keystore 所有者配置 keystore.properties。
 
+## V3F.2 真机验收与最小修复 — DONE（2026-10-14）
+
+**目标：不扩展新功能，只让现有 Android APK 在真实手机上可靠工作。**
+
+### P0 手机-PC 数据连通
+
+- **根因定位**：部署服务器 `https://2109679843717304320.app.workbuddy.host/api/activities` 返回 404
+  （部署版本为 V3F.1 前端，缺该端点）；`/ui_kits/app/generated-data.js` 在部署端仍为 17 条 demo
+  活动的旧数组格式 → 需重新发布才能暴露 `/api/activities`。
+- **bundle 内 API 目标**：`VITE_API_BASE_URL="https://2109679843717304320.app.workbuddy.host"`
+  （build 时注入，zip 级验证；无 localhost API 请求、无 API key/secret）。
+- **LAN 验证**：本机 server.py（192.168.1.29:8000, mode=real）对手机返回 33 条真实记录；
+  CORS 仅 allow `https://localhost`（Capacitor origin），evil origin 被拒；
+  `resolve_bind_defaults()` 仅在 PORT env 注入时绑 0.0.0.0——无公网暴露风险。
+- **离线缓存行为（F11 测试显式验证）**：server 不可达 → kind=unavailable、
+  「无法连接数据服务，已保留本地数据（未刷新）」如实报告、缓存数据完整存活、
+  lastSuccessAt 不伪造；缓存走 localStorage + Capacitor Preferences 双写（gorgon_ 前缀）。
+- **网络配置**：Capacitor 8 `androidScheme=https`（同源 localhost），无 cleartext 需求。
+
+### P1 活动数据真实性
+
+- **发现页默认**：`DiscoverScreen` `realActivities = activities.filter(a => !a.demo)`，
+  默认只显示真实活动；badge 模式 hybrid/demo 可切换。
+- **关键 bug 修复（`fb33cee`）**：`/api/activities` 返回 RAW 已批准记录（含 sourceName 无 demo
+  字段），刷新后 17 条 demo 种子泄漏进真实列表。修复：`data-sync.js` 新增
+  `DEMO_SOURCE_NAMES` 白名单（ai_community/campus_bbs/city_portal/demo_source）+ `stampDemoFlags()`
+  （白名单=demo，其余=douban 等=real）；fetch 路径（validateActivitiesPayload）与缓存恢复路径
+  （data.js readCachedDataset 后）双点打标。
+- **日期计算**：`activity-recency.js` whenFilter 纯函数（今天/未来7天/未来30天/全部），
+  过期行排除逻辑已有测试覆盖。
+
+### P3 发布管理
+
+- **原子写入审计（`60fa85b`）**：`pipeline/crawlers/run.py` 是最后一个非原子写入方——已改为
+  每进程唯一临时文件（`path.uuid8.tmp` + `os.replace`）。此前 `pipeline/run.py`、
+  `gorgon_export.py`、`geocoder.py`、`search/cache.py` 均已原子。剩余非原子写入方
+  （crawl_to_raw.py 等 5 个）写 pipeline 内部位置，优先级低，不在本轮处理。
+- **versionCode 9 / versionName 6.0.4（`6197b4f`）**：保持既有 `v0.3.3-alpha` 不动，新发 `v0.3.4-alpha`。
+
+### APK 交付凭证（v0.3.4-alpha）
+
+- **APK 路径**：`app/android/app/build/outputs/apk/release/app-release.apk`（3,847,537 字节）
+- **下载链接**：https://github.com/cvcingcvc-code/cec/releases/download/v0.3.4-alpha/gorgon-workbench-v0.3.4-alpha.apk
+- **Release 页**：https://github.com/cvcingcvc-code/cec/releases/tag/v0.3.4-alpha（Pre-release）
+- **APK SHA256**：`8201fac0d65092c2087f3e92ca0750e91b7a050009a7e8b46ba32da664376b2b`
+- **签名**：CN=Gorgon Workbench, OU=Gorgon, O=Gorgon, L=Shanghai, ST=Shanghai, C=CN（release keystore）
+- **Commit**：`6197b4f`（tag v0.3.4-alpha 即指此 commit，已推送 cec）
+- **bundle 验证**：16 个唯一 douban ID、stampDemoFlags 在压缩后存活（`f1=new Set([...])` + `Fm(e)`）、
+  VITE_API_BASE_URL=部署端 URL、无 localhost API 请求、无 API key/secret。
+
+### 测试结果
+
+- `v3f1-data-sync.test.mjs`：11/11 pass（F1–F7 契约 + F8–F10 stamping + F11 离线缓存保留）
+- Node 全量套件隔离运行：v3c-codex-adapter + v3c-gateway-lifecycle 18/18；
+  v3d-gateway-injection-security 三件套 29/29（全量并发跑受沙箱 safe-delete 限制，非代码缺陷）
+- Python pipeline：461 passed + 150 subtests（无回归）
+- Gradle assembleRelease：BUILD SUCCESSFUL（4m19s / 246 tasks）
+
+### 真机待验收项（NOT_TESTED_DEVICE，需要物理手机）
+
+1. 覆盖安装：手机已装 6.0.3（versionCode 8）→ 直接安装 6.0.4（versionCode 9）应成功保留本地数据
+2. 发现页默认只显示真实活动（无 demo 种子）；刷新后 demo 种子不泄漏（`fb33cee` 修复的真机确认）
+3. 关闭 PC server → App 离线缓存数据仍可浏览（F11 的真机确认）
+4. 同一 Wi-Fi 下 LAN 连通（PC 起 server.py + 手机访问）需用户自行决定是否使用
+5. 创建/执行/重启等闭环流程（沿用 V3F 第五步清单 4–6 项）
+
+### 已知问题（未解决，不阻塞发版）
+
+1. **部署服务器缺 `/api/activities` 端点**：需重新发布 WorkBuddy 云端站点（当前部署为 V3F.1 前版本）。
+   发布前手机刷新走公网 API 会得到 404 → App 如实报告「刷新失败（404）」并保留本地数据，不丢数据。
+2. **LAN 绑定**：`resolve_bind_defaults()` 安全（默认 127.0.0.1，仅 PORT env 注入时绑 0.0.0.0），
+   但真机连通本身未在物理手机上验证。
+3. 剩余 5 个 pipeline 内部非原子写入方（低优先级）。
+
+### 本轮提交链（均已推送 cec feature/gorgon-opportunity-v2）
+
+- `fb33cee` fix(data): stamp demo flag on phone-refreshed rows
+- `60fa85b` fix(crawler): atomic JSON writes with unique per-process temp files
+- `6197b4f` chore(android): bump versionCode 9 / versionName 6.0.4 for v0.3.4-alpha
+- `3b349bf` test(data): F11 offline refresh keeps cache and reports honestly
+- tag `v0.3.4-alpha` → `6197b4f`（已推送 cec）
+
