@@ -73,3 +73,14 @@ PR 描述原称「纯展示模型原型在独立本地环境通过 4/4 测试，
 - `CLOUD_REDEPLOY=NOT_DONE`
 - `ANDROID_V034_DEVICE_ACCEPTANCE=NOT_TESTED`
 - `V3G_STATUS=CODE_LEVEL_PASS / WAITING_FOR_DEVICE_RESULTS`
+
+## 十、V3G 安卓交付补充（2026-10-15 01:17 追加，实际执行）
+
+- **V3G 测试 APK 已构建并上传**：`gorgon-workbench-v0.3.5-alpha.apk`（3,848,241 bytes），SHA256 `3935c609a0d3e195bdedde6ff2afc0a5a9ebdd11e6bfbf343ba04c34b62cce81`。
+- Release：[`v0.3.5-alpha`](https://github.com/cvcingcvc-code/cec/releases/tag/v0.3.5-alpha)（Pre-release，独立，v0.3.0~v0.3.4 全部保留）。下载回验 SHA256 一致。
+- 版本递增：versionCode 9→**10**、versionName 6.0.4→**6.0.5**（commit `0b20a81`，可直接覆盖安装 v0.3.3/v0.3.4）。
+- 签名：与 v0.3.4 同一 `gorgon-release.keystore`（cert SHA-256 `45b442368c7e270c5e564c704d13f23b526975329fae6b28a9bf828c70f47167`），v2 scheme verified → 覆盖安装兼容。
+- APK 内容核验：解包确认 `assets/public/assets/index-62wWjGS0.js` 含全部 V3G 中文资源（电脑概况×2、技术详情×3、有变动的文件、Codex 分析结果）；无 SEARCH_API_KEY、无硬编码密钥。
+- 构建流程：`node scripts/build-apk.mjs`（VITE_API_BASE_URL 指向公网部署）→ `cap sync` → `gradlew assembleRelease`（3m39s，246 tasks，BUILD SUCCESSFUL）。
+- **DEVICE_NOT_TESTED**：真机未验收，不阻塞 APK 上传，但不得宣布真机通过。
+- PR #6 暂不合并，等待真机测试通过。
