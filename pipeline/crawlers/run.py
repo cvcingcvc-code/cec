@@ -26,6 +26,7 @@ import argparse
 import json
 import os
 import sys
+import uuid
 
 from pipeline.crawlers.base import STOP_BLOCKED, STOP_SOURCE_UNAVAILABLE, canonical_url
 from pipeline.crawlers.douban import build_crawler
@@ -74,12 +75,19 @@ def parse_args(argv=None):
 
 
 def _write(path, payload):
+    # V3F.2: atomic JSON write (tmp + os.replace), same pattern as
+    # pipeline/run.py and gorgon_export.py — a parallel process (another
+    # worktree's pipeline, the API server) must never observe a half-written
+    # crawl JSON. Uses a per-process temp name so two crawlers writing the
+    # same path cannot collide on one fixed .tmp file.
     directory = os.path.dirname(path)
     if directory:
         os.makedirs(directory, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as handle:
+    tmp = "%s.%s.tmp" % (path, uuid.uuid4().hex[:8])
+    with open(tmp, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2)
         handle.write("\n")
+    os.replace(tmp, path)
 
 
 def _persist(repo, events):
