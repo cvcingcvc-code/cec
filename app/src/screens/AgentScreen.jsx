@@ -3,6 +3,7 @@ import React from "react";
 import { Button } from "../lib/ds.js";
 import { Icon } from "../components/Icon.jsx";
 import { importRunsMirror, readRunsMirror } from "../lib/agent-runs-mirror.js";
+import { presentAgentResult } from "./agent-result-presenter.js";
 import {
   executorLabel, getAvailability, getInputMode, buildTaskInput,
   isTerminalRun, runStatusLabel, runSummary, mergeRunsForMirror, createAgentClient,
@@ -415,9 +416,17 @@ export function AgentScreen({ flash, linkTask = null, linkableTasks = [] }) {
             {detailRun.error && <p role="alert" style={{ ...textStyle, color: "var(--danger)" }}>电脑返回的错误：{detailRun.error}</p>}
             {detailRun.result != null ? (
               <div>
-                <h3 style={{ ...textStyle, fontWeight: 700 }}>完整输出（电脑返回的内容）</h3>
-                <pre data-testid="workbench-agent-detail-result" style={preStyle}>{resultText(detailRun.result.output ?? detailRun.result)}</pre>
-                {detailRun.result.meta && <details style={textStyle}><summary style={{ cursor: "pointer", minHeight: 48 }}>执行附加信息</summary><pre style={preStyle}>{resultText(detailRun.result.meta)}</pre></details>}
+                <h3 style={{ ...textStyle, fontWeight: 700 }}>{presentAgentResult(detailRun).heading}</h3>
+                {presentAgentResult(detailRun).lines.map((line) => (
+                  <p key={line.label} style={textStyle}><strong>{line.label}：</strong>{line.value}</p>
+                ))}
+                {presentAgentResult(detailRun).text && <div data-testid="workbench-agent-readable-result" style={{ ...textStyle, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{presentAgentResult(detailRun).text}</div>}
+                {presentAgentResult(detailRun).nextStep && <p role="status" style={textStyle}>{presentAgentResult(detailRun).nextStep}</p>}
+                <details data-testid="workbench-agent-technical-detail" style={textStyle}>
+                  <summary style={{ cursor: "pointer", minHeight: 48 }}>技术详情（原始结果）</summary>
+                  <pre data-testid="workbench-agent-detail-result" style={preStyle}>{resultText(detailRun.result.output ?? detailRun.result)}</pre>
+                  {detailRun.result.meta && <pre style={preStyle}>{resultText(detailRun.result.meta)}</pre>}
+                </details>
               </div>
             ) : <p style={textStyle}>{isTerminalRun(detailRun) ? "电脑没有返回结果内容，请查看状态和错误说明。" : "结果尚未返回，页面会自动查询进度。"}</p>}
             {linkControl(detailRun)}
