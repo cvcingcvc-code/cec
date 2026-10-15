@@ -582,6 +582,37 @@ export default function App() {
     flash("笔记已删除");
   };
 
+  // ── V3J (P1 笔记新建): direct creation from the notes center ────────
+  // Same note envelope as every other addNote call site (facade ->
+  // opportunities repository): kind "text" + optional task/project/place
+  // associations. No second data model, no extra storage keys.
+  const handleCreateNote = (text, links) => {
+    const t = String(text || "").trim();
+    if (!t) return;
+    const l = links || {};
+    const n = WBStore.addNote({
+      kind: "text",
+      text: t,
+      taskId: l.taskId || null,
+      projectId: l.projectId || null,
+      placeId: l.placeId || null,
+    });
+    if (!n) { flash("笔记创建失败"); return; }
+    setWbNotes(WBStore.getNotes());
+    setWbLog(WBStore.getLog());
+    flash("笔记已保存");
+  };
+
+  const handleUpdateNote = (noteId, text) => {
+    const t = String(text || "").trim();
+    if (!t) return;
+    const n = WBStore.updateNote(noteId, { text: t });
+    if (!n) { flash("笔记保存失败（不存在）"); return; }
+    setWbNotes(WBStore.getNotes());
+    setWbLog(WBStore.getLog());
+    flash("笔记已更新");
+  };
+
   // ── V3 Phase A (gap 2): TXT / Markdown note import ──────────────────
   // 防覆盖纪律：导入永远创建新笔记（append-only），绝不改写/覆盖已有数据。
   // 解析在纯模块 lib/note-import.js 中；这里只负责读文件（UTF-8）、
@@ -1034,7 +1065,8 @@ export default function App() {
     notes: (
       <NotesScreen notes={wbNotes} tasks={wbTasks} places={wbPlaces} projects={wbProjects}
         onRemoveNote={handleRemovePlaceNote} onOpenTask={openTaskDetail} flash={flash}
-        onImportNotes={handleImportNotes} />
+        onImportNotes={handleImportNotes}
+        onCreateNote={handleCreateNote} onUpdateNote={handleUpdateNote} />
     ),
     useract: (
       <UserActivitiesScreen activities={wbUserActs} weekend={weekend} projects={wbProjects}
