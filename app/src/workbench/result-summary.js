@@ -93,12 +93,24 @@ function searchSummary(content) {
 /** extract json content -> { kind:"facts", groups } (only non-empty groups). */
 const FACT_LABEL = {
   dates: "日期", times: "时间", urls: "链接", amounts: "金额",
-  emails: "邮箱", phones: "电话", todos: "待办",
+  emails: "邮箱", phones: "电话", todos: "待办", checklist: "清单建议",
 };
 function extractSummary(content) {
   if (!content || typeof content !== "object") return null;
   const groups = [];
   for (const key of Object.keys(FACT_LABEL)) {
+    if (key === "checklist") {
+      // V3I: the scene checklist renders as its own titled group of items.
+      const ck = content.checklist;
+      if (ck && typeof ck === "object" && Array.isArray(ck.items) && ck.items.length) {
+        groups.push({
+          label: ck.title || "清单建议",
+          values: ck.items.map(String),
+          checklist: true,
+        });
+      }
+      continue;
+    }
     const list = Array.isArray(content[key]) ? content[key] : [];
     if (list.length) groups.push({ label: FACT_LABEL[key], values: list.map(String) });
   }

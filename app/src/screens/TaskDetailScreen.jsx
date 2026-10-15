@@ -191,16 +191,36 @@ function fmtTime(iso) {
  * Phase 4 (P0-B): extract the suggested steps from a plan-skill result.
  * A plan result is {type:"plan", content:[...]} — content may be an array of
  * strings/objects or a newline-delimited string. Returns clean titles.
+ *
+ * V3I (P1 scenarios A/C): extract-skill json results now also carry savable
+ * suggestions — content.checklist.items (scene checklist) and content.todos
+ * (recognized todo lines). They flow through the SAME save-as-todos channel:
+ * checklist first (a curated suggestion), then todo lines (extracted facts).
  */
 function extractPlanSteps(result) {
-  if (!result || result.type !== "plan") return [];
-  const c = result.content;
-  if (Array.isArray(c)) {
-    return c.map((x) => (x && typeof x === "object" ? (x.title || x.text || "") : String(x)))
-      .map((s) => s.trim()).filter(Boolean);
+  if (!result) return [];
+  if (result.type === "plan") {
+    const c = result.content;
+    if (Array.isArray(c)) {
+      return c.map((x) => (x && typeof x === "object" ? (x.title || x.text || "") : String(x)))
+        .map((s) => s.trim()).filter(Boolean);
+    }
+    if (typeof c === "string") {
+      return c.split(/\r?\n/).map((s) => s.trim().replace(/^[\d.\-\s]+/, "")).filter(Boolean);
+    }
+    return [];
   }
-  if (typeof c === "string") {
-    return c.split(/\r?\n/).map((s) => s.trim().replace(/^[\d.\-\s]+/, "")).filter(Boolean);
+  if (result.type === "json") {
+    const c = result.content;
+    if (!c || typeof c !== "object") return [];
+    const items = [];
+    if (c.checklist && typeof c.checklist === "object" && Array.isArray(c.checklist.items)) {
+      items.push(...c.checklist.items.map((s) => String(s == null ? "" : s).trim()).filter(Boolean));
+    }
+    if (Array.isArray(c.todos)) {
+      items.push(...c.todos.map((s) => String(s == null ? "" : s).trim()).filter(Boolean));
+    }
+    return items;
   }
   return [];
 }
@@ -926,7 +946,17 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
                   {resultSummary.groups.map((g, i) => (
                     <div key={i} style={{ fontSize: 13, color: "var(--text-body)", lineHeight: 1.7 }}>
                       <span style={{ fontWeight: 700, color: "var(--text-strong)", marginRight: 6 }}>{g.label}</span>
-                      <span>{g.values.join("、")}</span>
+                      {g.checklist ? (
+                        /* V3I: scene checklist renders one item per line so a
+                           5-item prep list stays readable on a phone. */
+                        <span style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
+                          {g.values.map((v, j) => (
+                            <span key={j} style={{ fontSize: 12.5, color: "var(--text-body)" }}>· {v}</span>
+                          ))}
+                        </span>
+                      ) : (
+                        <span>{g.values.join("、")}</span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -983,7 +1013,7 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
               {planSteps.length > 0 && onSavePlanTodos && (
                 <div data-testid="workbench-detail-plan-todos" style={{ marginTop: 12, paddingTop: 11, borderTop: "1px dashed var(--border-subtle)" }}>
                   <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6, marginBottom: 9 }}>
-                    这是一份本地规划<b style={{ color: "var(--text-strong)" }}>建议</b>（{planSteps.length} 步）。保存为待办后，它们会以「待执行」状态出现在上方步骤里，由你逐条手动推进 —— AI 不会替你标记完成。
+                    这是一份本地<b style={{ color: "var(--text-strong)" }}>建议</b>（{planSteps.length} 条）。保存为待办后，它们会以「待执行」状态出现在上方步骤里，由你逐条手动推进 —— AI 不会替你标记完成。
                   </div>
                   <Button size="sm" variant="primary" data-testid="workbench-detail-save-plan"
                     onClick={doSavePlanTodos} disabled={alreadySavedAsTodos}
