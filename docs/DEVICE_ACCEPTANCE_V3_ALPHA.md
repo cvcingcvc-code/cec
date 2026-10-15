@@ -2,6 +2,7 @@
 
 > 状态：**APK 已构建，等待真机验证**（全部门禁在真机上执行，不假装通过）。
 > 构建日期：2026-10-13。APK：v6.0（versionCode 6）。
+> **V3H 更新（2026-10-15）**：本清单为 V3 Phase A 历史验收记录，保留原文。当前最新 APK 为 [v0.3.6-alpha](https://github.com/cvcingcvc-code/cec/releases/tag/v0.3.6-alpha)（versionCode 11 / versionName 6.0.6，APK SHA256 `726d8d5826e4ef493f2701d2fc1a843ef60130129535a2c85453531da01c0a24`），下载与最新验收步骤见 [readme.md](../readme.md)「安装与覆盖升级说明」。
 
 ## 0. 安装包
 

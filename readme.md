@@ -82,25 +82,41 @@ Gorgon Workbench 让 AI 从「回答问题的助手」，变成帮助个人**整
 
 ## Android 运行情况
 
-- 当前交付 APK **v6.0（V3 Phase A）**：debug `ca4f2c3e…`（4,869,758 字节）/ release `2894e215…`（3,834,665 字节），含本地提醒、笔记导入、智能体网关。
-- 已验证：单测/构建/安全检查全绿；**真机验收 NOT_TESTED**（安装后按 [docs/DEVICE_ACCEPTANCE_V3_ALPHA.md](docs/DEVICE_ACCEPTANCE_V3_ALPHA.md) 逐项验收）。
-- 下载：[GitHub Release v0.3.0-alpha](https://github.com/cvcingcvc-code/cec/releases/tag/v0.3.0-alpha)（V3 Phase A 最新版）；历史版 [v1.0.0](https://github.com/cvcingcvc-code/cec/releases/tag/v1.0.0)。
+- 当前交付 APK **v0.3.6-alpha（V3H，versionCode 11 / versionName 6.0.6）**：APK SHA256 `726d8d5826e4ef493f2701d2fc1a843ef60130129535a2c85453531da01c0a24`（3,848,253 字节），含 V3G 中文执行结果 + V3H 场景 A 修复（面试准备类目标路由）+ 本地提醒、笔记导入、智能体网关。
+- 已验证：单测（Node 571 项 0 fail / Python 472 OK）/ 构建 / 安全检查全绿；**真机验收 NOT_TESTED**（安装后按 [docs/DEVICE_ACCEPTANCE_V3_ALPHA.md](docs/DEVICE_ACCEPTANCE_V3_ALPHA.md) 逐项验收）。
+- **APK 直接下载**：<https://github.com/cvcingcvc-code/cec/releases/download/v0.3.6-alpha/gorgon-workbench-v0.3.6-alpha.apk>
+- Release 页：[v0.3.6-alpha](https://github.com/cvcingcvc-code/cec/releases/tag/v0.3.6-alpha)；历史版 v0.3.0 ~ v0.3.5、v1.0.0 全部保留。
+
+## 安装与覆盖升级说明
+
+- **覆盖安装**：v0.3.3 ~ v0.3.6（versionCode 9~11）签名一致（release keystore，cert SHA-256 `45b44236…f47167`），手机上直接覆盖安装旧版即可，本地数据（自建活动/任务/笔记）保留，无需卸载。
+- **全新安装**：下载 APK → 允许安装未知来源 → 安装 → 打开。
+- 安装失败若提示签名冲突，说明设备上装过非官方签名版本，需先卸载（会清本地数据）。
+
+## 真机尚未验证的功能与已知限制
+
+- **真机验收 NOT_TESTED**：覆盖安装数据保留、Wi-Fi 连电脑（Gateway `--lan`）、真机提交任务 → 电脑执行 → 手机显示、真实活动刷新、离线恢复、提醒通知。代码级测试全绿 ≠ 真机通过。
+- **Codex 真实调用**：`codex.readonly-diagnosis` 需电脑本机已安装并登录 Codex CLI；不可用时智能体页如实显示「不可用」，不阻塞其余执行器（git 状态 / 读文档 / 主机概览为真实执行，不依赖 AI）。
+- **电脑联动边界**：Gateway 默认只绑 127.0.0.1，`--lan` 才允许局域网；执行器白名单（repo.status / repo.readDoc / host.stats / codex.readonly-diagnosis），无任意命令执行。
 
 ## 唯一正式仓库
 
 - **唯一正式 GitHub 仓库：[cvcingcvc-code/cec](https://github.com/cvcingcvc-code/cec)** —— 所有源码分支与 Release 均以此为准。
-- 源码分支：`feature/gorgon-opportunity-v2`（最新 `82c638e`，与当前 V3 源码一致）。
-- APK 下载：进入 Release 页 → 下载 `Gorgon-Workbench-Android-v6.0.0-debug.apk`（日常自用推荐）或 `Gorgon-Workbench-Android-v6.0.0-release.apk` → 安装前比对上方 SHA256。
+- 源码分支：`feature/gorgon-opportunity-v2`（默认分支，最新 `804e895a270948b78be44799906ad03a6e243f0a`，已包含全部 V3G + V3H 交付代码）。
+- 最新开发分支：`feat/v3g-agent-results-zh`（与默认分支同步，PR #6 Draft 待真机验收）。
+- APK 下载：见上方「Android 运行情况」的直接下载链接；安装前比对 APK SHA256。
 - **Git 推送与 Release 发布必须显式指定 `cec` remote**（`git push cec <branch>` / `gh release create --repo cvcingcvc-code/cec`），不依赖含义不明的默认 remote。
 - `cvcingcvc-code/geergong` 为旧仓库：**保留不删除**（历史代码与旧 Release 仍可访问），但不再接收新推送。
 
-## AI 智能体协作的规划（未开发，仅设计）
+## AI 智能体协作（局域网/只读已实现，公网远控未开发）
 
 目标：用户通过手机提交开发任务，由电脑上的 AI 智能体执行并回传结果。
 
+- **已实现（代码级，真机待验）**：`scripts/agent-gateway.mjs`（默认 loopback、显式 `--lan` 才允许局域网、token 配对、执行器白名单、60s 超时、append-only 审计）；`scripts/agent-adapters/codex-adapter.mjs`（read-only 沙箱、预批准模板、BLOCKED_AUTH/NETWORK/USAGE_LIMIT 诚实状态）；手机端「智能体」页（连接/提交/轮询/取消/中文结果/技术详情折叠/结果关联任务）。
 - 数据模型：Device / AgentAdapter / TaskRun / Approval / Event（复用现有 7 态任务状态机与人工批准模型）。
-- 安全边界：电脑端只出站连接（outbound-only，零公网入站端口）；Device 配对绑定；只读/普通写/敏感三级授权；敏感操作必须用户批准；全链路 append-only 审计。
-- 工具适配：Codex / WorkBuddy 等现有工具**必须先核实真实可用的集成接口**，不假定第三方工具都有开放 API；无公开接口的工具只支持人工方式。
+- 安全边界：电脑端 Gateway 默认只绑 127.0.0.1；执行器白名单（repo.status / repo.readDoc / host.stats / codex.readonly-diagnosis），无任意命令执行；敏感操作必须用户批准。
+- 工具适配：Codex CLI 已适配（read-only）；WorkBuddy 可编程接口**尚未核实**，不假装实现。
+- **公网远控、设备身份收口、撤销机制**：未开发，按 [docs/AGENT_REMOTE_DESIGN.md](docs/AGENT_REMOTE_DESIGN.md) 设计推进。
 - 设计文档：[docs/AGENT_REMOTE_DESIGN.md](docs/AGENT_REMOTE_DESIGN.md)、[docs/REMOTE_AGENT_ARCHITECTURE.md](docs/REMOTE_AGENT_ARCHITECTURE.md)。
 
 ## Jev 判断层（规划中）
