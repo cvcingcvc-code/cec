@@ -97,6 +97,18 @@ function intentLabel(router) {
 // The 5 deterministic skills a user may pick manually (§27). Order matters.
 const MANUAL_SKILLS = ["search", "summarize", "extract", "plan", "write"];
 
+// V3J timezone fix: UTC ISO instant → LOCAL "YYYY-MM-DDTHH:mm" (datetime-local
+// shape). dueAt is stored as a UTC ISO; slicing the string directly treated the
+// UTC wall time as local and shifted due times by the UTC offset. null/invalid
+// → "" (never guess).
+function localDueInput(dueIso) {
+  if (typeof dueIso !== "string") return "";
+  const d = new Date(dueIso);
+  if (isNaN(d.getTime())) return "";
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 // Issue #3 (readable results): a plain <details> disclosure that keeps the
 // raw JSON reachable for anyone who needs it, without putting a wall of
 // code language in front of an ordinary reader.
@@ -292,7 +304,11 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
   React.useEffect(() => {
     if (!task) return;
     setSchedDate(task.scheduledDate || "");
-    setDueInput(task.dueAt ? task.dueAt.slice(0, 16) : "");
+    // V3J timezone fix: dueAt is a UTC ISO instant — slicing it as if it were
+    // a local datetime-local string shifted the displayed/reseeded time by the
+    // UTC offset (crash fix follow-up: reopening the due picker showed 10:30
+    // for an 18:30 local due). Convert to the LOCAL "YYYY-MM-DDTHH:mm" instead.
+    setDueInput(task.dueAt ? localDueInput(task.dueAt) : "");
   }, [task && task.id, task && task.scheduledDate, task && task.dueAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // V3 Phase A (gap 1): quick reminder presets — local now + offset minutes.
