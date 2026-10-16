@@ -7,7 +7,7 @@
 // this file is missing or empty.
 window.GORGON_GENERATED_DATA = {
   "DEMO_DATA": false,
-  "generatedAt": "2026-10-16T22:33:45+08:00",
+  "generatedAt": "2026-10-16T22:48:10+08:00",
   "dateRange": {
     "min": "2026-08-09",
     "max": "2026-12-06"
@@ -32,12 +32,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·杨浦",
       "district": "杨浦",
       "venue": "创智天地 7 号楼",
-      "distance": "1.2km",
+      "distance": "2.3km",
       "address": "上海市杨浦区淞沪路创智天地",
       "coord": {
-        "lng": 121.523,
-        "lat": 31.301
+        "lng": 121.506652,
+        "lat": 31.320873
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥29",
       "hot": false,
       "going": 0,
@@ -86,12 +88,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·长宁",
       "district": "长宁",
       "venue": "育音堂",
-      "distance": "11.9km",
+      "distance": "12.0km",
       "address": null,
       "coord": {
-        "lng": 121.425,
-        "lat": 31.221
+        "lng": 121.424751,
+        "lat": 31.220537
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "免费",
       "hot": false,
       "going": 0,
@@ -140,12 +144,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·杨浦",
       "district": "杨浦",
       "venue": "杨浦区图书馆",
-      "distance": "1.2km",
+      "distance": "3.9km",
       "address": null,
       "coord": {
-        "lng": 121.523,
-        "lat": 31.301
+        "lng": 121.533684,
+        "lat": 31.271831
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "免费",
       "hot": false,
       "going": 0,
@@ -195,12 +201,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·徐汇",
       "district": "徐汇",
       "venue": "西岸美术馆",
-      "distance": "13.0km",
+      "distance": "15.4km",
       "address": null,
       "coord": {
-        "lng": 121.463,
-        "lat": 31.19
+        "lng": 121.463841,
+        "lat": 31.167682
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥45",
       "hot": false,
       "going": 0,
@@ -248,12 +256,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·徐汇",
       "district": "徐汇",
       "venue": "西岸智塔 AI 空间",
-      "distance": "13.0km",
+      "distance": "14.8km",
       "address": null,
       "coord": {
-        "lng": 121.463,
-        "lat": 31.19
+        "lng": 121.424299,
+        "lat": 31.188544
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "免费",
       "hot": false,
       "going": 0,
@@ -302,12 +312,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·徐汇",
       "district": "徐汇",
       "venue": "永康路咖啡实验室",
-      "distance": "13.0km",
+      "distance": "11.2km",
       "address": null,
       "coord": {
-        "lng": 121.463,
-        "lat": 31.19
+        "lng": 121.456225,
+        "lat": 31.210215
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥88",
       "hot": false,
       "going": 0,
@@ -355,12 +367,11 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·杨浦",
       "district": "杨浦",
       "venue": "创智天地 7 号楼",
-      "distance": "1.2km",
+      "distance": "—",
       "address": null,
-      "coord": {
-        "lng": 121.523,
-        "lat": 31.301
-      },
+      "coord": null,
+      "coordProvider": null,
+      "coordSystem": null,
       "price": "¥19",
       "hot": false,
       "going": 0,
@@ -408,12 +419,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·杨浦",
       "district": "杨浦",
       "venue": "杨浦滨江",
-      "distance": "1.2km",
+      "distance": "5.8km",
       "address": null,
       "coord": {
-        "lng": 121.523,
-        "lat": 31.301
+        "lng": 121.529673,
+        "lat": 31.250421
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "免费",
       "hot": false,
       "going": 0,
@@ -462,12 +475,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·杨浦",
       "district": "杨浦",
       "venue": "杨浦图书馆少儿馆",
-      "distance": "1.2km",
+      "distance": "1.5km",
       "address": null,
       "coord": {
-        "lng": 121.523,
-        "lat": 31.301
+        "lng": 121.523114,
+        "lat": 31.308071
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "免费",
       "hot": false,
       "going": 0,
@@ -516,12 +531,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·杨浦",
       "district": "杨浦",
       "venue": "大学路",
-      "distance": "1.2km",
+      "distance": "0.4km",
       "address": null,
       "coord": {
-        "lng": 121.523,
-        "lat": 31.301
+        "lng": 121.508141,
+        "lat": 31.30337
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "免费",
       "hot": false,
       "going": 0,
@@ -570,12 +587,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·长宁",
       "district": "长宁",
       "venue": "育音堂",
-      "distance": "11.9km",
+      "distance": "12.0km",
       "address": null,
       "coord": {
-        "lng": 121.425,
-        "lat": 31.221
+        "lng": 121.424751,
+        "lat": 31.220537
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥35",
       "hot": false,
       "going": 0,
@@ -623,12 +642,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·杨浦",
       "district": "杨浦",
       "venue": "复旦大学邯郸校区",
-      "distance": "1.2km",
+      "distance": "0.7km",
       "address": null,
       "coord": {
-        "lng": 121.523,
-        "lat": 31.301
+        "lng": 121.503458,
+        "lat": 31.296443
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "免费",
       "hot": false,
       "going": 0,
@@ -677,12 +698,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·徐汇",
       "district": "徐汇",
       "venue": "西岸大草坪",
-      "distance": "13.0km",
+      "distance": "14.8km",
       "address": null,
       "coord": {
-        "lng": 121.463,
-        "lat": 31.19
+        "lng": 121.424299,
+        "lat": 31.188544
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥150",
       "hot": false,
       "going": 0,
@@ -730,12 +753,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·杨浦",
       "district": "杨浦",
       "venue": "大学路中央广场",
-      "distance": "1.2km",
+      "distance": "0.4km",
       "address": null,
       "coord": {
-        "lng": 121.523,
-        "lat": 31.301
+        "lng": 121.508141,
+        "lat": 31.30337
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "免费",
       "hot": false,
       "going": 0,
@@ -784,12 +809,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·嘉定",
       "district": "嘉定",
       "venue": "嘉定汽车博物馆",
-      "distance": "24.7km",
+      "distance": "32.3km",
       "address": null,
       "coord": {
-        "lng": 121.266,
-        "lat": 31.376
+        "lng": 121.170462,
+        "lat": 31.279046
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "免费",
       "hot": false,
       "going": 0,
@@ -838,12 +865,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·普陀",
       "district": "普陀",
       "venue": "M50创意园",
-      "distance": "12.1km",
+      "distance": "8.2km",
       "address": null,
       "coord": {
-        "lng": 121.397,
-        "lat": 31.249
+        "lng": 121.448637,
+        "lat": 31.247606
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥60",
       "hot": false,
       "going": 0,
@@ -891,12 +920,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·徐汇",
       "district": "徐汇",
       "venue": "武康大楼门口",
-      "distance": "13.0km",
+      "distance": "12.6km",
       "address": null,
       "coord": {
-        "lng": 121.463,
-        "lat": 31.19
+        "lng": 121.438278,
+        "lat": 31.20443
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥29.9",
       "hot": false,
       "going": 0,
@@ -944,12 +975,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·长宁",
       "district": "长宁",
       "venue": "地点待定",
-      "distance": "11.9km",
+      "distance": "14.2km",
       "address": "虹桥路地铁站3口",
       "coord": {
-        "lng": 121.425,
-        "lat": 31.221
+        "lng": 121.420814,
+        "lat": 31.197524
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥178",
       "hot": false,
       "going": 0,
@@ -994,12 +1027,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·浦东",
       "district": "浦东",
       "venue": "地点待定",
-      "distance": "9.4km",
+      "distance": "7.0km",
       "address": "浦东美术馆-乔治.莫兰迪大展 滨江大道2777号",
       "coord": {
-        "lng": 121.544,
-        "lat": 31.221
+        "lng": 121.49631,
+        "lat": 31.238115
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥80",
       "hot": false,
       "going": 0,
@@ -1044,12 +1079,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·静安",
       "district": "静安",
       "venue": "地点待定",
-      "distance": "9.8km",
+      "distance": "5.7km",
       "address": "汶水路地铁站",
       "coord": {
-        "lng": 121.448,
-        "lat": 31.23
+        "lng": 121.450251,
+        "lat": 31.292556
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥79",
       "hot": false,
       "going": 0,
@@ -1094,12 +1131,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·长宁",
       "district": "长宁",
       "venue": "地点待定",
-      "distance": "11.9km",
+      "distance": "14.2km",
       "address": "虹桥路地铁站3口",
       "coord": {
-        "lng": 121.425,
-        "lat": 31.221
+        "lng": 121.420814,
+        "lat": 31.197524
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥498",
       "hot": false,
       "going": 0,
@@ -1144,12 +1183,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·黄浦",
       "district": "黄浦",
       "venue": "地点待定",
-      "distance": "8.1km",
+      "distance": "9.6km",
       "address": "SpicyComedy-新天地时尚一期店 兴业路123弄6-7号3层南里食集北区14号",
       "coord": {
-        "lng": 121.484,
-        "lat": 31.231
+        "lng": 121.475044,
+        "lat": 31.219089
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥120",
       "hot": false,
       "going": 0,
@@ -1194,12 +1235,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·长宁",
       "district": "长宁",
       "venue": "地点待定",
-      "distance": "11.9km",
+      "distance": "14.2km",
       "address": "虹桥路地铁站3口",
       "coord": {
-        "lng": 121.425,
-        "lat": 31.221
+        "lng": 121.420814,
+        "lat": 31.197524
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥188",
       "hot": false,
       "going": 0,
@@ -1244,12 +1287,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·长宁",
       "district": "长宁",
       "venue": "地点待定",
-      "distance": "11.9km",
+      "distance": "14.2km",
       "address": "虹桥路地铁站3口",
       "coord": {
-        "lng": 121.425,
-        "lat": 31.221
+        "lng": 121.420814,
+        "lat": 31.197524
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥178",
       "hot": false,
       "going": 0,
@@ -1294,12 +1339,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·浦东",
       "district": "浦东",
       "venue": "地点待定",
-      "distance": "9.4km",
+      "distance": "11.6km",
       "address": "龙阳路地铁站",
       "coord": {
-        "lng": 121.544,
-        "lat": 31.221
+        "lng": 121.557634,
+        "lat": 31.203575
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥178",
       "hot": false,
       "going": 0,
@@ -1344,12 +1391,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·浦东",
       "district": "浦东",
       "venue": "地点待定",
-      "distance": "9.4km",
+      "distance": "11.6km",
       "address": "龙阳路地铁站",
       "coord": {
-        "lng": 121.544,
-        "lat": 31.221
+        "lng": 121.557634,
+        "lat": 31.203575
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥188",
       "hot": false,
       "going": 0,
@@ -1394,12 +1443,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·静安",
       "district": "静安",
       "venue": "地点待定",
-      "distance": "9.8km",
+      "distance": "7.7km",
       "address": "Fotografiska影像艺术中心单日通票 光复路127号",
       "coord": {
-        "lng": 121.448,
-        "lat": 31.23
+        "lng": 121.469785,
+        "lat": 31.239722
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥120",
       "hot": false,
       "going": 0,
@@ -1444,12 +1495,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·浦东",
       "district": "浦东",
       "venue": "地点待定",
-      "distance": "9.4km",
+      "distance": "11.6km",
       "address": "龙阳路地铁站",
       "coord": {
-        "lng": 121.544,
-        "lat": 31.221
+        "lng": 121.557634,
+        "lat": 31.203575
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥880",
       "hot": false,
       "going": 0,
@@ -1494,12 +1547,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·长宁",
       "district": "长宁",
       "venue": "地点待定",
-      "distance": "11.9km",
+      "distance": "14.2km",
       "address": "虹桥路地铁站3口",
       "coord": {
-        "lng": 121.425,
-        "lat": 31.221
+        "lng": 121.420814,
+        "lat": 31.197524
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥258",
       "hot": false,
       "going": 0,
@@ -1544,12 +1599,11 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·黄浦",
       "district": "黄浦",
       "venue": "地点待定",
-      "distance": "8.1km",
+      "distance": "—",
       "address": "【时光剧场】音乐剧《时光代理人》 西藏南路一号大世界二楼E厅",
-      "coord": {
-        "lng": 121.484,
-        "lat": 31.231
-      },
+      "coord": null,
+      "coordProvider": null,
+      "coordSystem": null,
       "price": "¥299",
       "hot": false,
       "going": 0,
@@ -1594,12 +1648,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·浦东",
       "district": "浦东",
       "venue": "地点待定",
-      "distance": "9.4km",
+      "distance": "11.6km",
       "address": "龙阳路地铁站",
       "coord": {
-        "lng": 121.544,
-        "lat": 31.221
+        "lng": 121.557634,
+        "lat": 31.203575
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥780",
       "hot": false,
       "going": 0,
@@ -1644,12 +1700,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·浦东",
       "district": "浦东",
       "venue": "地点待定",
-      "distance": "9.4km",
+      "distance": "11.6km",
       "address": "龙阳路地铁站",
       "coord": {
-        "lng": 121.544,
-        "lat": 31.221
+        "lng": 121.557634,
+        "lat": 31.203575
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥328",
       "hot": false,
       "going": 0,
@@ -1694,12 +1752,14 @@ window.GORGON_GENERATED_DATA = {
       "location": "上海·长宁",
       "district": "长宁",
       "venue": "地点待定",
-      "distance": "11.9km",
+      "distance": "14.2km",
       "address": "虹桥路地铁站3口",
       "coord": {
-        "lng": 121.425,
-        "lat": 31.221
+        "lng": 121.420814,
+        "lat": 31.197524
       },
+      "coordProvider": "amap",
+      "coordSystem": "gcj02",
       "price": "¥188",
       "hot": false,
       "going": 0,
