@@ -164,11 +164,19 @@ export function SearchScreen({ synced, onSync, onOpen, district, onDistrictChang
         )}
         {/* 1 column on mobile, 2 from tablet up */}
         <div className="gg-card-grid--two">
-          {results.map((a) => (
-            <div key={a.id} onClick={() => onOpen(a)} style={{ cursor: "pointer" }} data-gg-card-id={a.id} data-gg-card-district={D.districtOf(a) || ""}>
-              <ActivityCard compact title={a.title} category={a.category} date={a.date} time={a.time} location={a.location} distance={a.distance} image={a.image} synced={!!synced[a.id]} onSync={() => onSync(a.id)} />
-            </div>
-          ))}
+          {results.map((a) => {
+            // V3J (P1 搜索图片): normalise through toView so the card gets the
+            // SAME image descriptor the rest of the app renders — imageOf()
+            // reads imageUrl / image string / image object in one place.
+            // Passing the raw record meant a future record shape (or an
+            // image object) would have flowed into the card unresolved.
+            const view = V.toView(a);
+            return (
+              <div key={a.id} onClick={() => onOpen(a)} style={{ cursor: "pointer" }} data-gg-card-id={a.id} data-gg-card-district={D.districtOf(a) || ""}>
+                <ActivityCard compact title={view.title} category={view.category || a.category} date={a.date} time={a.time} location={a.location} distance={a.distance} image={view.image} synced={!!synced[a.id]} onSync={() => onSync(a.id)} />
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -7,11 +7,42 @@
 // "lucide-react". Editing the shared source would break the legacy build.
 // Once the legacy app is retired, this file goes away and the original
 // takes the same change.
+//
+// V3J (P1 搜索图片) adds TWO behaviours, both additive:
+//   * imageUrlOf() — the image prop is resolved to a URL string first
+//     (plain URL | activity-view descriptor | raw record object). A
+//     non-string used to flow into `url(${image})` and render the literal
+//     text "[object Object]".
+//   * a 1×1 probe <img> per cover — if the URL fails to load (404 /
+//     hotlink block / offline), the card collapses to the category
+//     gradient instead of showing a silently-broken cover. No fake
+//     placeholder, no invented artwork.
 
 import React from "react";
 import { CATEGORIES } from "../../../../components/core/CategoryDot.jsx";
 import { Tag } from "../../../../components/core/Tag.jsx";
 import { Icon } from "../Icon.jsx";
+
+/**
+ * Resolve the image prop to a URL string, or null.
+ *
+ * V3J (P1 搜索图片): the prop arrives in several shapes across callers —
+ * a plain URL string, the normalised view descriptor { url, source, slug,
+ * type } from activity-view.js imageOf(), or a raw record that carries an
+ * image object ({ url, ... }). A non-string used to flow straight into
+ * `url(${image})` and rendered the literal text "[object Object]".
+ * Only a real URL string is used — anything else falls back to the
+ * gradient (never a fake photo, never an invented URL).
+ */
+function imageUrlOf(image) {
+  if (!image) return null;
+  if (typeof image === "string") return image;
+  if (typeof image === "object") {
+    if (typeof image.url === "string" && image.url) return image.url;
+    if (typeof image.imageUrl === "string" && image.imageUrl) return image.imageUrl;
+  }
+  return null;
+}
 
 /**
  * Gorgon's signature activity card. Full-bleed image (or category-tinted
@@ -37,9 +68,31 @@ export function ActivityCard({
 }) {
   const cat = CATEGORIES[category] || CATEGORIES.music;
   const catColor = cat.color;
-  const cover = image
-    ? { backgroundImage: `url(${image})`, backgroundSize: "cover", backgroundPosition: "center" }
+  // V3J: resolve the image prop first (string | descriptor object | raw
+  // record shape); an object here used to render as "[object Object]".
+  const imgUrl = imageUrlOf(image);
+  const [imgFailed, setImgFailed] = React.useState(false);
+  // A failed load (404 / hotlink block / offline) falls back to the same
+  // category gradient — a broken-image glyph is never shown, and a dead
+  // URL never masquerades as a working one.
+  const cover = imgUrl && !imgFailed
+    ? { backgroundImage: `url(${imgUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
     : { background: `linear-gradient(150deg, color-mix(in oklch, ${catColor} 90%, #fff) 0%, color-mix(in oklch, ${catColor} 65%, var(--indigo-700)) 100%)` };
+
+  // Probe the URL once with a real <img> so a dead link collapses the
+  // background to the gradient. No fake placeholder is rendered over it.
+  const probe = imgUrl && !imgFailed ? (
+    <img
+      src={imgUrl}
+      alt=""
+      aria-hidden="true"
+      onError={() => setImgFailed(true)}
+      style={{
+        position: "absolute", width: 1, height: 1, opacity: 0,
+        pointerEvents: "none", border: "none",
+      }}
+    />
+  ) : null;
 
   const SyncBtn = (
     <button
@@ -79,10 +132,12 @@ export function ActivityCard({
           borderRadius: "var(--radius-lg)",
           padding: 12,
           boxShadow: "var(--shadow-sm)",
+          position: "relative",
           ...style,
         }}
         {...rest}
       >
+        {probe}
         <div style={{ width: 76, height: 76, borderRadius: "var(--radius-md)", flex: "none", ...cover }} />
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
@@ -115,6 +170,7 @@ export function ActivityCard({
       {...rest}
     >
       <div style={{ position: "relative", height: 168, ...cover }}>
+        {probe}
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(12,13,18,0) 45%, rgba(12,13,18,0.55) 100%)" }} />
         <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 6 }}>
           <Tag tone="ink" size="sm" dotColor={catColor}>{cat.label}</Tag>
