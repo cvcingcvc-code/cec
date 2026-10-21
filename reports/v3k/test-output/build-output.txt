@@ -1,0 +1,49 @@
+
+> gorgon-app@1.0.0 test:build
+> node tests/build-smoke.mjs
+
+[build-smoke] running vite build ...
+vite v5.4.21 building for production...
+transforming...
+✓ 1776 modules transformed.
+rendering chunks...
+[plugin:vite:reporter] [plugin vite:reporter]
+(!) /workspace/cec/app/src/lib/api.js is dynamically imported by /workspace/cec/app/src/workbench/skills/search-skill.js but also statically imported by /workspace/cec/app/src/lib/data-sync.js, /workspace/cec/app/src/screens/NaturalSearchScreen.jsx, /workspace/cec/app/src/store/workbench-store.js, dynamic import will not move module into another chunk.
+
+computing gzip size...
+dist/index.html                   0.97 kB │ gzip:   0.51 kB
+dist/assets/index-CwoJU-S0.css   40.90 kB │ gzip:   9.35 kB
+dist/assets/web-D9U9L7jX.js       1.27 kB │ gzip:   0.60 kB
+dist/assets/index-CZ-B5uh6.js     8.70 kB │ gzip:   3.60 kB
+dist/assets/index-BiP50aKx.js   647.20 kB │ gzip: 187.02 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.68s
+  PASS  dist/index.html exists
+  PASS  index.html loads a bundled module script
+  PASS  JS bundle emitted (3 file(s))
+  PASS  CSS bundle emitted (1 file(s))
+  PASS  placeholder SVGs bundled into dist (13)
+  PASS  no Babel Standalone script reference
+  PASS  no Babel runtime API
+  PASS  no React development build
+  PASS  no ReactDOM development build
+  PASS  no window.lucide icon placeholder (icons must be React-owned)
+  PASS  no window.lucide runtime
+  PASS  no runtime DS bundle (build-time imports only)
+  PASS  no window DS namespace (build-time imports only)
+  PASS  no in-browser JSX transform
+  PASS  no secret pattern /SEARCH_API_KEY/i
+  PASS  no secret pattern /(?:api[_-]?key|secret|token|password)["']?\s*[:=]\s*["'][A-Za-z0-9_\-]{16,}["']/i
+  PASS  no server-internal file paths in bundle
+  PASS  no absolute filesystem paths in bundle
+
+[build-smoke] 18 passed, 0 failed
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

@@ -1,0 +1,27 @@
+PASS  actual React search variants render for all six test cases
+PASS  local TEST IMAGE is fetched and decoded by the real image probe
+PASS  loaded image is the actual cover background
+PASS  image probe remains visually hidden
+PASS  descriptor object resolves to a loaded URL
+PASS  null image renders an honest missing state
+PASS  null image uses a category gradient with no broken image glyph
+PASS  HTTP 404 reaches the component's real React error path
+PASS  failed cover falls back to gradient and removes the broken probe
+PASS  failed image has an honest fallback label
+PASS  invalid URL object becomes a missing image
+PASS  placeholder descriptor remains a category placeholder
+PASS  no unresolved object is used as a CSS image URL
+PASS  title button is the existing detail callback entry
+PASS  detail callback fires exactly once
+PASS  sync button can be activated
+PASS  sync callback persists controlled visual state without opening detail
+PASS  360px: long titles and venues do not cause horizontal overflow — {"width":360,"scroll":360}
+PASS  360px: detail and sync touch targets are at least 48×48 CSS px — [{"width":294,"height":48},{"width":93.015625,"height":48},{"width":294,"height":48},{"width":84,"height":48},{"width":294,"height":48},{"width":84,"height":48},{"width":294,"height":48},{"width":84,"height":48},{"width":294,"height":48},{"width":84,"height":48},{"width":294,"height":48},{"width":84,"height":48}]
+PASS  390px: long titles and venues do not cause horizontal overflow — {"width":390,"scroll":390}
+PASS  390px: detail and sync touch targets are at least 48×48 CSS px — [{"width":324,"height":48},{"width":93.015625,"height":48},{"width":324,"height":48},{"width":84,"height":48},{"width":324,"height":48},{"width":84,"height":48},{"width":324,"height":48},{"width":84,"height":48},{"width":324,"height":48},{"width":84,"height":48},{"width":324,"height":48},{"width":84,"height":48}]
+PASS  412px: long titles and venues do not cause horizontal overflow — {"width":412,"scroll":412}
+PASS  412px: detail and sync touch targets are at least 48×48 CSS px — [{"width":346,"height":48},{"width":93.015625,"height":48},{"width":346,"height":48},{"width":84,"height":48},{"width":346,"height":48},{"width":84,"height":48},{"width":346,"height":48},{"width":84,"height":48},{"width":346,"height":48},{"width":84,"height":48},{"width":346,"height":48},{"width":84,"height":48}]
+Fixture evidence (not real activity imagery): /workspace/cec/reports/v3k/screenshots/search-image-fixtures.png
+PASS  no unexpected component or resource errors
+
+[v3k-search-card-e2e] 24 passed, 0 failed

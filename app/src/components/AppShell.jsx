@@ -78,9 +78,9 @@ export function TabBar({ active, onChange, syncedCount }) {
  *  (responsive.css) so the app is full-bleed on a real phone — a phone
  *  mock-up drawn inside a phone makes no sense. The screen content, the
  *  single-column layout and the bottom navigation are unchanged. */
-export function PhoneFrame({ children }) {
+export function PhoneFrame({ children, appearance }) {
   return (
-    <div className="gg-phone" data-gg-shell="mobile" style={{
+    <div className={"gg-phone" + (appearance ? " v3k-theme" : "")} data-v3k-theme={appearance} data-gg-shell="mobile" style={{
       width: 402, height: 858, borderRadius: 56, padding: 11,
       background: "linear-gradient(160deg,#1b1d27,#0c0d12)",
       boxShadow: "var(--shadow-xl), 0 0 0 2px rgba(255,255,255,0.04) inset",

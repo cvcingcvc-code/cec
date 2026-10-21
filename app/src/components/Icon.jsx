@@ -14,11 +14,11 @@
 
 import React from "react";
 import {
-  ArrowLeft, ArrowRight, BadgeCheck, BatteryFull, Bell, Bot, Calendar, CalendarClock,
+  ArrowLeft, ArrowRight, ArrowUpRight, BadgeCheck, BatteryFull, Bell, Bot, Calendar, CalendarClock,
   CalendarHeart, Check, ChevronLeft, ChevronRight, Clock, Compass, Download,
   ExternalLink,
-  FileCheck, Flag, FlaskConical, FolderKanban, FolderPlus, GitBranch, GitMerge,
-  Globe, Heart, HeartOff, Hexagon, History, ImageOff, Info, LayoutDashboard, Link,
+  FileCheck, Files, Flag, FlaskConical, FolderKanban, FolderPlus, GitBranch, GitMerge,
+  Globe, Heart, HeartOff, Hexagon, History, Image as ImageIcon, ImageOff, Info, LayoutDashboard, Link,
   ListPlus, ListTodo, LocateFixed, Map, MapPin, MapPinOff, Menu, Navigation,
   NotebookPen, Pencil, Play, Plus, PlugZap, RotateCcw, Search, SearchX, Settings,
   Share2, ShieldAlert, ShieldCheck, Signal, SlidersHorizontal, Sparkles, Target,
@@ -28,6 +28,8 @@ import {
 const ICONS = {
   "arrow-left": ArrowLeft,
   "arrow-right": ArrowRight,
+  "arrow-up-right": ArrowUpRight,
+  "files": Files,
   "chevron-left": ChevronLeft,
   "history": History,
   "layout-dashboard": LayoutDashboard,
@@ -53,6 +55,7 @@ const ICONS = {
   "heart-off": HeartOff,
   "hexagon": Hexagon,
   "image-off": ImageOff,
+  "image": ImageIcon,
   "info": Info,
   "locate-fixed": LocateFixed,
   "map": Map,
