@@ -82,28 +82,29 @@ Gorgon Workbench 让 AI 从「回答问题的助手」，变成帮助个人**整
 
 ## Android 运行情况
 
-- 当前交付 APK **v0.3.6-alpha（V3H，versionCode 11 / versionName 6.0.6）**：APK SHA256 `726d8d5826e4ef493f2701d2fc1a843ef60130129535a2c85453531da01c0a24`（3,848,253 字节），含 V3G 中文执行结果 + V3H 场景 A 修复（面试准备类目标路由）+ 本地提醒、笔记导入、智能体网关。
-- 已验证：单测（Node 571 项 0 fail / Python 472 OK）/ 构建 / 安全检查全绿；**真机验收 NOT_TESTED**（安装后按 [docs/DEVICE_ACCEPTANCE_V3_ALPHA.md](docs/DEVICE_ACCEPTANCE_V3_ALPHA.md) 逐项验收）。
-- **APK 直接下载**：<https://github.com/cvcingcvc-code/cec/releases/download/v0.3.6-alpha/gorgon-workbench-v0.3.6-alpha.apk>
-- Release 页：[v0.3.6-alpha](https://github.com/cvcingcvc-code/cec/releases/tag/v0.3.6-alpha)；历史版 v0.3.0 ~ v0.3.5、v1.0.0 全部保留。
+- 当前交付 APK **v0.3.8-alpha（V3J，versionCode 13 / versionName 6.0.8）**：APK SHA256 `cf9fa707…f2422`（完整值见 Release 页），含 V3J 四项真机修复（P0 截止时间闪退 / P1 笔记新建 / P1 搜索图片 / P1 真实地图 + Amap 导航）+ V3G 中文执行结果 + V3H 场景 A 修复 + 本地提醒、笔记导入、智能体网关 + bundle 拆分（entry 523KB）。
+- 已验证：单测（Node 591 项 0 fail / Python 488 OK）/ E2E 64 checks / 构建 / 安全检查全绿；GitHub Actions CI 全绿（每 push 自动构建 release APK）；**真机验收 NOT_TESTED**（安装后按 [docs/DEVICE_ACCEPTANCE_V3_ALPHA.md](docs/DEVICE_ACCEPTANCE_V3_ALPHA.md) 与 [Issue #1 验收清单](https://github.com/cvcingcvc-code/cec/issues/1#issuecomment-6307559965) 逐项验收）。
+- **APK 直接下载**：<https://github.com/cvcingcvc-code/cec/releases/download/v0.3.8-alpha/gorgon-workbench-v0.3.8-alpha.apk>
+- Release 页：[v0.3.8-alpha](https://github.com/cvcingcvc-code/cec/releases/tag/v0.3.8-alpha)；历史版 v0.3.0 ~ v0.3.7、v1.0.0 全部保留。
 
 ## 安装与覆盖升级说明
 
-- **覆盖安装**：v0.3.3 ~ v0.3.6（versionCode 9~11）签名一致（release keystore，cert SHA-256 `45b44236…f47167`），手机上直接覆盖安装旧版即可，本地数据（自建活动/任务/笔记）保留，无需卸载。
+- **覆盖安装**：v0.3.3 ~ v0.3.8（versionCode 9~13）签名一致（release keystore，cert SHA-256 `45b44236…f47167`，v2 scheme），手机上直接覆盖安装旧版即可，本地数据（自建活动/任务/笔记）保留，无需卸载。
 - **全新安装**：下载 APK → 允许安装未知来源 → 安装 → 打开。
 - 安装失败若提示签名冲突，说明设备上装过非官方签名版本，需先卸载（会清本地数据）。
 
 ## 真机尚未验证的功能与已知限制
 
-- **真机验收 NOT_TESTED**：覆盖安装数据保留、Wi-Fi 连电脑（Gateway `--lan`）、真机提交任务 → 电脑执行 → 手机显示、真实活动刷新、离线恢复、提醒通知。代码级测试全绿 ≠ 真机通过。
+- **真机验收 NOT_TESTED**：V3J 四项修复（截止时间 / 笔记新建 / 搜索图片 / 真实地图）、覆盖安装数据保留、Wi-Fi 连电脑（Gateway `--lan`）、真机提交任务 → 电脑执行 → 手机显示、真实活动刷新、离线恢复、提醒通知。代码级测试全绿 ≠ 真机通过。
 - **Codex 真实调用**：`codex.readonly-diagnosis` 需电脑本机已安装并登录 Codex CLI；不可用时智能体页如实显示「不可用」，不阻塞其余执行器（git 状态 / 读文档 / 主机概览为真实执行，不依赖 AI）。
 - **电脑联动边界**：Gateway 默认只绑 127.0.0.1，`--lan` 才允许局域网；执行器白名单（repo.status / repo.readDoc / host.stats / codex.readonly-diagnosis），无任意命令执行。
 
 ## 唯一正式仓库
 
 - **唯一正式 GitHub 仓库：[cvcingcvc-code/cec](https://github.com/cvcingcvc-code/cec)** —— 所有源码分支与 Release 均以此为准。
-- 源码分支：`feature/gorgon-opportunity-v2`（默认分支，最新 `804e895a270948b78be44799906ad03a6e243f0a`，已包含全部 V3G + V3H 交付代码）。
-- 最新开发分支：`feat/v3g-agent-results-zh`（与默认分支同步，PR #6 Draft 待真机验收）。
+- 源码默认分支：`feature/gorgon-opportunity-v2`；**PR #7**（feat/v3j-device-fix → 默认分支，146 commits：V3J 修复 + 四项优化 + CI 流水线）已开、CI 绿、待合并。
+- 最新开发分支：`feat/v3j-device-fix`（HEAD `eef3ff7`，与 origin/cec 同步，CI 全绿含 APK 构建）。
+- CI：GitHub Actions（`.github/workflows/ci.yml`）每 push 自动跑 单测 → vite build → cap sync → release APK → artifact；tag push（v*）自动附 APK 到 Release。正式签名需在 repo Settings → Secrets 配 KEYSTORE_* 四项。
 - APK 下载：见上方「Android 运行情况」的直接下载链接；安装前比对 APK SHA256。
 - **Git 推送与 Release 发布必须显式指定 `cec` remote**（`git push cec <branch>` / `gh release create --repo cvcingcvc-code/cec`），不依赖含义不明的默认 remote。
 - `cvcingcvc-code/geergong` 为旧仓库：**保留不删除**（历史代码与旧 Release 仍可访问），但不再接收新推送。
