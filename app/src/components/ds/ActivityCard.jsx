@@ -63,15 +63,28 @@ export function ActivityCard({
   hot = false,
   onSync,
   compact = false,
+  variant = "default",
+  categoryLabel = null,
+  sourceLabel = null,
+  dataOrigin = null,
+  trustLabel = null,
+  onOpen,
   style = {},
   ...rest
 }) {
   const cat = CATEGORIES[category] || CATEGORIES.music;
-  const catColor = cat.color;
+  const catColor = variant === "search" && !CATEGORIES[category] ? "var(--v3k-primary, #a397ff)" : cat.color;
   // V3J: resolve the image prop first (string | descriptor object | raw
   // record shape); an object here used to render as "[object Object]".
-  const imgUrl = imageUrlOf(image);
+  const resolvedUrl = imageUrlOf(image);
+  // A generated category placeholder is not an event photograph. The V3K
+  // search surface states that distinction and uses its category gradient.
+  const placeholder = image && typeof image === "object" && image.source === "placeholder"
+    || typeof resolvedUrl === "string" && resolvedUrl.includes("/assets/placeholders/");
+  const imgUrl = variant === "search" && placeholder ? null : resolvedUrl;
   const [imgFailed, setImgFailed] = React.useState(false);
+  const [imgLoaded, setImgLoaded] = React.useState(false);
+  React.useEffect(() => { setImgFailed(false); setImgLoaded(false); }, [imgUrl]);
   // A failed load (404 / hotlink block / offline) falls back to the same
   // category gradient — a broken-image glyph is never shown, and a dead
   // URL never masquerades as a working one.
@@ -84,8 +97,10 @@ export function ActivityCard({
   const probe = imgUrl && !imgFailed ? (
     <img
       src={imgUrl}
+      data-testid={variant === "search" ? "v3k-activity-image-probe" : undefined}
       alt=""
       aria-hidden="true"
+      onLoad={() => setImgLoaded(true)}
       onError={() => setImgFailed(true)}
       style={{
         position: "absolute", width: 1, height: 1, opacity: 0,
@@ -96,6 +111,10 @@ export function ActivityCard({
 
   const SyncBtn = (
     <button
+      type="button"
+      className={variant === "search" ? "v3k-activity__sync" : undefined}
+      aria-label={synced ? "取消同步活动：" + title : "同步活动：" + title}
+      aria-pressed={synced}
       onClick={(e) => { e.stopPropagation(); onSync && onSync(!synced); }}
       style={{
         display: "inline-flex",
@@ -119,6 +138,42 @@ export function ActivityCard({
       {synced ? "已同步" : "同步"}
     </button>
   );
+
+  if (variant === "search") {
+    const imageState = !imgUrl ? "missing" : imgFailed ? "error" : imgLoaded ? "loaded" : "loading";
+    const searchCover = imgUrl && !imgFailed ? cover : {
+      background: `linear-gradient(135deg, color-mix(in oklch, ${catColor} 45%, #15172d), #27203e 65%, #18293a)`,
+    };
+    return (
+      <article className="v3k-activity" data-v3k-image-state={imageState} style={style} {...rest}>
+        <div className="v3k-activity__cover" data-testid="v3k-search-card-cover" data-v3k-image-state={imageState}
+          role="img" aria-label={imgUrl && !imgFailed ? title + "的来源图片" : imgFailed ? "来源图片暂时无法加载，显示分类占位" : "未提供活动图片，显示分类占位"}
+          style={searchCover}>
+          {probe}
+          <span className="v3k-activity__category"><span aria-hidden="true" />{categoryLabel || cat.label}</span>
+          {(!imgUrl || imgFailed) && (
+            <div className="v3k-activity__fallback" aria-hidden="true">
+              <Icon name={imgFailed ? "image-off" : "image"} />
+              <span>{imgFailed ? "图片暂时无法加载" : "暂无活动图片"}</span>
+              <small>分类占位 · 活动信息仍可查看</small>
+            </div>
+          )}
+        </div>
+        <div className="v3k-activity__body">
+          <div className="v3k-activity__provenance">
+            {dataOrigin && <span className="v3k-activity__origin">{dataOrigin}</span>}
+            <span className="v3k-activity__source">{sourceLabel || "来源待补充"}</span>
+            {trustLabel && <span className="v3k-activity__trust">{trustLabel}</span>}
+          </div>
+          <h3><button type="button" className="v3k-activity__title"
+            onClick={(event) => { event.stopPropagation(); onOpen && onOpen(); }}>{title}</button></h3>
+          <p className="v3k-activity__meta"><Icon name="calendar" /><span>{date || "日期待定"} · {time || "时间待定"}</span></p>
+          <p className="v3k-activity__meta"><Icon name="map-pin" /><span>{location || "地点待定"}{distance ? ` · ${distance}` : ""}</span></p>
+          <div className="v3k-activity__footer"><span className="v3k-activity__price">{price || "价格待定"}</span>{SyncBtn}</div>
+        </div>
+      </article>
+    );
+  }
 
   if (compact) {
     return (

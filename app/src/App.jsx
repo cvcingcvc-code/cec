@@ -74,6 +74,13 @@ function isLegacyBoot() {
 }
 const LEGACY_MODE = typeof window !== "undefined" ? isLegacyBoot() : false;
 
+// Previewing another visual skin never writes preferences or application data.
+function visualSkin() {
+  try { return new URLSearchParams(window.location.search).get("skin") === "orbit" ? "orbit-dark" : "obsidian"; }
+  catch { return "obsidian"; }
+}
+const V3K_SKIN = visualSkin();
+
 /* ── Workbench chrome (desktop sidebar + mobile tabbar/drawer) ─────── */
 
 const WORKBENCH_ALL = WORKBENCH_TABS.concat([WORKBENCH_SETTINGS]);
@@ -127,7 +134,7 @@ function WorkbenchSidebar({ active, onWb, onLegacy, syncedCount }) {
 
 function WorkbenchTabBar({ active, onChange, syncedCount }) {
   return (
-    <div data-gg-region="tabbar" style={{
+    <div className="gg-workbench-tabbar" data-gg-region="tabbar" aria-label="主导航" style={{
       flex: "none", display: "flex", padding: "8px 12px 22px",
       background: "color-mix(in oklch, var(--surface-card) 88%, transparent)",
       backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
@@ -138,6 +145,9 @@ function WorkbenchTabBar({ active, onChange, syncedCount }) {
         const badge = t.key === "weekend" && syncedCount > 0;
         return (
           <button key={t.key}
+            className={"gg-workbench-tab" + (on ? " is-active" : "")}
+            aria-current={on ? "page" : undefined}
+            aria-label={t.label}
             data-workbench-nav={t.workbench ? t.key : undefined}
             data-gg-nav={t.legacy ? t.key : undefined}
             onClick={() => onChange(t.key)}
@@ -1102,7 +1112,7 @@ export default function App() {
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
       {tab === "discover" && <DiscoverScreen synced={weekend} onSync={toggleSync} onOpen={openDetail} onGoSearch={() => setTab("search")} onGoSmart={() => setTab("smart")} district={district} onDistrictChange={setDistrict} />}
       {tab === "smart" && <NaturalSearchScreen synced={weekend} onSync={toggleSync} onOpen={openDetail} district={district} onDistrictChange={setDistrict} />}
-      {tab === "search" && <SearchScreen synced={weekend} onSync={toggleSync} onOpen={openDetail} district={district} onDistrictChange={setDistrict} />}
+      {tab === "search" && <SearchScreen synced={weekend} onSync={toggleSync} onOpen={openDetail} district={district} onDistrictChange={setDistrict} onGoSmart={() => changeTab("smart")} />}
       {tab === "weekend" && <MyWeekendScreen weekend={weekend} onSync={toggleSync} onOpen={openDetail} onDiscover={() => setTab("discover")} favorites={favorites} onToggleFavorite={toggleFavorite} />}
       {tab === "map" && <MapScreen synced={weekend} onSync={toggleSync} onOpen={openDetail} focusId={mapFocus} district={district} onDistrictChange={setDistrict} />}
 
@@ -1136,10 +1146,21 @@ export default function App() {
     </div>
   );
 
+  // A presentation-only skin for the first two V3K screens. Detail views and
+  // the remaining workbench pages retain their V3J chrome and color tokens.
+  const redesignedPage = !detail && (wbTab === "home" || tab === "search");
+
   if (isMobile) {
     return (
-      <PhoneFrame>
-        <StatusBar dark={false} />
+      <PhoneFrame appearance={redesignedPage ? V3K_SKIN : undefined}>
+        {redesignedPage ? (
+          <header className="v3k-mobile-header">
+            <button type="button" data-workbench-nav="home" aria-label="回到工作台" onClick={() => changeWbTab("home")}>
+              <span className="v3k-brand-mark" aria-hidden="true">G</span><span>GORGON</span>
+            </button>
+            <span className="v3k-header-caption">行动工作台</span>
+          </header>
+        ) : <StatusBar dark={false} />}
         {content}
         <WorkbenchTabBar active={wbTab || (moreOpen ? "more" : tab)} syncedCount={syncedCount}
           onChange={pickMobileTab} />
@@ -1150,7 +1171,7 @@ export default function App() {
   }
 
   return (
-    <div className="gg-app" data-gg-shell="wide" data-gg-shell-nav="workbench">
+    <div className={"gg-app" + (redesignedPage ? " v3k-theme" : "")} data-v3k-theme={redesignedPage ? V3K_SKIN : undefined} data-gg-shell="wide" data-gg-shell-nav="workbench">
       <DesktopHeader district={district} onWorkbenchHome={() => changeWbTab("home")} />
       <div className="gg-body">
         <WorkbenchSidebar

@@ -1,0 +1,15 @@
+✔ REGISTERED only via the explicit status call (confirmedAt stamped) (0.27559ms)
+✔ demoting from REGISTERED clears confirmedAt (0.388792ms)
+✔ unknown status degrades to NONE (safe, never fabricated) (0.544062ms)
+✔ setPrep stores a checklist; toggle round-trips (5.106219ms)
+✔ defaultPrepFor seeds the standard checklist (free activity) (0.600592ms)
+✔ exportICS builds an ICS with the real fields (1.182824ms)
+✔ exportICS refuses without time fields (never fabricated) (0.283998ms)
+ℹ tests 592
+ℹ suites 0
+ℹ pass 591
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 27824.954722
