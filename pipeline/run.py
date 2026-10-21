@@ -20,15 +20,36 @@ PIPELINE_DIR = Path(__file__).resolve().parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-DATA_RAW = PIPELINE_DIR / "data" / "raw"
-DATA_NORMALIZED = PIPELINE_DIR / "data" / "normalized"
-DATA_WORK = PIPELINE_DIR / "data" / "work"
-DATA_REVIEW = PIPELINE_DIR / "data" / "review"
-DATA_APPROVED = PIPELINE_DIR / "data" / "approved"
-DATA_SEARCH = PIPELINE_DIR / "data" / "search"
-GORGON_JS = REPO_ROOT / "ui_kits" / "app" / "generated-data.js"
-ADMIN_REVIEW_JS = REPO_ROOT / "ui_kits" / "admin" / "generated-review-data.js"
-SEARCH_DEMO_JS = REPO_ROOT / "ui_kits" / "app" / "generated-search-demo.js"
+# OPT (2026-10-21): data/output roots are env-overridable so tests can run
+# the real CLI against a scratch copy without touching the tracked dataset
+# (running the suite used to rewrite pipeline/data/ into demo seeds and
+# required a `git checkout --` afterwards). Read ONCE at import time —
+# subprocesses pick the env up naturally, in-process callers must set it
+# before importing pipeline.run.
+#
+#   GORGON_DATA_ROOT    default: <pipeline>/data      (raw/work/review/…)
+#   GORGON_OUTPUT_ROOT  default: <repo root>          (ui_kits/*/generated-*)
+#
+# Explicit relative paths stay relative to the pipeline dir; absolute paths
+# and Path-like overrides win. An env override only shifts the ROOT — the
+# on-disk layout below it is identical, so existing tooling keeps working.
+_DATA_ROOT = Path(os.environ.get("GORGON_DATA_ROOT")
+                  or (PIPELINE_DIR / "data"))
+_OUTPUT_ROOT = Path(os.environ.get("GORGON_OUTPUT_ROOT") or REPO_ROOT)
+if not _DATA_ROOT.is_absolute():
+    _DATA_ROOT = (PIPELINE_DIR / _DATA_ROOT).resolve()
+if not _OUTPUT_ROOT.is_absolute():
+    _OUTPUT_ROOT = (REPO_ROOT / _OUTPUT_ROOT).resolve()
+
+DATA_RAW = _DATA_ROOT / "raw"
+DATA_NORMALIZED = _DATA_ROOT / "normalized"
+DATA_WORK = _DATA_ROOT / "work"
+DATA_REVIEW = _DATA_ROOT / "review"
+DATA_APPROVED = _DATA_ROOT / "approved"
+DATA_SEARCH = _DATA_ROOT / "search"
+GORGON_JS = _OUTPUT_ROOT / "ui_kits" / "app" / "generated-data.js"
+ADMIN_REVIEW_JS = _OUTPUT_ROOT / "ui_kits" / "admin" / "generated-review-data.js"
+SEARCH_DEMO_JS = _OUTPUT_ROOT / "ui_kits" / "app" / "generated-search-demo.js"
 DEFAULT_DECISIONS = DATA_REVIEW / "human_decisions.json"
 
 STAGES = ["ingest", "normalize", "clean", "dedupe", "trust", "review", "export"]
