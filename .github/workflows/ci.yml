@@ -145,6 +145,14 @@ jobs:
       - name: Gradle assembleRelease
         working-directory: app/android
         run: |
+          # gradle.properties hardcodes the LOCAL Clash proxy (127.0.0.1:7890)
+          # for this machine's builds — on a CI runner nothing listens there,
+          # so the wrapper download dies with Connection refused (run
+          # 39583076370, 3/3 retries). Strip the proxy lines in CI only;
+          # the local file is untouched. GitHub runners reach Maven Central
+          # and services.gradle.org directly.
+          sed -i '/^systemProp\.\(https\?\.\)\?proxy\(Host\|Port\)=/d; /^systemProp\.\(https\?\.\)\?nonProxyHosts=/d' gradle.properties
+          grep -c systemProp gradle.properties || echo "proxy lines stripped"
           chmod +x gradlew
           ok=0
           for attempt in 1 2 3; do
