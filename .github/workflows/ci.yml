@@ -64,9 +64,17 @@ jobs:
           java-version: "21"
 
       # compileSdk 36 is newer than some runner images ship; the Android
-      # setup step ensures the SDK + build-tools are current.
+      # setup step ensures the SDK + build-tools are current. Licenses are
+      # accepted non-interactively (yes |) — the action's own license step
+      # died on an interactive "Review licenses (y/N)?" prompt on 16.0
+      # cmdline-tools (run 39578359243).
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: false
 
       - name: Cache gradle
         uses: actions/cache@v4
