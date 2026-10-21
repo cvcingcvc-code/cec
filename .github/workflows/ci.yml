@@ -63,18 +63,19 @@ jobs:
           distribution: "temurin"
           java-version: "21"
 
-      # compileSdk 36 is newer than some runner images ship; the Android
-      # setup step ensures the SDK + build-tools are current. Licenses are
-      # accepted non-interactively (yes |) — the action's own license step
-      # died on an interactive "Review licenses (y/N)?" prompt on 16.0
-      # cmdline-tools (run 39578359243).
+      # compileSdk 36: the runner ships a base SDK; ensure platform 36 +
+      # build-tools 36 exist. android-actions/setup-android v3 is NOT used —
+      # its internal sdkmanager call died with "Failed to find package
+      # 'tools'" on the runner's cmdline-tools 16.0 (runs 39578359243 /
+      # 39578618682). Licenses accepted non-interactively ('yes |') first.
       - name: Accept Android SDK licenses
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          accept-android-sdk-licenses: false
+      - name: Install Android platform 36 + build-tools
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            "platforms;android-36" "build-tools;36.0.0" > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --list_installed | grep -E "android-36|build-tools;36" || true
 
       - name: Cache gradle
         uses: actions/cache@v4
