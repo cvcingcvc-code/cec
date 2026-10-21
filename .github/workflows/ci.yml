@@ -145,7 +145,7 @@ jobs:
           ./gradlew assembleRelease --no-daemon --console=plain
 
       - name: Verify APK signature + version
-        if: always()
+        if: success()
         working-directory: app/android
         run: |
           APK=app/build/outputs/apk/release/app-release.apk
