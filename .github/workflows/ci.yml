@@ -121,6 +121,15 @@ jobs:
         working-directory: app
         run: node tests/build-smoke.mjs
 
+      # -- 3b. browser E2E (the chromium fallback in cdp_session.mjs makes
+      #      this runnable on the runner's Google Chrome; the demo-mode API
+      #      server needs no dataset) --------------------------------------
+      - name: Browser E2E (64 checks, 4 widths)
+        working-directory: app
+        env:
+          CI: true
+        run: GORGON_PYTHON=python node tests/e2e_v1_frontend.mjs
+
       # -- 4. Android release APK ------------------------------------------
       - name: Restore signing credentials
         env:
