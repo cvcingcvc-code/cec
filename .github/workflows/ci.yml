@@ -99,16 +99,20 @@ jobs:
       - name: Pipeline unit tests
         run: python -m unittest discover -s pipeline -t . -v
 
-      # -- 2. app unit tests ---------------------------------------------
+      # -- 2. app deps + unit tests ---------------------------------------
+      # npm ci MUST precede the app tests: the suite imports esbuild/react
+      # from node_modules, and the cache can miss after a lockfile change —
+      # without ci first, tests die with ERR_MODULE_NOT_FOUND (run
+      # 39581328369).
+      - name: npm ci
+        working-directory: app
+        run: npm ci
+
       - name: App unit tests
         working-directory: app
         run: node --test "tests/*.test.mjs"
 
       # -- 3. web build + smoke ------------------------------------------
-      - name: npm install
-        working-directory: app
-        run: npm ci
-
       - name: Vite production build
         working-directory: app
         run: npm run build
