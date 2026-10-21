@@ -146,7 +146,13 @@ jobs:
         working-directory: app/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --console=plain
+          ok=0
+          for attempt in 1 2 3; do
+            if ./gradlew assembleRelease --no-daemon --console=plain; then ok=1; break; fi
+            echo "::warning::gradle attempt $attempt failed (wrapper download is a bare TCP fetch — a transient refusal is retried)"
+            sleep 20
+          done
+          [ "$ok" = 1 ]
 
       - name: Verify APK signature + version
         if: success()
