@@ -352,13 +352,12 @@ if (WORKBUDDY_ADAPTER) {
     wbAvailability = d.available ? "AVAILABLE" : "UNAVAILABLE";
   }).catch(() => {});
 
-  const wbExecBase = {
+  // NOTE: define the getter directly on each executor object. Spreading a
+  // base object would snapshot the getter's VALUE at definition time
+  // (before discover() resolves) and freeze a stale availability.
+  EXECUTORS["workbuddy.status"] = {
     agent: "workbuddy",
     get availability() { return wbAvailability; },
-  };
-
-  EXECUTORS["workbuddy.status"] = {
-    ...wbExecBase,
     description: "WorkBuddy · 查看真实运行状态（进程数、窗口标题；只读）",
     input: {},
     async run() {
@@ -373,7 +372,8 @@ if (WORKBUDDY_ADAPTER) {
   };
 
   EXECUTORS["workbuddy.launch"] = {
-    ...wbExecBase,
+    agent: "workbuddy",
+    get availability() { return wbAvailability; },
     description: "WorkBuddy · 启动桌面应用（仅启动并验证进程出现；无任务提交接口）",
     input: {},
     timeoutMs: 30_000,
