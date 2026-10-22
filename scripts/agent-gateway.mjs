@@ -327,6 +327,101 @@ if (CODEX_ADAPTER) {
   };
 }
 
+// V3L (PC Agent Controller V1 Phase A): the WorkBuddy desktop adapter —
+// discover/launch/attach/status for the registered WorkBuddy desktop app.
+// Dynamic import so the gateway still starts when the adapter is missing
+// (older checkouts). NO submitTask: WorkBuddy desktop has no verified
+// public task API, so this executor never claims "task executed".
+let WORKBUDDY_ADAPTER = null;
+try {
+  const mod = await import("./agent-adapters/workbuddy-adapter.mjs");
+  WORKBUDDY_ADAPTER = mod;
+} catch (e) {
+  audit({ kind: "workbuddy_adapter_load_error", error: String((e && e.message) || e) });
+}
+
+// ── V3L Phase A (§一): WorkBuddy desktop executors ──────────────────────
+// Two executors, both read-only or process-level:
+//   workbuddy.status  — the REAL running state (processes, window titles)
+//   workbuddy.launch  — start the registered exe; verify a NEW pid appeared
+// The launch executor honestly reports LAUNCHED — never "task executed".
+// No submitTask executor exists for WorkBuddy: no verified public task API.
+if (WORKBUDDY_ADAPTER) {
+  let wbAvailability = "UNAVAILABLE";
+  WORKBUDDY_ADAPTER.workbuddyAdapter.discover().then((d) => {
+    wbAvailability = d.available ? "AVAILABLE" : "UNAVAILABLE";
+  }).catch(() => {});
+
+  const wbExecBase = {
+    agent: "workbuddy",
+    get availability() { return wbAvailability; },
+  };
+
+  EXECUTORS["workbuddy.status"] = {
+    ...wbExecBase,
+    description: "WorkBuddy · 查看真实运行状态（进程数、窗口标题；只读）",
+    input: {},
+    async run() {
+      const st = await WORKBUDDY_ADAPTER.workbuddyAdapter.status();
+      if (!st.installed) {
+        const err = new Error(st.summary);
+        err.kind = "UNAVAILABLE";
+        throw err;
+      }
+      return { summary: st.summary, output: st };
+    },
+  };
+
+  EXECUTORS["workbuddy.launch"] = {
+    ...wbExecBase,
+    description: "WorkBuddy · 启动桌面应用（仅启动并验证进程出现；无任务提交接口）",
+    input: {},
+    timeoutMs: 30_000,
+    async run() {
+      const res = await WORKBUDDY_ADAPTER.workbuddyAdapter.launch();
+      if (!res.ok) {
+        const err = new Error(res.error || "launch failed");
+        err.kind = res.status;
+        err.output = res.output || null;
+        audit({ kind: "workbuddy_launch_failed", status: res.status, error: res.error });
+        throw err;
+      }
+      audit({ kind: "workbuddy_launched", pid: res.output?.newWorkBuddyPid, count: res.output?.runningProcessCount });
+      return { summary: `WorkBuddy 已启动（当前 ${res.output.runningProcessCount} 个进程）`, output: res.output };
+    },
+  };
+}
+
+// ── V3L Phase D (§四): task handoff materials ───────────────────────────
+// When an executor is unavailable or a run fails after retries, the phone
+// (or another executor, once actually available and approved) can pick the
+// task up from a COMPLETE handoff record: the original task input, the run
+// timeline, the real error, and any partial output. Handoff records live in
+// runs.json (already restart-safe); a dedicated endpoint lists resumable
+// runs so a second executor can continue WITHOUT re-running finished work.
+function handoffPayload(run) {
+  return {
+    runId: run.runId,
+    executor: run.executor,
+    input: run.input,
+    status: run.status,
+    createdAt: run.createdAt,
+    finishedAt: run.finishedAt,
+    error: run.error,
+    timeline: run.timeline,
+    partialOutput: run.result?.output ?? null,
+    summary: run.result?.summary ?? null,
+    note: "交接材料 = 原始任务 + 真实时间线 + 真实错误 + 部分产物。接续的执行器应先读取本材料，不要重跑已完成的部分。",
+  };
+}
+
+function isResumableRun(run) {
+  // A failed/timed_out run MAY be resumed (real error is known). A
+  // cancelled run is NOT auto-resumable (user said stop). Completed runs
+  // must NEVER be re-executed.
+  return ["failed", "timed_out"].includes(run.status);
+}
+
 // ── State: token / audit / runs ────────────────────────────────────────
 
 function ensureStateDir() {
@@ -694,6 +789,20 @@ const server = http.createServer(async (req, res) => {
       runId: r.runId, executor: r.executor, status: r.status, createdAt: r.createdAt,
       finishedAt: r.finishedAt, summary: r.result ? r.result.summary : r.error,
     })) });
+  }
+
+  // V3L Phase D: handoff materials for resumable runs (§四).
+  if (req.method === "GET" && p === "/v1/handoffs") {
+    return sendJson(res, 200, { ok: true, handoffs: runs.filter(isResumableRun).map(handoffPayload) });
+  }
+  const handoffMatch = p.match(/^\/v1\/runs\/([a-zA-Z0-9_]+)\/handoff$/);
+  if (req.method === "GET" && handoffMatch) {
+    const run = getRun(handoffMatch[1]);
+    if (!run) return sendJson(res, 404, { ok: false, error: "run not found" });
+    if (!isResumableRun(run)) {
+      return sendJson(res, 409, { ok: false, error: "该任务不可交接：已完成/已取消的任务不能重跑，请查看其结果或状态。" });
+    }
+    return sendJson(res, 200, { ok: true, handoff: handoffPayload(run) });
   }
 
   return sendJson(res, 404, { ok: false, error: "not found" });
