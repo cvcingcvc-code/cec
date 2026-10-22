@@ -4,6 +4,8 @@ const TASK_LABELS = {
   "repo.readDoc": "阅读项目文档",
   "host.stats": "查看电脑概况",
   "codex.readonly-diagnosis": "让 Codex 分析项目（只读）",
+  "workbuddy.status": "查看 WorkBuddy 运行状态",
+  "workbuddy.launch": "启动 WorkBuddy 桌面版",
 };
 
 export function executorLabel(executor) {
@@ -20,8 +22,10 @@ export function getAvailability(executor) {
       label: isTool ? "可尝试执行 · 模型调用待验证" : "可用 · 电脑只读操作",
       detail: executor.agent === "codex"
         ? "电脑已检测到 Codex 工具。模型调用、登录、网络和额度尚未验证，执行结果以电脑返回的记录为准。"
-        : isTool ? "电脑报告此工具可用；是否能成功调用模型，需要实际执行后确认。"
-          : "由电脑直接读取信息，不调用 AI 模型。",
+        : executor.agent === "workbuddy"
+          ? "电脑已检测到 WorkBuddy 桌面版。启动/状态为真实进程操作；WorkBuddy 没有已验证的任务接口，不能远程下达任务。"
+          : isTool ? "电脑报告此工具可用；是否能成功调用模型，需要实际执行后确认。"
+            : "由电脑直接读取信息，不调用 AI 模型。",
     };
   }
   return {
@@ -78,6 +82,24 @@ export function runSummary(run) {
   if (summary === "git status (porcelain+b)") return "已读取项目分支和文件变更情况";
   if (summary === "host overview") return "已读取电脑系统、处理器和内存情况";
   return summary;
+}
+
+// V3L Phase D: fetch the handoff record for a resumable run. Returns a
+// discriminated result — never throws — so the screen can render the real
+// blocker for completed/cancelled runs (409) instead of a generic error.
+export function addHandoffClient(client) {
+  return {
+    ...client,
+    async handoff(runId) {
+      try {
+        const data = await client.requestRaw(`/v1/runs/${encodeURIComponent(runId)}/handoff`, "GET");
+        return { kind: "ok", handoff: data.handoff };
+      } catch (error) {
+        if (error.status === 409) return { kind: "not_resumable", message: error.message };
+        return { kind: "error", message: error.message };
+      }
+    },
+  };
 }
 
 // The list endpoint omits output. Preserve fetched detail and the existing
@@ -150,5 +172,7 @@ export function createAgentClient(url, token, fetchImpl = globalThis.fetch) {
       return data;
     },
     cancel: (runId) => request(`/v1/runs/${encodeURIComponent(runId)}/cancel`, "POST"),
+    /** Raw request for sibling helpers (addHandoffClient). Same auth/timeout. */
+    requestRaw: request,
   };
 }
