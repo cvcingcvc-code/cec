@@ -114,6 +114,61 @@ export function mergeRunsForMirror(rows, details, previousMirror = []) {
   });
 }
 
+// ── V3L P0 fix: Android WebView is https://localhost (Capacitor androidScheme),
+// so a fetch() to an http:// LAN gateway is MIXED CONTENT and the WebView
+// blocks it before any packet leaves the device. The secure local-connection
+// path is CapacitorHttp — the request goes through the NATIVE HTTP stack
+// (HttpURLConnection), which never applies the WebView's mixed-content or
+// CORS rules and keeps the token header intact. Strategy:
+//   * Native shell + http:// URL  -> CapacitorHttp.request (native stack).
+//   * Everything else (web preview, https URLs) -> unchanged fetch().
+// No global CapacitorHttp fetch patching, no allowMixedContent, no
+// server.cleartext: the WebView never sees the cleartext request at all.
+function capacitorHttpAvailable() {
+  return !!(
+    typeof window !== "undefined" &&
+    window.Capacitor &&
+    window.Capacitor.isNativePlatform &&
+    window.Capacitor.isNativePlatform() &&
+    window.Capacitor.Plugins &&
+    window.Capacitor.Plugins.CapacitorHttp
+  );
+}
+
+async function nativeRequest(CapHttp, url, { method, headers, body, timeoutMs }) {
+  // CapacitorHttp returns { status, data, headers, url } and THROWS a
+  // CapacitorException on connection failures — map both to the same
+  // discriminated contract the fetch path uses.
+  try {
+    const response = await CapHttp.request({
+      url,
+      method,
+      headers,
+      ...(body !== undefined ? { data: body } : {}),
+      // Android native reads call.getInt("connectTimeout"/"readTimeout") —
+      // millisecond values under these exact names.
+      connectTimeout: timeoutMs,
+      readTimeout: timeoutMs,
+    });
+    let payload = response.data;
+    if (typeof payload === "string") {
+      try { payload = JSON.parse(payload); } catch { /* report HTTP status below */ }
+    }
+    const okStatus = response.status >= 200 && response.status < 300;
+    if (!okStatus || !payload?.ok) {
+      const message = response.status === 401 ? "配对码不正确或已失效，请检查电脑上的配对码。"
+        : payload?.error || `电脑返回异常（HTTP ${response.status}）`;
+      throw Object.assign(new Error(message), { status: response.status });
+    }
+    return payload;
+  } catch (error) {
+    // Re-throw our own contract errors untouched.
+    if (error && typeof error.status === "number") throw error;
+    const message = String(error?.message || error);
+    throw new Error(`无法联系电脑，请检查电脑服务和网络连接（${message.slice(0, 120)}）。`);
+  }
+}
+
 export function createAgentClient(url, token, fetchImpl = globalThis.fetch) {
   const base = String(url).trim().replace(/\/+$/, "");
   let parsed;
@@ -121,16 +176,27 @@ export function createAgentClient(url, token, fetchImpl = globalThis.fetch) {
   if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password || parsed.search || parsed.hash) {
     throw new Error("请填写 http:// 或 https:// 电脑地址，不要附带密码、查询参数或锚点。");
   }
+  // Only plain-http gateways need the native path on Android; https URLs are
+  // never mixed content and keep the standard fetch path everywhere.
+  const useNativeOnDevice = parsed.protocol === "http:" && capacitorHttpAvailable();
   async function request(path, method = "GET", body, authenticated = true) {
+    const fullUrl = `${base}${path}`;
+    const headers = {
+      ...(authenticated ? { "X-Gorgon-Token": token } : {}),
+      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+    };
+    if (useNativeOnDevice) {
+      return nativeRequest(window.Capacitor.Plugins.CapacitorHttp, fullUrl, {
+        method, headers, timeoutMs: 15000,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+    }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
     try {
-      const response = await fetchImpl(`${base}${path}`, {
+      const response = await fetchImpl(fullUrl, {
         method, signal: controller.signal,
-        headers: {
-          ...(authenticated ? { "X-Gorgon-Token": token } : {}),
-          ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-        },
+        headers,
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       });
       let payload;

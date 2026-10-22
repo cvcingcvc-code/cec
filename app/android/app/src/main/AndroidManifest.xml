@@ -7,7 +7,18 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/AppTheme">
+        android:theme="@style/AppTheme"
+        android:usesCleartextTraffic="true">
+
+        <!-- V3L P0 fix: usesCleartextTraffic allows the token-authenticated
+             LAN gateway (http://<lan-ip>:8765) to be reached from the native
+             HTTP stack (CapacitorHttp / HttpURLConnection). targetSdk 36
+             disables cleartext by default, and networkSecurityConfig cannot
+             express IP ranges, so the app-wide flag is the only working
+             scoped option. Honest surface: this app makes NO other cleartext
+             requests — every other endpoint is an HTTPS deployment. The
+             WebView never fetches the gateway directly (CapacitorHttp does),
+             so mixed content never arises in the JS layer. -->
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"

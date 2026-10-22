@@ -729,6 +729,27 @@ const server = http.createServer(async (req, res) => {
   }
   const p = url.pathname.replace(/\/+$/, "") || "/";
 
+  // V3L P0: CORS preflight for browser-based previews (the APK itself uses
+  // CapacitorHttp — a native request with no Origin header, unaffected by
+  // CORS). Only the safe method/headers the phone actually sends are echoed;
+  // still token-gated for every real endpoint below.
+  if (req.method === "OPTIONS") {
+    const requestedHeaders = String(req.headers["access-control-request-headers"] || "");
+    const allowedRequested = requestedHeaders
+      .split(",").map((h) => h.trim()).filter(Boolean)
+      .every((h) => ["x-gorgon-token", "content-type"].includes(h.toLowerCase()));
+    res.writeHead(req.headers.origin && allowedRequested ? 204 : 403, {
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "X-Gorgon-Token, Content-Type",
+      "Access-Control-Max-Age": "600",
+      ...(req.headers.origin && allowedRequested ? { "Access-Control-Allow-Origin": String(req.headers.origin) } : {}),
+      "Content-Length": "0",
+      "Cache-Control": "no-store",
+    });
+    res.end();
+    return;
+  }
+
   // Health: no token needed, no internals echoed.
   if (p === "/health" && (req.method === "GET" || req.method === "HEAD")) {
     return sendJson(res, 200, { ok: true, name: NAME, version: VERSION, uptimeSec: Math.round(process.uptime()) });
