@@ -182,3 +182,9 @@ powershell -ExecutionPolicy Bypass -File desktop/build.ps1
 ## 历史文档
 
 早期 Demo MVP 与设计系统说明保留于本文件历史版本（`docs/workbench/README_v1_HISTORY.md`）及 `docs/` 各 Phase 报告，不代表当前全部能力。
+
+---
+
+## License
+
+Source code is released under the [MIT License](LICENSE). Third-party fonts, images and brand assets remain with their respective owners.

@@ -172,7 +172,7 @@ class PublicServerTestCase(unittest.TestCase):
             "/readme.md",
             "/ui_kits/app/README.md",
             "/components/core/Tag.prompt.md",
-            "/GORGON_RECOVERY_AUDIT.md",
+            "/docs/recovery/GORGON_RECOVERY_AUDIT.md",
         ]
         for path in forbidden:
             with self.subTest(path=path):
