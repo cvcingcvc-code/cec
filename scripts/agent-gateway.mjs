@@ -328,10 +328,9 @@ if (CODEX_ADAPTER) {
 }
 
 // V3L (PC Agent Controller V1 Phase A): the WorkBuddy desktop adapter —
-// discover/launch/attach/status for the registered WorkBuddy desktop app.
+// discover/launch/attach/status + VERIFIED read-only submitTask (V3L P1).
 // Dynamic import so the gateway still starts when the adapter is missing
-// (older checkouts). NO submitTask: WorkBuddy desktop has no verified
-// public task API, so this executor never claims "task executed".
+// (older checkouts).
 let WORKBUDDY_ADAPTER = null;
 try {
   const mod = await import("./agent-adapters/workbuddy-adapter.mjs");
@@ -341,11 +340,12 @@ try {
 }
 
 // ── V3L Phase A (§一): WorkBuddy desktop executors ──────────────────────
-// Two executors, both read-only or process-level:
-//   workbuddy.status  — the REAL running state (processes, window titles)
-//   workbuddy.launch  — start the registered exe; verify a NEW pid appeared
-// The launch executor honestly reports LAUNCHED — never "task executed".
-// No submitTask executor exists for WorkBuddy: no verified public task API.
+//   workbuddy.status     — the REAL running state (processes, window titles)
+//   workbuddy.launch     — start the registered exe; verify a NEW pid appeared
+//   workbuddy.submitTask — VERIFIED read-only operations over the official
+//                          wbipc local IPC channel (V3L P1: HMAC handshake +
+//                          wb.request/http.fetch with the user's own session).
+//                          Message-sending / write ops are NOT implemented.
 if (WORKBUDDY_ADAPTER) {
   let wbAvailability = "UNAVAILABLE";
   WORKBUDDY_ADAPTER.workbuddyAdapter.discover().then((d) => {
@@ -388,6 +388,29 @@ if (WORKBUDDY_ADAPTER) {
       }
       audit({ kind: "workbuddy_launched", pid: res.output?.newWorkBuddyPid, count: res.output?.runningProcessCount });
       return { summary: `WorkBuddy 已启动（当前 ${res.output.runningProcessCount} 个进程）`, output: res.output };
+    },
+  };
+
+  // V3L P1: verified read-only task submission via wbipc.
+  const WB_OPS = WORKBUDDY_ADAPTER.workbuddyAdapter.SUBMIT_OPERATIONS || {};
+  const WB_OP_KEYS = Object.keys(WB_OPS);
+  EXECUTORS["workbuddy.submitTask"] = {
+    agent: "workbuddy",
+    get availability() { return wbAvailability; },
+    description: `WorkBuddy · 提交真实只读任务（wbipc 官方本地通道；支持：${WB_OP_KEYS.join("、")}）`,
+    input: { operation: "one of: " + WB_OP_KEYS.join(" | "), params: "object (optional)" },
+    timeoutMs: 45_000,
+    async run(input) {
+      const res = await WORKBUDDY_ADAPTER.workbuddyAdapter.submitTask(input || {});
+      if (!res.ok) {
+        const err = new Error(res.error || "submitTask failed");
+        err.kind = res.status || "BLOCKED";
+        err.output = res.detail || res.output || null;
+        audit({ kind: "workbuddy_submit_blocked", status: res.status, error: res.error });
+        throw err;
+      }
+      audit({ kind: "workbuddy_submit_ok", operation: input?.operation, summary: (res.summary || "").slice(0, 200) });
+      return { summary: res.summary, output: res.output };
     },
   };
 }
