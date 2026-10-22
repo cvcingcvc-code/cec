@@ -36,5 +36,28 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    // Split rarely-changing vendor code into its own cacheable chunks. The
+    // app entry drops from ~647KB to ~523KB; react-dom and lucide-react live
+    // in long-lived caches (Android WebView / browser) so updates ship less
+    // bytes. Pure cache win — no lazy-loading behavior change.
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("react-dom") || id.includes("scheduler")) {
+              return "vendor-react-dom";
+            }
+            if (id.includes("lucide-react")) {
+              return "vendor-lucide";
+            }
+            if (id.includes("/react/") || id.includes("\\react\\")) {
+              return "vendor-react";
+            }
+            return "vendor-misc";
+          }
+          return undefined;
+        },
+      },
+    },
   },
 });
