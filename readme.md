@@ -82,14 +82,14 @@ Gorgon Workbench 让 AI 从「回答问题的助手」，变成帮助个人**整
 
 ## Android 运行情况
 
-- 当前交付 APK **v0.3.8-alpha（V3J，versionCode 13 / versionName 6.0.8）**：APK SHA256 `cf9fa707…f2422`（完整值见 Release 页），含 V3J 四项真机修复（P0 截止时间闪退 / P1 笔记新建 / P1 搜索图片 / P1 真实地图 + Amap 导航）+ V3G 中文执行结果 + V3H 场景 A 修复 + 本地提醒、笔记导入、智能体网关 + bundle 拆分（entry 523KB）。
-- 已验证：单测（Node 591 项 0 fail / Python 488 OK）/ E2E 64 checks / 构建 / 安全检查全绿；GitHub Actions CI 全绿（每 push 自动构建 release APK）；**真机验收 NOT_TESTED**（安装后按 [docs/DEVICE_ACCEPTANCE_V3_ALPHA.md](docs/DEVICE_ACCEPTANCE_V3_ALPHA.md) 与 [Issue #1 验收清单](https://github.com/cvcingcvc-code/cec/issues/1#issuecomment-6307559965) 逐项验收）。
-- **APK 直接下载**：<https://github.com/cvcingcvc-code/cec/releases/download/v0.3.8-alpha/gorgon-workbench-v0.3.8-alpha.apk>
-- Release 页：[v0.3.8-alpha](https://github.com/cvcingcvc-code/cec/releases/tag/v0.3.8-alpha)；历史版 v0.3.0 ~ v0.3.7、v1.0.0 全部保留。
+- 当前交付 APK **v0.3.9-alpha（V3K UI + chunk 恢复，versionCode 14 / versionName 6.0.9）**：APK SHA256 `d36e3a6c…d1c3`（完整值见 Release 页），含 **V3K Obsidian UI 改版**（WorkbenchHome/SearchScreen 全新 Obsidian 深色皮肤默认 + ActivityCard 分类渐变占位 + 图片状态机 + `?skin=orbit` 切回旧皮肤）+ V3J 四项真机修复（P0 截止时间闪退 / P1 笔记新建 / P1 搜索图片 / P1 真实地图 + Amap 导航）+ V3G 中文执行结果 + V3H 场景 A 修复 + 本地提醒、笔记导入、智能体网关 + bundle 拆分恢复（entry 647KB→476KB，gzip 135KB）。
+- 已验证：单测（Node 592 项 591 pass 0 fail / Python 488 OK）/ E2E 64 checks / 构建 / 安全检查全绿；GitHub Actions CI 全绿（每 push 自动构建 release APK）；**真机验收 NOT_TESTED**（安装后按 [docs/DEVICE_ACCEPTANCE_V3_ALPHA.md](docs/DEVICE_ACCEPTANCE_V3_ALPHA.md) 与 [Issue #1 验收清单](https://github.com/cvcingcvc-code/cec/issues/1#issuecomment-6307559965) 逐项验收）。
+- **APK 直接下载**：<https://github.com/cvcingcvc-code/cec/releases/download/v0.3.9-alpha/gorgon-workbench-v0.3.9-alpha.apk>
+- Release 页：[v0.3.9-alpha](https://github.com/cvcingcvc-code/cec/releases/tag/v0.3.9-alpha)（含完整版本说明）；历史版 v0.3.0 ~ v0.3.8、v1.0.0 全部保留。
 
 ## 安装与覆盖升级说明
 
-- **覆盖安装**：v0.3.3 ~ v0.3.8（versionCode 9~13）签名一致（release keystore，cert SHA-256 `45b44236…f47167`，v2 scheme），手机上直接覆盖安装旧版即可，本地数据（自建活动/任务/笔记）保留，无需卸载。
+- **覆盖安装**：v0.3.3 ~ v0.3.9（versionCode 9~14）签名一致（release keystore，cert SHA-256 `45b44236…f47167`，v2 scheme），手机上直接覆盖安装旧版即可，本地数据（自建活动/任务/笔记）保留，无需卸载。
 - **全新安装**：下载 APK → 允许安装未知来源 → 安装 → 打开。
 - 安装失败若提示签名冲突，说明设备上装过非官方签名版本，需先卸载（会清本地数据）。
 
