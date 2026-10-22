@@ -1,0 +1,107 @@
+/* V3K ORBIT: a replaceable presentation layer for home and search only.
+   Keep the palette here; page CSS consumes these aliases, never domain data. */
+:root {
+  --v3k-bg: #090e1a;
+  --v3k-surface: #111a2b;
+  --v3k-surface-raised: #18243a;
+  --v3k-ink: #eef3ff;
+  --v3k-muted: #a8b6ce;
+  --v3k-line: #293750;
+  --v3k-primary: #b5a1ff;
+  --v3k-primary-soft: #282441;
+  --v3k-cyan: #7be6e2;
+  --v3k-radius: 18px;
+  --v3k-radius-xl: 24px;
+  --v3k-shadow: 0 8px 30px #00000024;
+  --v3k-hero-bg: radial-gradient(ellipse at 95% 0%, #503fa977, transparent 63%), linear-gradient(125deg, #141d39, #22254f 70%, #30265a);
+  --v3k-hero-shadow: 0 8px 40px #433cad20, inset 0 1px 0 #b9b1ff13;
+  --v3k-space-1: 4px;
+  --v3k-space-2: 8px;
+  --v3k-space-3: 12px;
+  --v3k-space-4: 16px;
+  --v3k-space-6: 24px;
+  --v3k-space-8: 32px;
+  --v3k-touch: 48px;
+}
+
+.v3k-theme, .v3k-page {
+  color-scheme: dark;
+  --bg-base: var(--v3k-bg);
+  --bg-sunken: var(--v3k-surface-raised);
+  --surface-card: var(--v3k-surface);
+  --surface-raised: var(--v3k-surface-raised);
+  --text-strong: var(--v3k-ink);
+  --text-body: #d4def0;
+  --text-muted: var(--v3k-muted);
+  --text-faint: #98a8c4;
+  --border-subtle: var(--v3k-line);
+  --border-default: #3a4c69;
+  --brand: var(--v3k-primary);
+  --brand-soft: var(--v3k-primary-soft);
+  --brand-strong: #c7b7ff;
+  --accent-strong: var(--v3k-cyan);
+  --accent-soft: #133b3d;
+  --warning-soft: #362a1c;
+  --warning-ink: #ffcf87;
+  --danger: #ff9eab;
+  --danger-soft: #3f2334;
+  --ink: #101727;
+  color: var(--v3k-ink);
+}
+
+.v3k-mobile-header {
+  flex: none;
+  min-height: 64px;
+  padding: max(8px, env(safe-area-inset-top, 0px)) 16px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--v3k-bg);
+}
+.v3k-mobile-header button { min-height: 48px; display: inline-flex; align-items: center; gap: 10px; padding: 0; background: none; border: 0; color: var(--v3k-ink); font: 700 13px var(--font-sans); letter-spacing: .16em; cursor: pointer; }
+.v3k-brand-mark { width: 30px; height: 30px; display: grid; place-items: center; font-size: 20px; letter-spacing: -.1em; padding-right: 2px; border-radius: 50%; border: 1px solid color-mix(in oklch, var(--v3k-primary) 55%, transparent); color: var(--v3k-primary); background: radial-gradient(circle at 20% 0%, color-mix(in oklch, var(--v3k-primary) 35%, transparent), var(--v3k-surface)); box-shadow: 0 0 18px color-mix(in oklch, var(--v3k-primary) 12%, transparent); }
+.v3k-header-caption { color: var(--v3k-muted); font-size: 12px; letter-spacing: .05em; }
+.gg-workbench-tabbar { padding-bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important; }
+.gg-workbench-tab { min-width: 48px; min-height: 52px; padding: 5px 2px; border-radius: 16px; }
+.gg-workbench-tab > span:last-child { font-size: 12px !important; }
+.v3k-theme .gg-workbench-tabbar { padding: 8px 12px max(12px, env(safe-area-inset-bottom, 0px)) !important; background: #0d1424f5 !important; border-top-color: #2a3452 !important; gap: 6px; }
+.v3k-theme .gg-workbench-tab.is-active { color: var(--v3k-primary) !important; background: var(--v3k-primary-soft) !important; box-shadow: inset 0 1px 0 color-mix(in oklch, var(--v3k-primary) 20%, transparent); }
+.v3k-theme .gg-nav-item.is-active { color: var(--v3k-primary); }
+.v3k-theme [data-testid="workbench-more-drawer"] button { min-height: 64px; }
+.v3k-theme button:focus-visible, .v3k-page button:focus-visible { outline: 2px solid var(--v3k-cyan); outline-offset: 3px; }
+.v3k-page input, .v3k-page textarea { font-size: 16px; }
+.v3k-page input::placeholder, .v3k-page textarea::placeholder { opacity: 1; }
+.v3k-page svg { flex-shrink: 0; }
+.v3k-page { overscroll-behavior-y: contain; }
+
+/* User-selected OBSIDIAN. ?skin=orbit retains the first DARK ORBIT palette.
+   These tokens can be replaced without touching any screen/store contracts. */
+[data-v3k-theme="obsidian"] {
+  --v3k-bg: #0a1015;
+  --v3k-surface: #121c24;
+  --v3k-surface-raised: #1b2a33;
+  --v3k-ink: #eaf4f8;
+  --v3k-muted: #a6bac5;
+  --v3k-line: #2a3c48;
+  --v3k-primary: #85e4ef;
+  --v3k-primary-soft: #15323d;
+  --v3k-cyan: #91edf2;
+  --v3k-action-bg: #b8eff4;
+  --v3k-action-ink: #102930;
+  --v3k-hero-bg: radial-gradient(ellipse at 95% 0%, #4293a02b, transparent 64%), linear-gradient(125deg, #14232e, #192831 70%, #1d333d);
+  --v3k-hero-shadow: 0 8px 40px #25485420, inset 0 1px 0 #a1e9f51c;
+  --brand-strong: #b7f2f6;
+}
+[data-v3k-theme="obsidian"] .v3k-home-composer { border-color: #7bdeed45; }
+[data-v3k-theme="obsidian"] .v3k-home-composer::before { border-color: #9be8ec47; box-shadow: 0 0 0 27px #9be8ec08, 0 0 0 54px #9be8ec05; }
+[data-v3k-theme="obsidian"] .v3k-home-composer-kicker { color: #c7e9ee; }
+[data-v3k-theme="obsidian"] .v3k-home-start:disabled { background: #64838d; color: #0c252d; }
+
+@media (max-width: 479px) {
+  #root:has(.v3k-theme) { height: 100vh; height: 100dvh; }
+  .gg-phone.v3k-theme { height: 100% !important; min-height: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .v3k-theme *, .v3k-page * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

@@ -389,9 +389,12 @@ class PublicServerTestCase(unittest.TestCase):
     def test_internal_error_is_readable_and_leaks_nothing(self):
         import pipeline.api.server as server_module
 
+        # NB: the fake secret deliberately avoids real key formats (sk-live-,
+        # ghp_, AKIA...) so a traceback that reaches CI logs cannot trip
+        # GitHub secret scanning into flagging the repo.
         def boom(*args, **kwargs):
             raise RuntimeError(
-                "secret: C:\\Users\\lin\\app.db key=sk-live-1234567890")
+                "secret: C:\\Users\\lin\\app.db key=FAKE-KEY-0000000000")
 
         original = server_module.build_response
         server_module.build_response = boom
@@ -405,7 +408,7 @@ class PublicServerTestCase(unittest.TestCase):
         self.assertIn("message", body)
         self.assertNotIn("detail", body)
         raw = json.dumps(body, ensure_ascii=False)
-        for needle in ("sk-live", "app.db", "C:\\\\Users", "RuntimeError", "boom"):
+        for needle in ("FAKE-KEY", "app.db", "C:\\\\Users", "RuntimeError", "boom"):
             self.assertNotIn(needle, raw)
 
     def test_operator_only_notice_copy_is_replaced_for_visitors(self):

@@ -23,10 +23,28 @@ const EDGE_CANDIDATES = [
   "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
 ];
 
-function findEdge() {
+// Chromium-family fallbacks (same CDP surface, same flags): GitHub's
+// ubuntu-latest runner has no Edge but ships Google Chrome, so the browser
+// tests can RUN in CI instead of failing their `before` hook wholesale.
+const CHROMIUM_CANDIDATES = [
+  // Windows Chrome
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+  // Linux
+  "/usr/bin/google-chrome",
+  "/usr/bin/google-chrome-stable",
+  "/usr/bin/chromium-browser",
+  "/usr/bin/chromium",
+  // macOS
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+];
+
+function findBrowser() {
   if (process.env.EDGE_BIN) return process.env.EDGE_BIN;
-  const hit = EDGE_CANDIDATES.find((p) => fs.existsSync(p));
-  if (!hit) throw new Error("Microsoft Edge not found; set EDGE_BIN");
+  const hit = EDGE_CANDIDATES.find((p) => fs.existsSync(p))
+    || CHROMIUM_CANDIDATES.find((p) => fs.existsSync(p));
+  if (!hit) throw new Error("no Chromium browser found (Edge/Chrome); set EDGE_BIN");
   return hit;
 }
 
@@ -44,22 +62,26 @@ export class Session {
   }
 
   async launch({ width = 1400, height = 920 } = {}) {
+    const args = [
+      "--headless=new",
+      "--disable-gpu",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--disable-extensions",
+      `--remote-debugging-port=${this.port}`,
+      `--user-data-dir=${this.profile}`,
+      // The host proxies everything; localhost must bypass it or every
+      // request to our own server 502s.
+      "--proxy-bypass-list=127.0.0.1;localhost",
+      `--window-size=${width},${height}`,
+      "about:blank",
+    ];
+    // CI containers restrict user namespaces; headless Chromium needs this
+    // or it dies at spawn on ubuntu-latest.
+    if (process.env.CI) args.push("--no-sandbox", "--disable-dev-shm-usage");
     this.proc = spawn(
-      findEdge(),
-      [
-        "--headless=new",
-        "--disable-gpu",
-        "--no-first-run",
-        "--no-default-browser-check",
-        "--disable-extensions",
-        `--remote-debugging-port=${this.port}`,
-        `--user-data-dir=${this.profile}`,
-        // The host proxies everything; localhost must bypass it or every
-        // request to our own server 502s.
-        "--proxy-bypass-list=127.0.0.1;localhost",
-        `--window-size=${width},${height}`,
-        "about:blank",
-      ],
+      findBrowser(),
+      args,
       { stdio: "ignore" }
     );
 
@@ -203,8 +225,12 @@ export class Session {
   async close() {
     try { this.ws && this.ws.close(); } catch { /* already gone */ }
     if (this.proc?.pid) {
-      try { spawn("taskkill", ["/PID", String(this.proc.pid), "/T", "/F"], { stdio: "ignore" }); }
-      catch { /* best effort */ }
+      if (process.platform === "win32") {
+        try { spawn("taskkill", ["/PID", String(this.proc.pid), "/T", "/F"], { stdio: "ignore" }); }
+        catch { /* best effort */ }
+      } else {
+        try { this.proc.kill("SIGKILL"); } catch { /* best effort */ }
+      }
     }
   }
 }

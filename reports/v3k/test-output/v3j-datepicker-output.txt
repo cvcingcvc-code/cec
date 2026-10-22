@@ -1,0 +1,21 @@
+[v3j-e2e] starting vite preview (dist/) ...
+PASS  servers up (vite preview)
+PASS  task detail opens
+PASS  P0: 截止时间 datetime sheet renders (no crash/white screen)
+PASS  P0: datetime mode shows the time stepper
+PASS  P0: preview renders after picking a day (formatCNTime crash fixed)
+PASS  P0: preview shows 年月日 周X HH:mm  — 2026年10月21日 周三 09:00
+PASS  P0: preview updates live while stepping time (18:30)  — 2026年10月21日 周三 18:30
+PASS  confirm closes the sheet
+PASS  confirm writes dueAt (UTC ISO) without 保存排期 (direct-write path)  — 2026-10-21T10:30:00.000Z
+PASS  reopen seeds the previously chosen day  — 2026-10-21
+PASS  reopen seeds 18:30 in preview  — 2026年10月21日 周三 18:30
+PASS  cancel/close never writes (dueAt unchanged)  — 2026-10-21T10:30:00.000Z
+PASS  Esc cancels without writing
+PASS  clear empties dueAt without crash
+PASS  date mode hides the time stepper
+PASS  date mode preview shows 年月日 周X (no time)  — 2026年10月21日 周三
+PASS  date mode confirm writes scheduledDate  — 2026-10-21
+PASS  console errors = 0 across the whole flow
+
+[v3j-e2e] 18 passed, 0 failed

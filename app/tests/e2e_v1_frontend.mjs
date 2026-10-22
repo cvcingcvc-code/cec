@@ -125,35 +125,80 @@ async function desktopChain(width, height, tag) {
     check(`${tag}: Discover count > 0`, countAll > 0, `${countAll} 场`);
 
     // 2-3. district filter updates the count honestly
+    // OPT (2026-10-21): the district is picked DYNAMICALLY — max-count among
+    // the CARDS CURRENTLY RENDERED (data-gg-card-district), not a hard-coded
+    // name and not the picker's label counts. Two reasons, both real:
+    // (a) the dataset is real crawled content whose active rows drift as the
+    //     calendar advances — the 10-15 fixture had active 徐汇 rows, by 10-21
+    //     none, and the hard-coded click produced an honest empty state;
+    // (b) the picker's counts describe the WHOLE real dataset while the list
+    //     additionally applies the default 未来7天 recency filter — the two can
+    //     disagree, so only the rendered cards are the ground truth here.
+    const rendered = await s.eval(`
+      const cards = [...document.querySelectorAll('.gg-disc-card')];
+      const counts = {};
+      for (const c of cards) {
+        const d = c.getAttribute('data-gg-card-district') || '(none)';
+        counts[d] = (counts[d] || 0) + 1;
+      }
+      let best = null, bestN = -1;
+      for (const [d, n] of Object.entries(counts)) {
+        if (d !== '(none)' && n > bestN) { bestN = n; best = d; }
+      }
+      return { district: best, expected: bestN, total: cards.length };`);
+    check(`${tag}: discover list has a district to filter`, !!rendered.district,
+      `${rendered.district} (${rendered.expected}/${rendered.total} 场)`);
+    const expected = rendered.expected;
     await s.click(`document.querySelector('[data-gg-region="district-picker"]')`);
-    await s.waitFor(`!!document.querySelector('[data-gg-district-option="徐汇"]')`);
-    const expected = await s.eval(`
-      return +document.querySelector('[data-gg-district-count-label="徐汇"]').innerText.match(/(\\d+)/)[1];`);
-    await s.click(`document.querySelector('[data-gg-district-option="徐汇"]')`);
+    await s.waitFor(`!!document.querySelector('[data-gg-district-option="${rendered.district}"]')`);
+    await s.click(`document.querySelector('[data-gg-district-option="${rendered.district}"]')`);
     await sleep(400);
     const after = await s.eval(`
-      const m = document.querySelector('.gg-section-head').innerText.match(/共\\s*(\\d+)\\s*场活动/);
+      const head = document.querySelector('.gg-section-head');
+      const m = head ? head.innerText.match(/共\\s*(\\d+)\\s*场活动/) : null;
       const cards = document.querySelectorAll('.gg-disc-card').length;
-      return { n: m ? +m[1] : -1, cards };`);
-    check(`${tag}: district filter narrows to 徐汇`, after.n === expected && after.cards === expected,
+      return { n: m ? +m[1] : (cards > 0 ? -1 : 0), cards };`);
+    check(`${tag}: district filter narrows to ${rendered.district}`, after.n === expected && after.cards === expected,
       `${countAll} -> ${after.n} (picker said ${expected})`);
     const allInDistrict = await s.eval(`
       return [...document.querySelectorAll('.gg-disc-card')]
-        .every(c => c.getAttribute('data-gg-card-district') === '徐汇');`);
-    check(`${tag}: every card really is in 徐汇`, allInDistrict);
+        .every(c => c.getAttribute('data-gg-card-district') === ${JSON.stringify(rendered.district)});`);
+    check(`${tag}: every card really is in ${rendered.district}`, allInDistrict);
 
     // 4-5. Search: keyword narrows the same list
+    // OPT (2026-10-21): the keyword is taken from the FIRST FILTERED CARD'S
+    // title heading (longest CJK run), not a hard-coded 'AI'. Same reason as
+    // the dynamic district: the real dataset drifts, and keyword × district
+    // can legitimately be empty for a fixed term. Searching a word that IS
+    // in the current card titles tests the same contract (keyword narrows,
+    // results render) without date sensitivity.
     await s.click(`document.querySelector('[data-gg-nav="search"]')`);
     await s.waitFor(`!!document.querySelector('[data-gg-screen="search"] input')`);
+    const kw = await s.eval(`
+      // the Search screen shares the district filter: its first card IS the
+      // first Discover card's sibling — grab the title heading text
+      const cards = [...document.querySelectorAll('[data-gg-screen="search"] article, [data-gg-screen="search"] .gg-card-grid--two > div')];
+      if (!cards.length) return null;
+      let best = null;
+      for (const card of cards) {
+        const h = card.querySelector('h3, h2, [class*="title"]') || card;
+        const t = h.innerText || '';
+        for (const m of t.match(/[\\u4e00-\\u9fa5]{2,}/g) || []) {
+          if (!best || m.length > best.length) best = m;
+        }
+      }
+      // a 2-4 char needle: long enough to be specific, short enough to match
+      return best ? best.slice(0, 4) : null;`);
+    check(`${tag}: search keyword extracted from data`, !!kw, kw || "none");
     await s.eval(`
       const input = document.querySelector('[data-gg-screen="search"] input');
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-      setter.call(input, 'AI');
+      setter.call(input, ${JSON.stringify(kw || "")});
       input.dispatchEvent(new Event('input', { bubbles: true }));
       return true;`);
     await sleep(400);
     const searchN = await s.eval(`return document.querySelectorAll('[data-gg-screen="search"] .gg-card-grid--two > div').length;`);
-    check(`${tag}: keyword search returns results (scoped to 徐汇)`, searchN > 0, `${searchN} 条`);
+    check(`${tag}: keyword search returns results (scoped to ${rendered.district})`, searchN > 0, `"${kw}" -> ${searchN} 条`);
 
     // 6-8. Natural Search: real POST /api/search via the preview proxy
     await s.click(`document.querySelector('[data-gg-nav="smart"]')`);

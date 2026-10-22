@@ -25,7 +25,7 @@ window.GORGON_REVIEW_QUEUE = [
       "Agent",
       "黑客松"
     ],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "ai_community",
     "sourceUrl": "https://example.com/ai/a01",
     "score": 85,
@@ -137,7 +137,7 @@ window.GORGON_REVIEW_QUEUE = [
       "跑步",
       "夜跑"
     ],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "ai_community",
     "sourceUrl": "https://example.com/ai/a06",
     "score": 70,
@@ -214,7 +214,7 @@ window.GORGON_REVIEW_QUEUE = [
     "tags": [
       "讲座"
     ],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "ai_community",
     "sourceUrl": null,
     "score": 15,
@@ -271,7 +271,7 @@ window.GORGON_REVIEW_QUEUE = [
       "桌游",
       "社交"
     ],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "ai_community",
     "sourceUrl": "https://example.com/ai/a09",
     "score": 70,
@@ -349,7 +349,7 @@ window.GORGON_REVIEW_QUEUE = [
       "Hackathon",
       "AI"
     ],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "campus_bbs",
     "sourceUrl": "https://bbs.example.com/t/9001",
     "score": 85,
@@ -461,7 +461,7 @@ window.GORGON_REVIEW_QUEUE = [
       "跑步",
       "夜跑"
     ],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "campus_bbs",
     "sourceUrl": "https://bbs.example.com/t/9010",
     "score": 80,
@@ -566,7 +566,7 @@ window.GORGON_REVIEW_QUEUE = [
       "AI",
       "黑客松"
     ],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "city_portal",
     "sourceUrl": "https://portal.example.com/ev/701",
     "score": 85,
@@ -677,7 +677,7 @@ window.GORGON_REVIEW_QUEUE = [
     "tags": [
       "观影"
     ],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "city_portal",
     "sourceUrl": "https://portal.example.com/ev/708",
     "score": 70,
@@ -766,7 +766,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": "这条记录没有日期也没有地点，用于测试低分路径。",
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "city_portal",
     "sourceUrl": null,
     "score": 0,
@@ -816,7 +816,7 @@ window.GORGON_REVIEW_QUEUE = [
       "AI",
       "黑客松"
     ],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "city_portal",
     "sourceUrl": "https://portal.example.com/ev/710",
     "score": 80,
@@ -918,7 +918,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/36988401/",
     "score": 70,
@@ -993,7 +993,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/37611085/",
     "score": 70,
@@ -1068,84 +1068,9 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/36947253/",
-    "score": 70,
-    "suggestion": "review",
-    "reviewReason": "medium_confidence",
-    "trustReasons": [
-      "has_district_or_address",
-      "has_explicit_date",
-      "has_explicit_time",
-      "has_organizer",
-      "has_source_url",
-      "source_fields_complete"
-    ],
-    "conflicts": [],
-    "checks": [
-      {
-        "key": "has_district_or_address",
-        "label": "has district or address",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_date",
-        "label": "has explicit date",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_time",
-        "label": "has explicit time",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_organizer",
-        "label": "has organizer",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_source_url",
-        "label": "has source url",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "source_fields_complete",
-        "label": "source fields complete",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      }
-    ],
-    "duplicateCandidates": [],
-    "status": "needs_review"
-  },
-  {
-    "id": "douban_36737403",
-    "title": "徒步醉美秋景南黄古道,探访隋朝古刹国清寺(2天1晚活动)",
-    "category": "social",
-    "date": "周四 10.1",
-    "startDate": "2026-10-01",
-    "time": "08:00",
-    "startTime": "08:00",
-    "endTime": "18:00",
-    "venue": "地点待定",
-    "location": "上海·长宁",
-    "district": "长宁",
-    "price": "¥498",
-    "priceType": "paid",
-    "priceRaw": 498,
-    "organizer": "互助网周末活动",
-    "registrationUrl": null,
-    "description": null,
-    "tags": [],
-    "crawledAt": "2026-10-14 13:03",
-    "source": "豆瓣同城",
-    "sourceUrl": "https://www.douban.com/event/36737403/",
     "score": 70,
     "suggestion": "review",
     "reviewReason": "medium_confidence",
@@ -1203,11 +1128,11 @@ window.GORGON_REVIEW_QUEUE = [
     "id": "douban_36977803",
     "title": "Norah/71/油百万领衔 普通话/沪语/英文脱口秀 by SpicyComedy 即将开始",
     "category": "social",
-    "date": "周三 10.14",
-    "startDate": "2026-10-14",
+    "date": "周三 10.21",
+    "startDate": "2026-10-21",
     "time": "19:30",
     "startTime": "19:30",
-    "endTime": "20:40",
+    "endTime": "18:30",
     "venue": "地点待定",
     "location": "上海·黄浦",
     "district": "黄浦",
@@ -1218,9 +1143,166 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/36977803/",
+    "score": 60,
+    "suggestion": "review",
+    "reviewReason": "medium_confidence",
+    "trustReasons": [
+      "has_district_or_address",
+      "has_explicit_date",
+      "has_explicit_time",
+      "has_organizer",
+      "has_source_url",
+      "invalid_time_range",
+      "source_fields_complete"
+    ],
+    "conflicts": [],
+    "checks": [
+      {
+        "key": "has_district_or_address",
+        "label": "has district or address",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_date",
+        "label": "has explicit date",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_time",
+        "label": "has explicit time",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_organizer",
+        "label": "has organizer",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_source_url",
+        "label": "has source url",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "invalid_time_range",
+        "label": "invalid time range",
+        "status": "warn",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "source_fields_complete",
+        "label": "source fields complete",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      }
+    ],
+    "duplicateCandidates": [],
+    "status": "needs_review"
+  },
+  {
+    "id": "douban_36737403",
+    "title": "徒步醉美秋景南黄古道,探访隋朝古刹国清寺(2天1晚活动)",
+    "category": "social",
+    "date": "周四 10.1",
+    "startDate": "2026-10-01",
+    "time": "08:00",
+    "startTime": "08:00",
+    "endTime": "18:00",
+    "venue": "地点待定",
+    "location": "上海·长宁",
+    "district": "长宁",
+    "price": "¥498",
+    "priceType": "paid",
+    "priceRaw": 498,
+    "organizer": "互助网周末活动",
+    "registrationUrl": null,
+    "description": null,
+    "tags": [],
+    "crawledAt": "2026-10-21 11:51",
+    "source": "豆瓣同城",
+    "sourceUrl": "https://www.douban.com/event/36737403/",
+    "score": 70,
+    "suggestion": "review",
+    "reviewReason": "medium_confidence",
+    "trustReasons": [
+      "has_district_or_address",
+      "has_explicit_date",
+      "has_explicit_time",
+      "has_organizer",
+      "has_source_url",
+      "source_fields_complete"
+    ],
+    "conflicts": [],
+    "checks": [
+      {
+        "key": "has_district_or_address",
+        "label": "has district or address",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_date",
+        "label": "has explicit date",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_time",
+        "label": "has explicit time",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_organizer",
+        "label": "has organizer",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_source_url",
+        "label": "has source url",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "source_fields_complete",
+        "label": "source fields complete",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      }
+    ],
+    "duplicateCandidates": [],
+    "status": "needs_review"
+  },
+  {
+    "id": "douban_36976894",
+    "title": "Fotografiska展览通票 | 周三爵士之夜",
+    "category": "social",
+    "date": "周三 10.21",
+    "startDate": "2026-10-21",
+    "time": "10:30",
+    "startTime": "10:30",
+    "endTime": "23:00",
+    "venue": "地点待定",
+    "location": "上海·静安",
+    "district": "静安",
+    "price": "¥120",
+    "priceType": "paid",
+    "priceRaw": 120.0,
+    "organizer": "猫眼演出",
+    "registrationUrl": null,
+    "description": null,
+    "tags": [],
+    "crawledAt": "2026-10-21 11:51",
+    "source": "豆瓣同城",
+    "sourceUrl": "https://www.douban.com/event/36976894/",
     "score": 70,
     "suggestion": "review",
     "reviewReason": "medium_confidence",
@@ -1293,7 +1375,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/36737272/",
     "score": 70,
@@ -1368,7 +1450,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/36737390/",
     "score": 70,
@@ -1443,9 +1525,84 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/37485604/",
+    "score": 70,
+    "suggestion": "review",
+    "reviewReason": "medium_confidence",
+    "trustReasons": [
+      "has_district_or_address",
+      "has_explicit_date",
+      "has_explicit_time",
+      "has_organizer",
+      "has_source_url",
+      "source_fields_complete"
+    ],
+    "conflicts": [],
+    "checks": [
+      {
+        "key": "has_district_or_address",
+        "label": "has district or address",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_date",
+        "label": "has explicit date",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_time",
+        "label": "has explicit time",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_organizer",
+        "label": "has organizer",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_source_url",
+        "label": "has source url",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "source_fields_complete",
+        "label": "source fields complete",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      }
+    ],
+    "duplicateCandidates": [],
+    "status": "needs_review"
+  },
+  {
+    "id": "douban_37585353",
+    "title": "相约人间仙境黄山,打卡中国画里乡村-宏村",
+    "category": "social",
+    "date": "周日 11.1",
+    "startDate": "2026-11-01",
+    "time": "06:30",
+    "startTime": "06:30",
+    "endTime": "20:30",
+    "venue": "地点待定",
+    "location": "上海·浦东",
+    "district": "浦东",
+    "price": "¥880",
+    "priceType": "paid",
+    "priceRaw": 880,
+    "organizer": "互友旅行 小互",
+    "registrationUrl": null,
+    "description": null,
+    "tags": [],
+    "crawledAt": "2026-10-21 11:51",
+    "source": "豆瓣同城",
+    "sourceUrl": "https://www.douban.com/event/37585353/",
     "score": 70,
     "suggestion": "review",
     "reviewReason": "medium_confidence",
@@ -1518,84 +1675,9 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/37497883/",
-    "score": 70,
-    "suggestion": "review",
-    "reviewReason": "medium_confidence",
-    "trustReasons": [
-      "has_district_or_address",
-      "has_explicit_date",
-      "has_explicit_time",
-      "has_organizer",
-      "has_source_url",
-      "source_fields_complete"
-    ],
-    "conflicts": [],
-    "checks": [
-      {
-        "key": "has_district_or_address",
-        "label": "has district or address",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_date",
-        "label": "has explicit date",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_time",
-        "label": "has explicit time",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_organizer",
-        "label": "has organizer",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_source_url",
-        "label": "has source url",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "source_fields_complete",
-        "label": "source fields complete",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      }
-    ],
-    "duplicateCandidates": [],
-    "status": "needs_review"
-  },
-  {
-    "id": "douban_36976894",
-    "title": "Fotografiska展览通票 | 周三爵士之夜",
-    "category": "social",
-    "date": "周三 10.14",
-    "startDate": "2026-10-14",
-    "time": "10:30",
-    "startTime": "10:30",
-    "endTime": "23:00",
-    "venue": "地点待定",
-    "location": "上海·静安",
-    "district": "静安",
-    "price": "¥120",
-    "priceType": "paid",
-    "priceRaw": 120.0,
-    "organizer": "猫眼演出",
-    "registrationUrl": null,
-    "description": null,
-    "tags": [],
-    "crawledAt": "2026-10-14 13:03",
-    "source": "豆瓣同城",
-    "sourceUrl": "https://www.douban.com/event/36976894/",
     "score": 70,
     "suggestion": "review",
     "reviewReason": "medium_confidence",
@@ -1668,7 +1750,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/37024592/",
     "score": 70,
@@ -1743,7 +1825,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/37485646/",
     "score": 70,
@@ -1818,7 +1900,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/36755646/",
     "score": 70,
@@ -1893,9 +1975,84 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/37497821/",
+    "score": 70,
+    "suggestion": "review",
+    "reviewReason": "medium_confidence",
+    "trustReasons": [
+      "has_district_or_address",
+      "has_explicit_date",
+      "has_explicit_time",
+      "has_organizer",
+      "has_source_url",
+      "source_fields_complete"
+    ],
+    "conflicts": [],
+    "checks": [
+      {
+        "key": "has_district_or_address",
+        "label": "has district or address",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_date",
+        "label": "has explicit date",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_time",
+        "label": "has explicit time",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_organizer",
+        "label": "has organizer",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_source_url",
+        "label": "has source url",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "source_fields_complete",
+        "label": "source fields complete",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      }
+    ],
+    "duplicateCandidates": [],
+    "status": "needs_review"
+  },
+  {
+    "id": "douban_36845432",
+    "title": "邂逅来自西伯利亚的冬日精灵,奔赴鼋头渚红嘴鸥之约(1天)",
+    "category": "social",
+    "date": "周日 11.1",
+    "startDate": "2026-11-01",
+    "time": "08:00",
+    "startTime": "08:00",
+    "endTime": "19:00",
+    "venue": "地点待定",
+    "location": "上海·长宁",
+    "district": "长宁",
+    "price": "¥258",
+    "priceType": "paid",
+    "priceRaw": 258,
+    "organizer": "互助网周末活动",
+    "registrationUrl": null,
+    "description": null,
+    "tags": [],
+    "crawledAt": "2026-10-21 11:51",
+    "source": "豆瓣同城",
+    "sourceUrl": "https://www.douban.com/event/36845432/",
     "score": 70,
     "suggestion": "review",
     "reviewReason": "medium_confidence",
@@ -1968,7 +2125,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/38070709/",
     "score": 70,
@@ -2025,27 +2182,27 @@ window.GORGON_REVIEW_QUEUE = [
     "status": "needs_review"
   },
   {
-    "id": "douban_37585353",
-    "title": "相约人间仙境黄山,打卡中国画里乡村-宏村",
+    "id": "douban_37867519",
+    "title": "音乐剧 四十周年上海告别季",
     "category": "social",
-    "date": "周日 11.1",
-    "startDate": "2026-11-01",
-    "time": "06:30",
-    "startTime": "06:30",
-    "endTime": "20:30",
+    "date": "周二 9.29",
+    "startDate": "2026-09-29",
+    "time": "19:30",
+    "startTime": "19:30",
+    "endTime": "22:00",
     "venue": "地点待定",
-    "location": "上海·浦东",
-    "district": "浦东",
-    "price": "¥880",
+    "location": "上海·黄浦",
+    "district": "黄浦",
+    "price": "¥280",
     "priceType": "paid",
-    "priceRaw": 880,
-    "organizer": "互友旅行 小互",
+    "priceRaw": 280,
+    "organizer": "上海大剧院",
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
-    "sourceUrl": "https://www.douban.com/event/37585353/",
+    "sourceUrl": "https://www.douban.com/event/37867519/",
     "score": 70,
     "suggestion": "review",
     "reviewReason": "medium_confidence",
@@ -2118,7 +2275,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/37896326/",
     "score": 70,
@@ -2193,7 +2350,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/38073207/",
     "score": 70,
@@ -2268,7 +2425,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/38078924/",
     "score": 70,
@@ -2343,7 +2500,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/38070697/",
     "score": 70,
@@ -2418,7 +2575,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/38073212/",
     "score": 70,
@@ -2493,309 +2650,9 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/38073225/",
-    "score": 70,
-    "suggestion": "review",
-    "reviewReason": "medium_confidence",
-    "trustReasons": [
-      "has_district_or_address",
-      "has_explicit_date",
-      "has_explicit_time",
-      "has_organizer",
-      "has_source_url",
-      "source_fields_complete"
-    ],
-    "conflicts": [],
-    "checks": [
-      {
-        "key": "has_district_or_address",
-        "label": "has district or address",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_date",
-        "label": "has explicit date",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_time",
-        "label": "has explicit time",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_organizer",
-        "label": "has organizer",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_source_url",
-        "label": "has source url",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "source_fields_complete",
-        "label": "source fields complete",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      }
-    ],
-    "duplicateCandidates": [],
-    "status": "needs_review"
-  },
-  {
-    "id": "douban_36845432",
-    "title": "邂逅来自西伯利亚的冬日精灵,奔赴鼋头渚红嘴鸥之约(1天)",
-    "category": "social",
-    "date": "周日 11.1",
-    "startDate": "2026-11-01",
-    "time": "08:00",
-    "startTime": "08:00",
-    "endTime": "19:00",
-    "venue": "地点待定",
-    "location": "上海·长宁",
-    "district": "长宁",
-    "price": "¥258",
-    "priceType": "paid",
-    "priceRaw": 258,
-    "organizer": "互助网周末活动",
-    "registrationUrl": null,
-    "description": null,
-    "tags": [],
-    "crawledAt": "2026-10-14 13:03",
-    "source": "豆瓣同城",
-    "sourceUrl": "https://www.douban.com/event/36845432/",
-    "score": 70,
-    "suggestion": "review",
-    "reviewReason": "medium_confidence",
-    "trustReasons": [
-      "has_district_or_address",
-      "has_explicit_date",
-      "has_explicit_time",
-      "has_organizer",
-      "has_source_url",
-      "source_fields_complete"
-    ],
-    "conflicts": [],
-    "checks": [
-      {
-        "key": "has_district_or_address",
-        "label": "has district or address",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_date",
-        "label": "has explicit date",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_time",
-        "label": "has explicit time",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_organizer",
-        "label": "has organizer",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_source_url",
-        "label": "has source url",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "source_fields_complete",
-        "label": "source fields complete",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      }
-    ],
-    "duplicateCandidates": [],
-    "status": "needs_review"
-  },
-  {
-    "id": "douban_37905895",
-    "title": "小众经典电影、纪录片分享会(阿巴斯、塔可夫斯基、侯孝贤、徐童等)",
-    "category": "social",
-    "date": "周六 8.22",
-    "startDate": "2026-08-22",
-    "time": "13:00",
-    "startTime": "13:00",
-    "endTime": "17:00",
-    "venue": "地点待定",
-    "location": "上海·虹口",
-    "district": "虹口",
-    "price": "免费",
-    "priceType": "free",
-    "priceRaw": 0,
-    "organizer": "观山心理",
-    "registrationUrl": null,
-    "description": null,
-    "tags": [],
-    "crawledAt": "2026-10-14 13:03",
-    "source": "豆瓣同城",
-    "sourceUrl": "https://www.douban.com/event/37905895/",
-    "score": 70,
-    "suggestion": "review",
-    "reviewReason": "medium_confidence",
-    "trustReasons": [
-      "has_district_or_address",
-      "has_explicit_date",
-      "has_explicit_time",
-      "has_organizer",
-      "has_source_url",
-      "source_fields_complete"
-    ],
-    "conflicts": [],
-    "checks": [
-      {
-        "key": "has_district_or_address",
-        "label": "has district or address",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_date",
-        "label": "has explicit date",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_time",
-        "label": "has explicit time",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_organizer",
-        "label": "has organizer",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_source_url",
-        "label": "has source url",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "source_fields_complete",
-        "label": "source fields complete",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      }
-    ],
-    "duplicateCandidates": [],
-    "status": "needs_review"
-  },
-  {
-    "id": "douban_37867519",
-    "title": "音乐剧 四十周年上海告别季",
-    "category": "social",
-    "date": "周二 9.29",
-    "startDate": "2026-09-29",
-    "time": "19:30",
-    "startTime": "19:30",
-    "endTime": "22:00",
-    "venue": "地点待定",
-    "location": "上海·黄浦",
-    "district": "黄浦",
-    "price": "¥280",
-    "priceType": "paid",
-    "priceRaw": 280,
-    "organizer": "上海大剧院",
-    "registrationUrl": null,
-    "description": null,
-    "tags": [],
-    "crawledAt": "2026-10-14 13:03",
-    "source": "豆瓣同城",
-    "sourceUrl": "https://www.douban.com/event/37867519/",
-    "score": 70,
-    "suggestion": "review",
-    "reviewReason": "medium_confidence",
-    "trustReasons": [
-      "has_district_or_address",
-      "has_explicit_date",
-      "has_explicit_time",
-      "has_organizer",
-      "has_source_url",
-      "source_fields_complete"
-    ],
-    "conflicts": [],
-    "checks": [
-      {
-        "key": "has_district_or_address",
-        "label": "has district or address",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_date",
-        "label": "has explicit date",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_time",
-        "label": "has explicit time",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_organizer",
-        "label": "has organizer",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_source_url",
-        "label": "has source url",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "source_fields_complete",
-        "label": "source fields complete",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      }
-    ],
-    "duplicateCandidates": [],
-    "status": "needs_review"
-  },
-  {
-    "id": "douban_37439964",
-    "title": "深入世外桃源龙川古村,探访皖南净土:阳产土楼(上海出发2天1晚)",
-    "category": "social",
-    "date": "周六 9.5",
-    "startDate": "2026-09-05",
-    "time": "07:30",
-    "startTime": "07:30",
-    "endTime": "19:00",
-    "venue": "地点待定",
-    "location": "上海·浦东",
-    "district": "浦东",
-    "price": "¥588",
-    "priceType": "paid",
-    "priceRaw": 588,
-    "organizer": "互友旅行 小互",
-    "registrationUrl": null,
-    "description": null,
-    "tags": [],
-    "crawledAt": "2026-10-14 13:03",
-    "source": "豆瓣同城",
-    "sourceUrl": "https://www.douban.com/event/37439964/",
     "score": 70,
     "suggestion": "review",
     "reviewReason": "medium_confidence",
@@ -2868,9 +2725,234 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/38078934/",
+    "score": 70,
+    "suggestion": "review",
+    "reviewReason": "medium_confidence",
+    "trustReasons": [
+      "has_district_or_address",
+      "has_explicit_date",
+      "has_explicit_time",
+      "has_organizer",
+      "has_source_url",
+      "source_fields_complete"
+    ],
+    "conflicts": [],
+    "checks": [
+      {
+        "key": "has_district_or_address",
+        "label": "has district or address",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_date",
+        "label": "has explicit date",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_time",
+        "label": "has explicit time",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_organizer",
+        "label": "has organizer",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_source_url",
+        "label": "has source url",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "source_fields_complete",
+        "label": "source fields complete",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      }
+    ],
+    "duplicateCandidates": [],
+    "status": "needs_review"
+  },
+  {
+    "id": "douban_37905895",
+    "title": "小众经典电影、纪录片分享会(阿巴斯、塔可夫斯基、侯孝贤、徐童等)",
+    "category": "social",
+    "date": "周六 8.22",
+    "startDate": "2026-08-22",
+    "time": "13:00",
+    "startTime": "13:00",
+    "endTime": "17:00",
+    "venue": "地点待定",
+    "location": "上海·虹口",
+    "district": "虹口",
+    "price": "免费",
+    "priceType": "free",
+    "priceRaw": 0,
+    "organizer": "观山心理",
+    "registrationUrl": null,
+    "description": null,
+    "tags": [],
+    "crawledAt": "2026-10-21 11:51",
+    "source": "豆瓣同城",
+    "sourceUrl": "https://www.douban.com/event/37905895/",
+    "score": 70,
+    "suggestion": "review",
+    "reviewReason": "medium_confidence",
+    "trustReasons": [
+      "has_district_or_address",
+      "has_explicit_date",
+      "has_explicit_time",
+      "has_organizer",
+      "has_source_url",
+      "source_fields_complete"
+    ],
+    "conflicts": [],
+    "checks": [
+      {
+        "key": "has_district_or_address",
+        "label": "has district or address",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_date",
+        "label": "has explicit date",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_time",
+        "label": "has explicit time",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_organizer",
+        "label": "has organizer",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_source_url",
+        "label": "has source url",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "source_fields_complete",
+        "label": "source fields complete",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      }
+    ],
+    "duplicateCandidates": [],
+    "status": "needs_review"
+  },
+  {
+    "id": "douban_37439964",
+    "title": "深入世外桃源龙川古村,探访皖南净土:阳产土楼(上海出发2天1晚)",
+    "category": "social",
+    "date": "周六 9.5",
+    "startDate": "2026-09-05",
+    "time": "07:30",
+    "startTime": "07:30",
+    "endTime": "19:00",
+    "venue": "地点待定",
+    "location": "上海·浦东",
+    "district": "浦东",
+    "price": "¥588",
+    "priceType": "paid",
+    "priceRaw": 588,
+    "organizer": "互友旅行 小互",
+    "registrationUrl": null,
+    "description": null,
+    "tags": [],
+    "crawledAt": "2026-10-21 11:51",
+    "source": "豆瓣同城",
+    "sourceUrl": "https://www.douban.com/event/37439964/",
+    "score": 70,
+    "suggestion": "review",
+    "reviewReason": "medium_confidence",
+    "trustReasons": [
+      "has_district_or_address",
+      "has_explicit_date",
+      "has_explicit_time",
+      "has_organizer",
+      "has_source_url",
+      "source_fields_complete"
+    ],
+    "conflicts": [],
+    "checks": [
+      {
+        "key": "has_district_or_address",
+        "label": "has district or address",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_date",
+        "label": "has explicit date",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_time",
+        "label": "has explicit time",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_organizer",
+        "label": "has organizer",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_source_url",
+        "label": "has source url",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "source_fields_complete",
+        "label": "source fields complete",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      }
+    ],
+    "duplicateCandidates": [],
+    "status": "needs_review"
+  },
+  {
+    "id": "douban_37630552",
+    "title": "SNH48 星梦剧院公演 即将开始",
+    "category": "social",
+    "date": "周三 10.21",
+    "startDate": "2026-10-21",
+    "time": "19:30",
+    "startTime": "19:30",
+    "endTime": "21:00",
+    "venue": "地点待定",
+    "location": "上海·虹口",
+    "district": "虹口",
+    "price": "¥118",
+    "priceType": "paid",
+    "priceRaw": 118.0,
+    "organizer": "猫眼演出",
+    "registrationUrl": null,
+    "description": null,
+    "tags": [],
+    "crawledAt": "2026-10-21 11:51",
+    "source": "豆瓣同城",
+    "sourceUrl": "https://www.douban.com/event/37630552/",
     "score": 70,
     "suggestion": "review",
     "reviewReason": "medium_confidence",
@@ -2943,7 +3025,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/37471122/",
     "score": 70,
@@ -3018,7 +3100,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/36842845/",
     "score": 70,
@@ -3093,159 +3175,9 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/38078944/",
-    "score": 70,
-    "suggestion": "review",
-    "reviewReason": "medium_confidence",
-    "trustReasons": [
-      "has_district_or_address",
-      "has_explicit_date",
-      "has_explicit_time",
-      "has_organizer",
-      "has_source_url",
-      "source_fields_complete"
-    ],
-    "conflicts": [],
-    "checks": [
-      {
-        "key": "has_district_or_address",
-        "label": "has district or address",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_date",
-        "label": "has explicit date",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_time",
-        "label": "has explicit time",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_organizer",
-        "label": "has organizer",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_source_url",
-        "label": "has source url",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "source_fields_complete",
-        "label": "source fields complete",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      }
-    ],
-    "duplicateCandidates": [],
-    "status": "needs_review"
-  },
-  {
-    "id": "douban_36844647",
-    "title": "大明山走高空栈道,赏太子尖雾凇云海,银装素裹(上海2日线)",
-    "category": "social",
-    "date": "周日 10.4",
-    "startDate": "2026-10-04",
-    "time": "07:30",
-    "startTime": "07:30",
-    "endTime": "19:00",
-    "venue": "地点待定",
-    "location": "上海·长宁",
-    "district": "长宁",
-    "price": "¥588",
-    "priceType": "paid",
-    "priceRaw": 588,
-    "organizer": "互助网周末活动",
-    "registrationUrl": null,
-    "description": null,
-    "tags": [],
-    "crawledAt": "2026-10-14 13:03",
-    "source": "豆瓣同城",
-    "sourceUrl": "https://www.douban.com/event/36844647/",
-    "score": 70,
-    "suggestion": "review",
-    "reviewReason": "medium_confidence",
-    "trustReasons": [
-      "has_district_or_address",
-      "has_explicit_date",
-      "has_explicit_time",
-      "has_organizer",
-      "has_source_url",
-      "source_fields_complete"
-    ],
-    "conflicts": [],
-    "checks": [
-      {
-        "key": "has_district_or_address",
-        "label": "has district or address",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_date",
-        "label": "has explicit date",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_time",
-        "label": "has explicit time",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_organizer",
-        "label": "has organizer",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_source_url",
-        "label": "has source url",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "source_fields_complete",
-        "label": "source fields complete",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      }
-    ],
-    "duplicateCandidates": [],
-    "status": "needs_review"
-  },
-  {
-    "id": "douban_37630552",
-    "title": "SNH48 星梦剧院公演 即将开始",
-    "category": "social",
-    "date": "周三 10.14",
-    "startDate": "2026-10-14",
-    "time": "19:30",
-    "startTime": "19:30",
-    "endTime": "20:00",
-    "venue": "地点待定",
-    "location": "上海·虹口",
-    "district": "虹口",
-    "price": "¥118",
-    "priceType": "paid",
-    "priceRaw": 118.0,
-    "organizer": "猫眼演出",
-    "registrationUrl": null,
-    "description": null,
-    "tags": [],
-    "crawledAt": "2026-10-14 13:03",
-    "source": "豆瓣同城",
-    "sourceUrl": "https://www.douban.com/event/37630552/",
     "score": 70,
     "suggestion": "review",
     "reviewReason": "medium_confidence",
@@ -3318,7 +3250,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/38095789/",
     "score": 70,
@@ -3375,102 +3307,27 @@ window.GORGON_REVIEW_QUEUE = [
     "status": "needs_review"
   },
   {
-    "id": "douban_36314185",
-    "title": "音乐剧",
+    "id": "douban_36844647",
+    "title": "大明山走高空栈道,赏太子尖雾凇云海,银装素裹(上海2日线)",
     "category": "social",
-    "date": "周六 10.17",
-    "startDate": "2026-10-17",
-    "time": "14:30",
-    "startTime": "14:30",
-    "endTime": "21:00",
-    "venue": "地点待定",
-    "location": "上海·黄浦",
-    "district": "黄浦",
-    "price": "¥299",
-    "priceType": "paid",
-    "priceRaw": 299.0,
-    "organizer": "猫眼演出",
-    "registrationUrl": null,
-    "description": null,
-    "tags": [],
-    "crawledAt": "2026-10-14 13:03",
-    "source": "豆瓣同城",
-    "sourceUrl": "https://www.douban.com/event/36314185/",
-    "score": 70,
-    "suggestion": "review",
-    "reviewReason": "medium_confidence",
-    "trustReasons": [
-      "has_district_or_address",
-      "has_explicit_date",
-      "has_explicit_time",
-      "has_organizer",
-      "has_source_url",
-      "source_fields_complete"
-    ],
-    "conflicts": [],
-    "checks": [
-      {
-        "key": "has_district_or_address",
-        "label": "has district or address",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_date",
-        "label": "has explicit date",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_time",
-        "label": "has explicit time",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_organizer",
-        "label": "has organizer",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_source_url",
-        "label": "has source url",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "source_fields_complete",
-        "label": "source fields complete",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      }
-    ],
-    "duplicateCandidates": [],
-    "status": "needs_review"
-  },
-  {
-    "id": "douban_37013732",
-    "title": "徒步醉美森林古道径山古道,探寻九龙瀑,深入杭州北郊的小九寨",
-    "category": "social",
-    "date": "周二 9.1",
-    "startDate": "2026-09-01",
+    "date": "周日 10.4",
+    "startDate": "2026-10-04",
     "time": "07:30",
     "startTime": "07:30",
     "endTime": "19:00",
     "venue": "地点待定",
     "location": "上海·长宁",
     "district": "长宁",
-    "price": "¥178",
+    "price": "¥588",
     "priceType": "paid",
-    "priceRaw": 178,
+    "priceRaw": 588,
     "organizer": "互助网周末活动",
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
-    "sourceUrl": "https://www.douban.com/event/37013732/",
+    "sourceUrl": "https://www.douban.com/event/36844647/",
     "score": 70,
     "suggestion": "review",
     "reviewReason": "medium_confidence",
@@ -3543,7 +3400,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/37616278/",
     "score": 70,
@@ -3618,7 +3475,7 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/38070714/",
     "score": 70,
@@ -3675,102 +3532,27 @@ window.GORGON_REVIEW_QUEUE = [
     "status": "needs_review"
   },
   {
-    "id": "douban_37439603",
-    "title": "船游阳澄湖,漫步莲花岛,探索阳澄湖大闸蟹发源地+品蟹(上海1日线)",
+    "id": "douban_36314185",
+    "title": "音乐剧",
     "category": "social",
-    "date": "周六 8.1",
-    "startDate": "2026-08-01",
-    "time": "08:00",
-    "startTime": "08:00",
-    "endTime": "19:00",
-    "venue": "地点待定",
-    "location": "上海·浦东",
-    "district": "浦东",
-    "price": "¥208",
-    "priceType": "paid",
-    "priceRaw": 208,
-    "organizer": "互友旅行 小互",
-    "registrationUrl": null,
-    "description": null,
-    "tags": [],
-    "crawledAt": "2026-10-14 13:03",
-    "source": "豆瓣同城",
-    "sourceUrl": "https://www.douban.com/event/37439603/",
-    "score": 70,
-    "suggestion": "review",
-    "reviewReason": "medium_confidence",
-    "trustReasons": [
-      "has_district_or_address",
-      "has_explicit_date",
-      "has_explicit_time",
-      "has_organizer",
-      "has_source_url",
-      "source_fields_complete"
-    ],
-    "conflicts": [],
-    "checks": [
-      {
-        "key": "has_district_or_address",
-        "label": "has district or address",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_date",
-        "label": "has explicit date",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_explicit_time",
-        "label": "has explicit time",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_organizer",
-        "label": "has organizer",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "has_source_url",
-        "label": "has source url",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      },
-      {
-        "key": "source_fields_complete",
-        "label": "source fields complete",
-        "status": "pass",
-        "detail": "pipeline trust reason"
-      }
-    ],
-    "duplicateCandidates": [],
-    "status": "needs_review"
-  },
-  {
-    "id": "douban_37858471",
-    "title": "原版音乐剧 四十周年上海告别季 即将开始",
-    "category": "social",
-    "date": "周三 10.14",
-    "startDate": "2026-10-14",
-    "time": "19:30",
-    "startTime": "19:30",
-    "endTime": "20:30",
+    "date": "周六 10.24",
+    "startDate": "2026-10-24",
+    "time": "14:30",
+    "startTime": "14:30",
+    "endTime": "21:00",
     "venue": "地点待定",
     "location": "上海·黄浦",
     "district": "黄浦",
-    "price": "¥280",
+    "price": "¥299",
     "priceType": "paid",
-    "priceRaw": 280.0,
+    "priceRaw": 299.0,
     "organizer": "猫眼演出",
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
-    "sourceUrl": "https://www.douban.com/event/37858471/",
+    "sourceUrl": "https://www.douban.com/event/36314185/",
     "score": 70,
     "suggestion": "review",
     "reviewReason": "medium_confidence",
@@ -3843,9 +3625,234 @@ window.GORGON_REVIEW_QUEUE = [
     "registrationUrl": null,
     "description": null,
     "tags": [],
-    "crawledAt": "2026-10-14 13:03",
+    "crawledAt": "2026-10-21 11:51",
     "source": "豆瓣同城",
     "sourceUrl": "https://www.douban.com/event/36908935/",
+    "score": 70,
+    "suggestion": "review",
+    "reviewReason": "medium_confidence",
+    "trustReasons": [
+      "has_district_or_address",
+      "has_explicit_date",
+      "has_explicit_time",
+      "has_organizer",
+      "has_source_url",
+      "source_fields_complete"
+    ],
+    "conflicts": [],
+    "checks": [
+      {
+        "key": "has_district_or_address",
+        "label": "has district or address",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_date",
+        "label": "has explicit date",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_time",
+        "label": "has explicit time",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_organizer",
+        "label": "has organizer",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_source_url",
+        "label": "has source url",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "source_fields_complete",
+        "label": "source fields complete",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      }
+    ],
+    "duplicateCandidates": [],
+    "status": "needs_review"
+  },
+  {
+    "id": "douban_37629292",
+    "title": "徒步探索太湖中的原生态隐秘小岛—阴山岛",
+    "category": "social",
+    "date": "周日 12.6",
+    "startDate": "2026-12-06",
+    "time": "08:30",
+    "startTime": "08:30",
+    "endTime": "19:00",
+    "venue": "地点待定",
+    "location": "上海·浦东",
+    "district": "浦东",
+    "price": "¥168",
+    "priceType": "paid",
+    "priceRaw": 168,
+    "organizer": "互助网周末活动",
+    "registrationUrl": null,
+    "description": null,
+    "tags": [],
+    "crawledAt": "2026-10-21 11:51",
+    "source": "豆瓣同城",
+    "sourceUrl": "https://www.douban.com/event/37629292/",
+    "score": 70,
+    "suggestion": "review",
+    "reviewReason": "medium_confidence",
+    "trustReasons": [
+      "has_district_or_address",
+      "has_explicit_date",
+      "has_explicit_time",
+      "has_organizer",
+      "has_source_url",
+      "source_fields_complete"
+    ],
+    "conflicts": [],
+    "checks": [
+      {
+        "key": "has_district_or_address",
+        "label": "has district or address",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_date",
+        "label": "has explicit date",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_time",
+        "label": "has explicit time",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_organizer",
+        "label": "has organizer",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_source_url",
+        "label": "has source url",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "source_fields_complete",
+        "label": "source fields complete",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      }
+    ],
+    "duplicateCandidates": [],
+    "status": "needs_review"
+  },
+  {
+    "id": "douban_37858471",
+    "title": "原版音乐剧 四十周年上海告别季 即将开始",
+    "category": "social",
+    "date": "周三 10.21",
+    "startDate": "2026-10-21",
+    "time": "19:30",
+    "startTime": "19:30",
+    "endTime": "20:30",
+    "venue": "地点待定",
+    "location": "上海·黄浦",
+    "district": "黄浦",
+    "price": "¥280",
+    "priceType": "paid",
+    "priceRaw": 280.0,
+    "organizer": "猫眼演出",
+    "registrationUrl": null,
+    "description": null,
+    "tags": [],
+    "crawledAt": "2026-10-21 11:51",
+    "source": "豆瓣同城",
+    "sourceUrl": "https://www.douban.com/event/37858471/",
+    "score": 70,
+    "suggestion": "review",
+    "reviewReason": "medium_confidence",
+    "trustReasons": [
+      "has_district_or_address",
+      "has_explicit_date",
+      "has_explicit_time",
+      "has_organizer",
+      "has_source_url",
+      "source_fields_complete"
+    ],
+    "conflicts": [],
+    "checks": [
+      {
+        "key": "has_district_or_address",
+        "label": "has district or address",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_date",
+        "label": "has explicit date",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_explicit_time",
+        "label": "has explicit time",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_organizer",
+        "label": "has organizer",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "has_source_url",
+        "label": "has source url",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      },
+      {
+        "key": "source_fields_complete",
+        "label": "source fields complete",
+        "status": "pass",
+        "detail": "pipeline trust reason"
+      }
+    ],
+    "duplicateCandidates": [],
+    "status": "needs_review"
+  },
+  {
+    "id": "douban_37013732",
+    "title": "徒步醉美森林古道径山古道,探寻九龙瀑,深入杭州北郊的小九寨",
+    "category": "social",
+    "date": "周二 9.1",
+    "startDate": "2026-09-01",
+    "time": "07:30",
+    "startTime": "07:30",
+    "endTime": "19:00",
+    "venue": "地点待定",
+    "location": "上海·长宁",
+    "district": "长宁",
+    "price": "¥178",
+    "priceType": "paid",
+    "priceRaw": 178,
+    "organizer": "互助网周末活动",
+    "registrationUrl": null,
+    "description": null,
+    "tags": [],
+    "crawledAt": "2026-10-21 11:51",
+    "source": "豆瓣同城",
+    "sourceUrl": "https://www.douban.com/event/37013732/",
     "score": 70,
     "suggestion": "review",
     "reviewReason": "medium_confidence",
