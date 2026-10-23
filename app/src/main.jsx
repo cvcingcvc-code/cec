@@ -10,6 +10,7 @@
 // copied) so the two frontends can never drift apart visually.
 import "../../styles.css";
 import "../../ui_kits/app/responsive.css";
+import "./styles/v3k-theme.css";
 
 import React from "react";
 import { createRoot } from "react-dom/client";

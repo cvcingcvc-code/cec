@@ -147,3 +147,66 @@ export async function cancelReminder(taskId) {
     return { cancelled: false, reason: "error", error: String((e && e.message) || e) };
   }
 }
+
+// ---------------------------------------------------------------------------
+// V2.5: hackathon deadline alerts (favorited activities).
+//
+// Same bridge pattern as task reminders: fire-and-forget, honest permission
+// handling, never in the past. Notification ids derive from the alert key
+// (activityId:deadlineIso:offsetHours) so a changed deadline re-arms under a
+// new id and an unchanged deadline reuses its id (cancel-on-reschedule).
+// ---------------------------------------------------------------------------
+
+/**
+ * Schedule ONE deadline alert. Fire-and-forget, never throws.
+ * Returns { scheduled: true, notificationId } |
+ *         { scheduled: false, reason } — reason: past|unsupported|permission-denied|error.
+ */
+export async function scheduleDeadlineAlert(alert) {
+  if (!alert || typeof alert !== "object" || !alert.fireAtIso) {
+    return { scheduled: false, reason: "error", error: "no-alert" };
+  }
+  const fire = Date.parse(alert.fireAtIso);
+  if (!Number.isFinite(fire)) {
+    return { scheduled: false, reason: "error", error: "invalid-fireAtIso" };
+  }
+  if (fire <= Date.now()) {
+    return { scheduled: false, reason: "past" };
+  }
+  if (!hasLocalNotifications()) {
+    return { scheduled: false, reason: "unsupported" };
+  }
+  const notifId = notificationIdFor(alert.key || alert.activityId || "deadline");
+  try {
+    const L = globalThis.window.Capacitor.Plugins.LocalNotifications;
+    const perm = await L.checkPermissions();
+    if ((perm && perm.display) !== "granted") {
+      return { scheduled: false, reason: "permission-denied" };
+    }
+    await L.schedule({
+      notifications: [{
+        id: notifId,
+        title: "报名截止提醒",
+        body: String(alert.body || `${alert.title || "收藏的活动"}报名即将截止`),
+        schedule: { at: new Date(fire), allowWhileIdle: true },
+      }],
+    });
+    return { scheduled: true, notificationId: notifId };
+  } catch (e) {
+    return { scheduled: false, reason: "error", error: String((e && e.message) || e) };
+  }
+}
+
+/**
+ * Cancel the deadline alert for ONE alert key. Fire-and-forget.
+ */
+export async function cancelDeadlineAlert(alertKey) {
+  if (!hasLocalNotifications()) return { cancelled: false, reason: "unsupported" };
+  try {
+    const L = globalThis.window.Capacitor.Plugins.LocalNotifications;
+    await L.cancel({ notifications: [{ id: String(notificationIdFor(alertKey)) }] });
+    return { cancelled: true };
+  } catch (e) {
+    return { cancelled: false, reason: "error", error: String((e && e.message) || e) };
+  }
+}

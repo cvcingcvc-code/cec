@@ -327,6 +327,124 @@ if (CODEX_ADAPTER) {
   };
 }
 
+// V3L (PC Agent Controller V1 Phase A): the WorkBuddy desktop adapter —
+// discover/launch/attach/status + VERIFIED read-only submitTask (V3L P1).
+// Dynamic import so the gateway still starts when the adapter is missing
+// (older checkouts).
+let WORKBUDDY_ADAPTER = null;
+try {
+  const mod = await import("./agent-adapters/workbuddy-adapter.mjs");
+  WORKBUDDY_ADAPTER = mod;
+} catch (e) {
+  audit({ kind: "workbuddy_adapter_load_error", error: String((e && e.message) || e) });
+}
+
+// ── V3L Phase A (§一): WorkBuddy desktop executors ──────────────────────
+//   workbuddy.status     — the REAL running state (processes, window titles)
+//   workbuddy.launch     — start the registered exe; verify a NEW pid appeared
+//   workbuddy.submitTask — VERIFIED read-only operations over the official
+//                          wbipc local IPC channel (V3L P1: HMAC handshake +
+//                          wb.request/http.fetch with the user's own session).
+//                          Message-sending / write ops are NOT implemented.
+if (WORKBUDDY_ADAPTER) {
+  let wbAvailability = "UNAVAILABLE";
+  WORKBUDDY_ADAPTER.workbuddyAdapter.discover().then((d) => {
+    wbAvailability = d.available ? "AVAILABLE" : "UNAVAILABLE";
+  }).catch(() => {});
+
+  // NOTE: define the getter directly on each executor object. Spreading a
+  // base object would snapshot the getter's VALUE at definition time
+  // (before discover() resolves) and freeze a stale availability.
+  EXECUTORS["workbuddy.status"] = {
+    agent: "workbuddy",
+    get availability() { return wbAvailability; },
+    description: "WorkBuddy · 查看真实运行状态（进程数、窗口标题；只读）",
+    input: {},
+    async run() {
+      const st = await WORKBUDDY_ADAPTER.workbuddyAdapter.status();
+      if (!st.installed) {
+        const err = new Error(st.summary);
+        err.kind = "UNAVAILABLE";
+        throw err;
+      }
+      return { summary: st.summary, output: st };
+    },
+  };
+
+  EXECUTORS["workbuddy.launch"] = {
+    agent: "workbuddy",
+    get availability() { return wbAvailability; },
+    description: "WorkBuddy · 启动桌面应用（仅启动并验证进程出现；无任务提交接口）",
+    input: {},
+    timeoutMs: 30_000,
+    async run() {
+      const res = await WORKBUDDY_ADAPTER.workbuddyAdapter.launch();
+      if (!res.ok) {
+        const err = new Error(res.error || "launch failed");
+        err.kind = res.status;
+        err.output = res.output || null;
+        audit({ kind: "workbuddy_launch_failed", status: res.status, error: res.error });
+        throw err;
+      }
+      audit({ kind: "workbuddy_launched", pid: res.output?.newWorkBuddyPid, count: res.output?.runningProcessCount });
+      return { summary: `WorkBuddy 已启动（当前 ${res.output.runningProcessCount} 个进程）`, output: res.output };
+    },
+  };
+
+  // V3L P1: verified read-only task submission via wbipc.
+  const WB_OPS = WORKBUDDY_ADAPTER.workbuddyAdapter.SUBMIT_OPERATIONS || {};
+  const WB_OP_KEYS = Object.keys(WB_OPS);
+  EXECUTORS["workbuddy.submitTask"] = {
+    agent: "workbuddy",
+    get availability() { return wbAvailability; },
+    description: `WorkBuddy · 提交真实只读任务（wbipc 官方本地通道；支持：${WB_OP_KEYS.join("、")}）`,
+    input: { operation: "one of: " + WB_OP_KEYS.join(" | "), params: "object (optional)" },
+    timeoutMs: 45_000,
+    async run(input) {
+      const res = await WORKBUDDY_ADAPTER.workbuddyAdapter.submitTask(input || {});
+      if (!res.ok) {
+        const err = new Error(res.error || "submitTask failed");
+        err.kind = res.status || "BLOCKED";
+        err.output = res.detail || res.output || null;
+        audit({ kind: "workbuddy_submit_blocked", status: res.status, error: res.error });
+        throw err;
+      }
+      audit({ kind: "workbuddy_submit_ok", operation: input?.operation, summary: (res.summary || "").slice(0, 200) });
+      return { summary: res.summary, output: res.output };
+    },
+  };
+}
+
+// ── V3L Phase D (§四): task handoff materials ───────────────────────────
+// When an executor is unavailable or a run fails after retries, the phone
+// (or another executor, once actually available and approved) can pick the
+// task up from a COMPLETE handoff record: the original task input, the run
+// timeline, the real error, and any partial output. Handoff records live in
+// runs.json (already restart-safe); a dedicated endpoint lists resumable
+// runs so a second executor can continue WITHOUT re-running finished work.
+function handoffPayload(run) {
+  return {
+    runId: run.runId,
+    executor: run.executor,
+    input: run.input,
+    status: run.status,
+    createdAt: run.createdAt,
+    finishedAt: run.finishedAt,
+    error: run.error,
+    timeline: run.timeline,
+    partialOutput: run.result?.output ?? null,
+    summary: run.result?.summary ?? null,
+    note: "交接材料 = 原始任务 + 真实时间线 + 真实错误 + 部分产物。接续的执行器应先读取本材料，不要重跑已完成的部分。",
+  };
+}
+
+function isResumableRun(run) {
+  // A failed/timed_out run MAY be resumed (real error is known). A
+  // cancelled run is NOT auto-resumable (user said stop). Completed runs
+  // must NEVER be re-executed.
+  return ["failed", "timed_out"].includes(run.status);
+}
+
 // ── State: token / audit / runs ────────────────────────────────────────
 
 function ensureStateDir() {
@@ -634,6 +752,27 @@ const server = http.createServer(async (req, res) => {
   }
   const p = url.pathname.replace(/\/+$/, "") || "/";
 
+  // V3L P0: CORS preflight for browser-based previews (the APK itself uses
+  // CapacitorHttp — a native request with no Origin header, unaffected by
+  // CORS). Only the safe method/headers the phone actually sends are echoed;
+  // still token-gated for every real endpoint below.
+  if (req.method === "OPTIONS") {
+    const requestedHeaders = String(req.headers["access-control-request-headers"] || "");
+    const allowedRequested = requestedHeaders
+      .split(",").map((h) => h.trim()).filter(Boolean)
+      .every((h) => ["x-gorgon-token", "content-type"].includes(h.toLowerCase()));
+    res.writeHead(req.headers.origin && allowedRequested ? 204 : 403, {
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "X-Gorgon-Token, Content-Type",
+      "Access-Control-Max-Age": "600",
+      ...(req.headers.origin && allowedRequested ? { "Access-Control-Allow-Origin": String(req.headers.origin) } : {}),
+      "Content-Length": "0",
+      "Cache-Control": "no-store",
+    });
+    res.end();
+    return;
+  }
+
   // Health: no token needed, no internals echoed.
   if (p === "/health" && (req.method === "GET" || req.method === "HEAD")) {
     return sendJson(res, 200, { ok: true, name: NAME, version: VERSION, uptimeSec: Math.round(process.uptime()) });
@@ -694,6 +833,20 @@ const server = http.createServer(async (req, res) => {
       runId: r.runId, executor: r.executor, status: r.status, createdAt: r.createdAt,
       finishedAt: r.finishedAt, summary: r.result ? r.result.summary : r.error,
     })) });
+  }
+
+  // V3L Phase D: handoff materials for resumable runs (§四).
+  if (req.method === "GET" && p === "/v1/handoffs") {
+    return sendJson(res, 200, { ok: true, handoffs: runs.filter(isResumableRun).map(handoffPayload) });
+  }
+  const handoffMatch = p.match(/^\/v1\/runs\/([a-zA-Z0-9_]+)\/handoff$/);
+  if (req.method === "GET" && handoffMatch) {
+    const run = getRun(handoffMatch[1]);
+    if (!run) return sendJson(res, 404, { ok: false, error: "run not found" });
+    if (!isResumableRun(run)) {
+      return sendJson(res, 409, { ok: false, error: "该任务不可交接：已完成/已取消的任务不能重跑，请查看其结果或状态。" });
+    }
+    return sendJson(res, 200, { ok: true, handoff: handoffPayload(run) });
   }
 
   return sendJson(res, 404, { ok: false, error: "not found" });

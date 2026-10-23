@@ -34,6 +34,8 @@ export const WORKBENCH_TABS = [
   { key: "places", label: "走访地点", icon: "map-pin" },
   // Phase 5 (V2.3): user-created activities — the honest real data source.
   { key: "useract", label: "自建活动", icon: "compass" },
+  // V2.4 (feat/hackathon-discovery-v1): AI hackathon match entry.
+  { key: "match", label: "AI 赛事匹配", icon: "sparkles" },
   { key: "search", label: "智能搜索", icon: "search" },
   // V3 Phase A (Task #3/E): PC agent gateway entry — submit + view runs.
   { key: "agent", label: "智能体", icon: "bot" },
@@ -81,6 +83,8 @@ export const MOBILE_MORE_TABS = [
   { key: "notes", label: "笔记", icon: "notebook-pen", workbench: true },
   { key: "places", label: "走访地点", icon: "map-pin", workbench: true },
   { key: "useract", label: "自建活动", icon: "compass", workbench: true },
+  // V2.4 (feat/hackathon-discovery-v1): AI hackathon match entry.
+  { key: "match", label: "AI 赛事匹配", icon: "sparkles", workbench: true },
   { key: "smart", label: "智能找活动", icon: "sparkles", legacy: true },
   { key: "weekend", label: "我的周末", icon: "calendar-heart", legacy: true },
   { key: "map", label: "地图", icon: "map", legacy: true },

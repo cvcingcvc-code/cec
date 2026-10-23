@@ -20,6 +20,24 @@ function stats(out) {
     .filter((line) => line.value != null);
   return lines.length ? { heading: "电脑概况", lines, text: null } : null;
 }
+function workbuddy(out) {
+  if (!out || typeof out !== "object" || Array.isArray(out) || out.running === undefined) return null;
+  const lines = [
+    ["已安装", out.installed ? "是" : "未检测到"],
+    ["运行状态", out.running ? "正在运行" : "未运行"],
+    ["进程数", short(out.processCount)],
+    ["可见窗口", Array.isArray(out.windows) && out.windows.length
+      ? out.windows.map((w) => w.title).filter(Boolean).join("、") || "无标题窗口"
+      : "未检测到可见窗口"],
+  ].map(([label, value]) => ({ label, value: value == null ? "未提供" : String(value) }));
+  return {
+    heading: "WorkBuddy 真实状态",
+    lines,
+    text: out.running
+      ? "这是电脑返回的真实进程与窗口状态。启动成功不代表任何任务已被执行。"
+      : "电脑上未检测到运行中的 WorkBuddy 进程。可尝试「启动 WorkBuddy 桌面版」。",
+  };
+}
 function git(out) {
   if (typeof out !== "string") return null;
   const rows = out.split(/\r?\n/).filter((line) => line.trim());
@@ -38,7 +56,8 @@ export function presentAgentResult(run) {
   const out = result && typeof result === "object" && Object.hasOwn(result, "output")
     ? result.output : result;
   let view = run?.executor === "host.stats" ? stats(out)
-    : run?.executor === "repo.status" ? git(out) : null;
+    : run?.executor === "repo.status" ? git(out)
+    : run?.executor === "workbuddy.status" || run?.executor === "workbuddy.launch" ? workbuddy(out) : null;
   if (!view && typeof out === "string") {
     const heading = run?.executor === "repo.readDoc" ? "文档内容"
       : run?.executor === "codex.readonly-diagnosis" ? "Codex 分析结果" : "电脑返回的文字";

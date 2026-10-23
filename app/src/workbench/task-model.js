@@ -56,10 +56,12 @@ export const TIMELINE_EVENT_TYPES = [
 
 // Phase-3 execution-event vocabulary (§23). Appended by the Task Runner in
 // addition to the Phase-2 set; old types are preserved untouched.
+// V3M (P0 部分成功): skill_skipped records "a later skill ran after an earlier
+// one failed"; task_execution_partial records the partial-success final state.
 export const EXECUTION_EVENT_TYPES = [
   "routing_started", "routing_completed",
-  "skill_started", "skill_completed", "skill_failed",
-  "task_execution_completed",
+  "skill_started", "skill_completed", "skill_failed", "skill_skipped",
+  "task_execution_completed", "task_execution_partial",
 ];
 
 // Phase-4 workbench-loop vocabulary (ADDITIVE — old types untouched):
