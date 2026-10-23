@@ -158,6 +158,14 @@ export function explainError(code, message) {
 
 /** Map a runner result into { text, hint } for the UI (null when fine). */
 export function explainRunProblem(run) {
-  if (!run || run.ok === true) return null;
+  if (!run) return null;
+  // Runner-level success is STILL a problem when the run itself failed
+  // (ok:true + failed:true = "the runner finished, the task failed").
+  if (run.failed) {
+    const f = Array.isArray(run.failures) && run.failures[0];
+    if (f) return explainError(f.code, f.message);
+    return { text: String(run.failureReason || "任务执行失败。"), hint: null };
+  }
+  if (run.ok === true) return null;
   return explainError(run.code, run.message);
 }

@@ -109,7 +109,7 @@ async function main() {
 
     // ── create one task first (association target) ──
     await s.eval(TYPE_IN('[data-gg-screen="workbench-home"] textarea', "V3J 笔记关联目标"));
-    await s.click(`[...document.querySelectorAll('[data-gg-screen="workbench-home"] button')].find(b => b.innerText.includes('开始任务'))`);
+    await s.click(`document.querySelector('[data-testid="workbench-home-submit"]')`);
     await s.waitFor(`!!document.querySelector('[data-gg-screen="workbench-task-detail"]')`, { timeout: 8000 });
     await s.click(`document.querySelector('[data-testid="workbench-detail-back"]')`);
     await sleep(400);

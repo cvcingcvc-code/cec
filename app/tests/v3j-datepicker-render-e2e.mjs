@@ -112,7 +112,7 @@ async function main() {
 
     // ── create a task from the home input and open its detail ──
     await s.eval(TYPE_IN('[data-gg-screen="workbench-home"] textarea', "V3J 回归：验证截止时间弹窗"));
-    await s.click(`[...document.querySelectorAll('[data-gg-screen="workbench-home"] button')].find(b => b.innerText.includes('开始任务'))`);
+    await s.click(`document.querySelector('[data-testid="workbench-home-submit"]')`);
     await s.waitFor(`!!document.querySelector('[data-gg-screen="workbench-task-detail"]')`, { timeout: 8000 });
     check("task detail opens", true);
 

@@ -125,7 +125,7 @@ async function createTaskAndOpen(session, goal) {
   await session.click(`document.querySelector('[data-workbench-nav="home"]')`);
   await session.waitFor(`!!document.querySelector('[data-gg-screen="workbench-home"]')`);
   await session.eval(TYPE_IN('[data-gg-screen="workbench-home"] textarea', goal));
-  await session.click(`[...document.querySelectorAll('[data-gg-screen="workbench-home"] button')].find(b => b.innerText.includes('开始任务'))`);
+  await session.click(`document.querySelector('[data-testid="workbench-home-submit"]')`);
   await session.waitFor(`!!document.querySelector('[data-gg-screen="workbench-task-detail"]')`, { timeout: 8000 });
 }
 
@@ -176,14 +176,20 @@ async function desktopChain() {
 
     // task creation from the home input -> REAL task + detail navigation
     await s.eval(TYPE_IN('[data-gg-screen="workbench-home"] textarea', "帮我寻找本周值得参加的 AI 活动"));
-    await s.click(`[...document.querySelectorAll('[data-gg-screen="workbench-home"] button')].find(b => b.innerText.includes('开始任务'))`);
+    await s.click(`document.querySelector('[data-testid="workbench-home-submit"]')`);
     // Phase 2: creating a task navigates to its Task Detail
     const detailUp = await s.waitFor(`!!document.querySelector('[data-gg-screen="workbench-task-detail"]')`, { timeout: 8000 });
     check("Phase 2: home input creates a REAL task and opens Task Detail", detailUp);
-    const honestWait = await s.eval(`
-      const el = document.querySelector('[data-gg-screen="workbench-task-detail"]');
-      return !!el && el.innerText.includes('等待任务引擎');`);
-    check("Phase 2: Task Detail honestly says 等待任务引擎", honestWait);
+    // V3N (one-shot): the submission ALREADY ran the engine — the goal routes
+    // to the search skill against the demo API server, so the task completes
+    // without a second click. The detail page must show the REAL end state
+    // (已完成), not 等待任务引擎.
+    const honestWait = await s.waitFor(`
+      (() => {
+        const el = document.querySelector('[data-gg-screen="workbench-task-detail"]');
+        return !!el && (el.innerText.includes('已完成') || el.innerText.includes('部分完成') || el.innerText.includes('执行中'));
+      })()`, { timeout: 15000 });
+    check("V3N: one-shot submission auto-runs — detail shows real end state", honestWait);
     const createdEvent = await s.waitFor(`
       !!document.querySelector('[data-testid="workbench-detail-timeline-list"]')`);
     check("Phase 2: timeline section renders", createdEvent);
@@ -192,15 +198,16 @@ async function desktopChain() {
       return !!box && box.innerText.includes('创建任务');`);
     check("Phase 2: timeline records task_created", taskCreatedEv);
 
-    // v2 schema persisted in localStorage
+    // v2 schema persisted in localStorage; V3N: the one-shot task has RUN
+    // (status completed — the engine executed the routed skills).
     const envOk = await s.eval(`
       const raw = localStorage.getItem('gorgon_workbench_tasks_v2');
       if (!raw) return false;
       const env = JSON.parse(raw);
       return env.schemaVersion === 2 && env.tasks.length === 1
         && env.tasks[0].goal === '帮我寻找本周值得参加的 AI 活动'
-        && env.tasks[0].status === 'created';`);
-    check("Phase 2: task persisted in gorgon_workbench_tasks_v2 envelope", envOk);
+        && env.tasks[0].status === 'completed';`);
+    check("V3N: task persisted AND auto-executed (completed, no second click)", envOk);
 
     // back to the tasks list — the created task must be listed
     await s.click(`document.querySelector('[data-testid="workbench-detail-back"]')`);
@@ -211,20 +218,22 @@ async function desktopChain() {
     check("Phase 2: created task appears in TasksScreen", listed);
 
     // ── Task Detail: legal transitions drive the REAL state machine ─
-    const openFirst = await s.eval(`
-      const item = [...document.querySelectorAll('[data-testid="workbench-task-item"]')]
-        .find(it => it.innerText.includes('帮我寻找本周值得参加的 AI 活动'));
-      if (!item) return false;
-      item.querySelector('[data-testid="workbench-task-open"]').click();
-      return true;`);
-    check("Phase 2: task row opens detail via 详情 button", openFirst);
-    await s.waitFor(`!!document.querySelector('[data-gg-screen="workbench-task-detail"]')`);
-
-    // created -> ready (legal shortcut)
-    await s.click(`document.querySelector('[data-testid="workbench-detail-sim-ready"]')`);
-    const readyOk = await s.waitFor(`
-      document.querySelector('[data-testid="workbench-detail-status"]').innerText.includes('等待执行')`);
-    check("Phase 2: legal transition created -> ready works", readyOk);
+    // V3N: the one-shot task is already completed (terminal). Create a SECOND
+    // task with an unrecognizable goal — the engine honestly leaves it in
+    // `ready` (unknown intent, zero fake execution) — and drive ITS state
+    // machine through the legal chain.
+    await s.click(`document.querySelector('[data-workbench-nav="home"]')`);
+    await s.waitFor(`!!document.querySelector('[data-gg-screen="workbench-home"]')`);
+    await s.eval(TYPE_IN('[data-gg-screen="workbench-home"] textarea', "帮我量子跃迁到平行宇宙"));
+    await s.click(`document.querySelector('[data-testid="workbench-home-submit"]')`);
+    await s.waitFor(`!!document.querySelector('[data-gg-screen="workbench-task-detail"]')`, { timeout: 8000 });
+    const readyFromUnknown = await s.waitFor(`
+      document.querySelector('[data-testid="workbench-detail-status"]').innerText.includes('等待执行')`, { timeout: 8000 });
+    check("V3N: unknown goal → honest ready state (no fake execution)", readyFromUnknown);
+    const unknownHelp = await s.eval(`
+      const el = document.querySelector('[data-testid="workbench-detail-unknown-help"]');
+      return !!el && el.innerText.includes('我还不能直接完成这类操作');`);
+    check("V3N: unknown goal → plain-Chinese guidance card", unknownHelp);
 
     // created/ready -> completed is ILLEGAL: the button must not exist
     const illegalGone = await s.eval(`
@@ -315,7 +324,7 @@ async function desktopChain() {
     const failedFilter = await s.eval(`
       return !!document.querySelector('[data-testid="workbench-task-filter-failed"]')
           && !!document.querySelector('[data-testid="workbench-task-filter-review"]');`);
-    check("Phase 2: 待审核/失败 filters exist", failedFilter);
+    check("Phase 2: 需要确认/失败 filters exist", failedFilter);
     await s.click(`document.querySelector('[data-testid="workbench-task-filter-all"]')`);
 
     // ── review center: drive a task into review_required first ─────
@@ -332,7 +341,7 @@ async function desktopChain() {
     await s.click(`document.querySelector('[data-testid="workbench-detail-sim-running"]')`);
     await s.click(`document.querySelector('[data-testid="workbench-detail-sim-review"]')`);
     const reviewStatus = await s.waitFor(`
-      document.querySelector('[data-testid="workbench-detail-status"]').innerText.includes('待审核')`);
+      document.querySelector('[data-testid="workbench-detail-status"]').innerText.includes('需要确认')`);
     check("Phase 2: running -> review_required works", reviewStatus);
     // review_required -> completed is illegal: no button
     const noCompleteInReview = await s.eval(`
