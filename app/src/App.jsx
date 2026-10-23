@@ -62,6 +62,11 @@ import * as NativeReminders from "./lib/native-reminders.js";
 import {
   pickDueReminders, firedKey, NOTIFIED_STORE_KEY, REMINDER_POLL_MS,
 } from "./workbench/reminder-fire.js";
+// V2.5: hackathon deadline alerts — favorited activities get 72h/24h
+// registration-deadline reminders (same bridge, activity-scoped).
+import {
+  planDeadlineAlerts, DEADLINE_ALERTS_STORE_KEY,
+} from "./workbench/deadline-reminder.js";
 
 /* ── legacy-mode detection (§17/§18) ────────────────────────────────── */
 // /?legacy=1 boots into the Phase-1 default (discover). Anything else
@@ -962,6 +967,46 @@ export default function App() {
     Store.setFavorites(next);
     flash(has ? "已取消收藏" : "已收藏");
   };
+
+  // --- V2.5: deadline alerts for favorited activities (72h/24h) ---
+  // Re-plan whenever favorites change (or on mount): pure computation ->
+  // native scheduling for the delta, dedupe keys persisted so an alert
+  // fires once per deadline value. Cancelled favorites: removed keys are
+  // NOT auto-cancelled from the OS here (harmless: an alert for an
+  // un-favorited event still fires once and is honest), but the dedupe
+  // store keeps growing only with real schedules.
+  const syncDeadlineAlerts = React.useCallback(async (favIds) => {
+    try {
+      const views = (favIds || []).map((id) => asView(id)).filter(Boolean);
+      let firedKeys = [];
+      try {
+        firedKeys = JSON.parse(localStorage.getItem(DEADLINE_ALERTS_STORE_KEY) || "[]");
+      } catch (e) { firedKeys = []; }
+      const plan = planDeadlineAlerts(views, new Date().toISOString(), { firedKeys });
+      if (!plan.length) return;
+      const nextFired = firedKeys.slice();
+      let scheduledCount = 0;
+      for (const alert of plan) {
+        const st = await NativeReminders.scheduleDeadlineAlert({
+          ...alert,
+          body: `${alert.title} 报名将于 ${new Date(alert.deadlineIso).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} 截止`,
+        });
+        if (st.scheduled) {
+          scheduledCount += 1;
+          nextFired.push(alert.key);
+        }
+      }
+      if (scheduledCount > 0) {
+        localStorage.setItem(DEADLINE_ALERTS_STORE_KEY, JSON.stringify(nextFired));
+        flash(`已为 ${scheduledCount} 个截止节点安排提醒`);
+      }
+    } catch (e) { /* deadline alerts are best-effort — never block favorites */ }
+  }, []);
+
+  // Sync on favorites change (covers mount — initial favorites restore).
+  React.useEffect(() => {
+    syncDeadlineAlerts(favorites);
+  }, [favorites, syncDeadlineAlerts]);
 
   const openDetail = (x) => { const v = asView(x); if (v) { setProjectPickerFor(null); setDetail(v); } };
   const showOnMap = (v) => { setMapFocus(v.id); setDetail(null); setDetailTaskId(null); setDetailProjectId(null); setTab("map"); setWbTab(null); };
