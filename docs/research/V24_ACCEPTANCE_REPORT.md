@@ -101,11 +101,12 @@ node tests/build-smoke.mjs
 
 ## 5. Android 包（构建环境 REAL，真机 BLOCKED）
 
-- 构建：`node scripts/build-apk.mjs`（vite build + cap sync android）成功；`gradlew assembleRelease --no-daemon`（JDK 21 + SDK build-tools）**BUILD SUCCESSFUL in 7m 29s**（205 actionable tasks，2026-10-23 执行）。
+- 构建：`node scripts/build-apk.mjs`（vite build + cap sync android）成功；`gradlew assembleRelease --no-daemon`（JDK 21 + SDK build-tools）BUILD SUCCESSFUL（2026-10-23 执行，versionCode 19 重打构建 2m 52s）。
 - 产物：`app/android/app/build/outputs/apk/release/app-release.apk`
-  - applicationId `cn.gorgon.workbench`，versionCode 18 / versionName 6.0.13（继承自基线，本分支未 bump）
-  - SHA-256：`fd62980494a542f9d5e0362aa8ce692314c01438ef01e691e904fde47805cb96`
-  - 大小：3.85 MB
+  - applicationId `cn.gorgon.workbench`，**versionCode 19 / versionName 6.0.14**（commit 5b0996a bump；18 与已发 v0.3.13-alpha 撞车，bump 保持覆盖安装顺序）
+  - SHA-256：`7a5c59a95344bb45538ab8db0387a915cf49b72a9bd58975b166603a3b52c84a`
+  - 大小：3.85 MB；apksigner 验证通过（正式证书 45b44236…f47167）
+  - 已发 GitHub Release：**https://github.com/cvcingcvc-code/cec/releases/tag/v0.3.14-alpha**（Latest，非 prerelease，2026-10-23）
 - **真机安装与 E2E：BLOCKED（需用户 Android 真机）**，未做模拟器测试，如实标注 NOT_TESTED。
 
 ---
@@ -116,7 +117,7 @@ node tests/build-smoke.mjs
 |---|---|---|---|
 | 1 | Android 真机测试 | BLOCKED | 需用户在真机安装 APK 验收；E2E 未在模拟器执行，NOT_TESTED |
 | 2 | LLM 增强匹配 | BLOCKED | 无 API key；当前为确定性规则匹配。接入后可做语义级匹配（需把 key 走构建时注入，不进 bundle） |
-| 3 | APK versionCode bump | NOT_DONE | 本分支沿用基线 18/6.0.13；发布前应 bump 到 19/6.0.14 并重打 |
+| 3 | APK versionCode bump | RESOLVED | 已 bump 19/6.0.14（commit 5b0996a）并重打，发 Release v0.3.14-alpha（Latest） |
 | 4 | 活动数据自动抓取 | NOT_DONE | V1 为手工整理 10 条；自动聚合抓取（Stage D）未实现，G1-G7 缺口见 FEATURE_COMPARISON.md |
 | 5 | 通知提醒（本地推送） | NOT_DONE | 收藏与截止倒计时已就绪，LocalNotifications 触达未接 |
 | 6 | 组队 / 社区 / 主办方后台 | NOT_PLANNED | 按任务书停止条件，明确不为本 V1 目标 |
