@@ -365,6 +365,50 @@ export default function App() {
     return created;
   };
 
+  // ── V3N (P0 one-shot): submit once → auto capability-check, plan, run ──
+  // The home composer's single submission drives the whole chain: dedupe
+  // (submissionKey, restart-safe) → create & persist → IMMEDIATELY run the
+  // engine. No second "运行任务" click. Returns { task, deduped, run } so the
+  // composer can show real state (执行中/需要确认/最近成果) and honest
+  // Chinese errors. The runner's own partial/failure bookkeeping is kept —
+  // nothing here pretends an unexecuted task succeeded.
+  const [submittingGoal, setSubmittingGoal] = React.useState(false);
+
+  const submitGoalOnce = async (goal) => {
+    const text = String(goal || "").trim();
+    if (!text || submittingGoal) return { ok: false, task: null, deduped: false, run: null, message: "请先写下你想完成的事" };
+    setSubmittingGoal(true);
+    try {
+      const out = await WBStore.submitOneShotGoal(text);
+      setWbTasks(WBStore.getTasks());
+      setWbLog(WBStore.getLog());
+      return out;
+    } catch (e) {
+      return { ok: false, task: null, deduped: false, run: null, code: "SUBMIT_THREW", message: String((e && e.message) || e) };
+    } finally {
+      setSubmittingGoal(false);
+    }
+  };
+
+  // V3N (P0 失败恢复): retry ONLY the failed steps of a failed/partial task.
+  // The runner (retryFailedOnly) skips steps that already completed — the
+  // successful parts are never re-done or re-consumed.
+  const retryFailedSteps = async (id) => {
+    const task = WBStore.getTask(id);
+    const retryable = task && task.metadata && Array.isArray(task.metadata.retryableSkillIds)
+      ? task.metadata.retryableSkillIds : [];
+    if (!retryable.length) {
+      flash("没有可重试的失败步骤");
+      return { ok: false, code: "NOTHING_TO_RETRY" };
+    }
+    // The state machine requires failed → ready before a re-run.
+    transitionTask(id, "ready");
+    const out = await runTaskEngine(id, { skillIds: retryable, retryFailedOnly: true });
+    if (out && out.ok) flash(out.failed ? "已重试失败步骤（部分仍未成功）" : "失败步骤已全部恢复完成");
+    else flash((out && out.message) || "重试未成功");
+    return out;
+  };
+
   const addTaskLocal = (title, opts) => {
     setWbTasks(WBStore.addTask(title, opts));
     setWbLog(WBStore.getLog());
@@ -962,6 +1006,8 @@ export default function App() {
     home: (
       <WorkbenchHome tasks={wbTasks}
         onCreateTask={createTaskFromGoal}
+        onSubmitGoal={submitGoalOnce}
+        submittingGoal={submittingGoal}
         onGoSearch={() => changeWbTab("search")} onGoTasks={() => changeWbTab("tasks")}
         onGoSchedule={() => changeWbTab("schedule")}
         onOpenTask={openTaskDetail}
@@ -1011,6 +1057,7 @@ export default function App() {
           onSetResult={(r) => { setWbTasks(WBStore.setTaskResult(detailTask.id, r)); }}
           onAddSource={(s) => { setWbTasks(WBStore.addTaskSource(detailTask.id, s)); }}
           onRun={runTaskEngine}
+          onRetryFailed={retryFailedSteps}
           onSetSchedule={handleSetSchedule}
           onSavePlanTodos={handleSavePlanTodos}
           onLinkProject={handleLinkTaskToProject}

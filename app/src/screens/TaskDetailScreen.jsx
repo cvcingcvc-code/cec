@@ -11,20 +11,15 @@ import * as WB from "../store/workbench-store.js";
 import { TASK_STATUS, canTransition } from "../workbench/task-model.js";
 import * as SkillRegistry from "../workbench/skills/registry.js";
 import { summarizeResult, RESULT_TYPE_LABEL } from "../workbench/result-summary.js";
+import { statusLabel } from "../workbench/task-status-labels.js";
 import { Icon } from "../components/Icon.jsx";
 import { DatePickerSheet } from "../components/mobile/DatePickerSheet.jsx";
 import { findConflictFor, formatCN, formatCNTime } from "../lib/calendar.js";
 import { reminderMode, describeReminder, REMINDER_LEAD_CHOICES, REMINDER_MODE } from "../workbench/reminder-model.js";
 
-const STATUS_LABEL = {
-  created: "已创建",
-  planning: "规划中",
-  ready: "等待执行",
-  running: "执行中",
-  review_required: "待审核",
-  completed: "已完成",
-  failed: "失败",
-};
+// V3N: status labels come from workbench/task-status-labels.js (statusLabel
+// renders 部分完成 for failed-with-partial-results); the former local
+// STATUS_LABEL map (which could not distinguish partial results) is gone.
 
 const STEP_LABEL = { pending: "待执行", running: "执行中", completed: "已完成", failed: "失败" };
 
@@ -255,6 +250,10 @@ const card = {
 };
 
 export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpdateStep, onSetResult, onAddSource, onRun,
+  // ── V3N (P0 失败恢复): onRetryFailed(taskId) — retry ONLY the failed
+  //    steps (runner's retryFailedOnly skips completed work). Renders only
+  //    when wired AND the task carries retryable skills.
+  onRetryFailed = null,
   // ── Phase 4 (P0-B): schedule editor, plan→todos, step title editing,
   //    project link. All optional — the screen degrades gracefully.
   onSetSchedule = null, onSavePlanTodos = null, onLinkProject = null, projects = [],
@@ -343,6 +342,21 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
   // task with no skills (unknown intent) must use manual selection instead, so
   // we disable Run there rather than producing a no-op error click (§8/§27).
   const isRunnable = (task.status === TASK_STATUS.CREATED || (task.status === TASK_STATUS.READY && routerHasSkills)) && !running;
+
+  // V3N (P0 失败恢复): the task carries its failed skills in metadata
+  // (persisted by the runner) — the recovery entry stays available after an
+  // app restart, not just in the same session.
+  const retryableSkills = task.metadata && Array.isArray(task.metadata.retryableSkillIds)
+    ? task.metadata.retryableSkillIds : [];
+  const showRetry = !!onRetryFailed && retryableSkills.length > 0 &&
+    (task.status === TASK_STATUS.FAILED);
+  const [retrying, setRetrying] = React.useState(false);
+  const handleRetryFailed = async () => {
+    if (!onRetryFailed || retrying) return;
+    setRetrying(true);
+    try { await onRetryFailed(task.id); }
+    finally { setRetrying(false); }
+  };
 
   const handleRun = async (skillIds) => {
     if (!onRun || running) return;
@@ -472,10 +486,17 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
               background: task.status === "completed" ? "var(--accent-soft)" : task.status === "failed" ? "var(--danger-soft)" : "var(--brand-soft)",
               color: task.status === "completed" ? "var(--accent-strong, #047857)" : task.status === "failed" ? "var(--danger)" : "var(--brand)",
             }}>
-              {STATUS_LABEL[task.status] || task.status}
+              {statusLabel(task.status, task)}
             </span>
             {task.status === "created" && (
               <span style={{ fontSize: 12, color: "var(--text-faint)" }}>等待任务引擎 · 尚未开始执行</span>
+            )}
+            {/* V3N (§2): partial-success honesty — preserved results are real,
+                the failed part is stated plainly with its recovery entry. */}
+            {task.status === "failed" && statusLabel(task.status, task) === "部分完成" && (
+              <span style={{ fontSize: 12, color: "var(--warning-ink, #9A6300)" }}>
+                部分成果已保留（见下方结果），失败步骤可单独重试
+              </span>
             )}
           </div>
           {editingTitle && onSetTitle ? (
@@ -731,8 +752,17 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
             <Button variant="primary" data-testid="workbench-detail-run" disabled={!isRunnable}
               onClick={() => handleRun(null)}
               leadingIcon={<Icon name={running ? "compass" : "play"} style={{ width: 15, height: 15 }} />}>
-              {running ? "正在执行…" : "运行任务"}
+              {running ? "正在执行…" : task.status === TASK_STATUS.CREATED ? "开始处理" : "运行任务"}
             </Button>
+            {/* V3N (P0 失败恢复): retry ONLY the failed steps — completed work
+                is never re-executed (runner retryFailedOnly). */}
+            {showRetry && (
+              <Button variant="primary" data-testid="workbench-detail-retry-failed" disabled={retrying}
+                onClick={handleRetryFailed}
+                leadingIcon={<Icon name={retrying ? "compass" : "rotate-ccw"} style={{ width: 15, height: 15 }} />}>
+                {retrying ? "正在重试…" : `重试失败的 ${retryableSkills.length} 个步骤`}
+              </Button>
+            )}
             {task.status === TASK_STATUS.CREATED && !running && (
               <span style={{ fontSize: 12, color: "var(--text-faint)" }}>
                 任务引擎会先分析目标，再按顺序执行对应工具。
@@ -799,8 +829,9 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
           )}
 
           {router && router.intent === "unknown" && (
-            <div style={{ fontSize: 12.5, color: "var(--text-muted)", background: "var(--bg-sunken)", borderRadius: "var(--radius-md)", padding: "9px 13px", lineHeight: 1.6 }}>
-              暂时无法确定该使用哪项能力。你可以修改目标，或手动选择一个工具。
+            <div data-testid="workbench-detail-unknown-help" style={{ fontSize: 12.5, color: "var(--text-muted)", background: "var(--bg-sunken)", borderRadius: "var(--radius-md)", padding: "9px 13px", lineHeight: 1.7 }}>
+              <div style={{ fontWeight: 700, color: "var(--text-strong)", marginBottom: 4 }}>我还不能直接完成这类操作。</div>
+              没有识别出明确的处理方式（未猜测）。你可以：①修改目标描述，让它更具体（例如「整理一份××清单」或「找出本周的××活动」）；②在下方手动选择一个处理方式，例如本地提取或本地规划。
             </div>
           )}
         </div>
@@ -819,7 +850,7 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
           ))}
           {legalActions.length === 0 && (
             <span style={{ fontSize: 12, color: "var(--text-faint)" }}>
-              任务已到终态（{STATUS_LABEL[task.status] || task.status}），没有可用流转。
+              任务已到终态（{statusLabel(task.status, task)}），没有可用流转。
             </span>
           )}
         </div>

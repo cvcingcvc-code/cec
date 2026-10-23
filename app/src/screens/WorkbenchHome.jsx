@@ -1,15 +1,18 @@
-// Gorgon Workbench — WorkbenchHome (Phase 2: creates REAL tasks).
+// Gorgon Workbench — WorkbenchHome (V3N: one-shot submission home).
 //
-// The main task input now calls the formal createTask() engine path (§16):
-//   * goal = the full user text
-//   * title = auto-truncated from the goal
-//   * status = created (formal state machine vocabulary)
-//   * then the app navigates to the Task Detail screen, which honestly
-//     shows 等待任务引擎 — nothing pretends the AI understood the task.
+// The composer is the SINGLE main entry (§2 of ONE_SHOT_AGENT_REDESIGN.md):
+// one submission ("开始处理") atomically creates the task AND runs the
+// engine — capability check, plan, low-risk execution. No second
+// "运行任务" click. The page surfaces 正在执行 / 需要你确认 / 最近成果;
+// search, task lists and other management stay reachable as secondary
+// entries. Unknown goals get a plain-Chinese "我还不能直接完成这类操作"
+// explanation with the nearest actionable alternative — never a fake
+// created/ready state.
 
 import React from "react";
 import { useResponsive } from "../lib/useResponsive.js";
 import { STATUS_LABELS as SHARED_LABELS } from "../workbench/task-status-labels.js";
+import { explainRunProblem } from "../workbench/one-shot.js";
 import { Icon } from "../components/Icon.jsx";
 import "../styles/v3k-home.css";
 
@@ -52,28 +55,59 @@ function EmptyState({ icon, title, children }) {
   );
 }
 
-export function WorkbenchHome({ tasks, onCreateTask, onGoSearch, onGoTasks, onOpenTask,
+export function WorkbenchHome({ tasks, onCreateTask, onSubmitGoal = null, submittingGoal = false,
+  onGoSearch, onGoTasks, onOpenTask,
   onGoSchedule = null,
   todayTasks = [], openTaskCount = 0, projects = [], projectStats = {},
   recentNotes = [], onOpenProject = null, onGoProjects = null }) {
   const { isMobile } = useResponsive();
   const [value, setValue] = React.useState("");
   const [notice, setNotice] = React.useState("");
+  const [noticeTone, setNoticeTone] = React.useState("info");
   const inputRef = React.useRef(null);
-  const recent = tasks.slice(0, 3);
+  // V3N: home result-state sections (§2 正在执行 / 需要你确认 / 最近成果).
+  const runningTasks = tasks.filter((t) => t.status === "running" || t.status === "planning");
+  const confirmTasks = tasks.filter((t) => t.status === "review_required" || (t.status === "failed" && t.metadata && Array.isArray(t.metadata.retryableSkillIds) && t.metadata.retryableSkillIds.length));
+  const finishedTasks = tasks.filter((t) => t.status === "completed" || t.status === "failed");
+  const recent = finishedTasks.length ? finishedTasks.slice(0, 3) : tasks.slice(0, 3);
 
-  const submit = () => {
+  // V3N: submit → the WHOLE chain runs (dedupe → create → engine). The
+  // outcome lands as an honest notice; the task itself carries the real
+  // progress/results. onOpenTask only when the user asked to inspect.
+  const submit = async () => {
     const t = value.trim();
     if (!t) return;
-    const task = onCreateTask(t);
-    setValue("");
-    if (task && onOpenTask) {
-      onOpenTask(task.id);
+    if (!onSubmitGoal) {
+      // Legacy path (no orchestrator wired): create only, honest notice.
+      const task = onCreateTask(t);
+      setValue("");
+      if (task && onOpenTask) { onOpenTask(task.id); return; }
+      setNoticeTone("info");
+      setNotice(task ? "任务已创建并保存到本地。任务引擎尚未执行它。" : "任务创建失败，请检查输入内容。");
       return;
     }
-    setNotice(task
-      ? "任务已创建并保存到本地。任务引擎尚未执行它——这是如实状态，不是 AI 理解结果。"
-      : "任务创建失败，请检查输入内容。");
+    setNoticeTone("info");
+    setNotice("正在处理…");
+    const out = await onSubmitGoal(t);
+    setValue("");
+    if (out && out.deduped && out.task) {
+      setNoticeTone("info");
+      setNotice("这个目标已提交过，已为你打开原任务，不会重复执行。");
+      if (onOpenTask) onOpenTask(out.task.id);
+      return;
+    }
+    if (out && out.ok && out.task) {
+      if (onOpenTask) { onOpenTask(out.task.id); return; }
+      const run = out.run;
+      const problem = explainRunProblem(run);
+      setNoticeTone(problem ? "warn" : "ok");
+      setNotice(problem
+        ? `已创建任务「${out.task.title}」。${problem.text}${problem.hint || ""}`
+        : `已完成「${out.task.title}」，成果在任务详情中。`);
+      return;
+    }
+    setNoticeTone("warn");
+    setNotice((out && out.message) || "任务创建失败，请检查输入内容。");
   };
 
   const quick = (a) => {
@@ -91,18 +125,18 @@ export function WorkbenchHome({ tasks, onCreateTask, onGoSearch, onGoTasks, onOp
           <p>把重要的事，变成看得见的进展。</p>
         </header>
 
-        <section data-testid="workbench-task-input" aria-label="创建真实任务">
+        <section data-testid="workbench-task-input" aria-label="一句话提交，自动处理">
           <div className="v3k-hero v3k-home-composer" onClick={() => inputRef.current?.focus()}>
             <div className="v3k-home-composer-top">
-              <span className="v3k-home-composer-kicker"><Icon name="sparkles" />从一个目标开始</span>
+              <span className="v3k-home-composer-kicker"><Icon name="sparkles" />一句话，自动处理</span>
               <span className="v3k-home-connection"><span />AI 未连接</span>
             </div>
-            <label htmlFor="v3k-home-goal" className="v3k-home-composer-title">今天想完成什么？</label>
+            <label htmlFor="v3k-home-goal" className="v3k-home-composer-title">告诉 Gorgon，你想完成什么？</label>
             <textarea
               id="v3k-home-goal"
               className="v3k-goal-input"
               aria-label="描述一个目标"
-              placeholder="写下你的目标，例如：帮我制定本周学习计划…"
+              placeholder="写下你的目标，例如：帮我整理一份比赛报名资料清单…"
               rows={isMobile ? 2 : 3}
               enterKeyHint="send"
               value={value}
@@ -114,9 +148,9 @@ export function WorkbenchHome({ tasks, onCreateTask, onGoSearch, onGoTasks, onOp
               }}
             />
             <div className="v3k-home-composer-footer">
-              <span>{isMobile ? "先创建，再决定如何执行" : "Enter 创建 · Shift + Enter 换行"}</span>
-              <button type="button" className="v3k-home-start" onClick={submit} disabled={!value.trim()}>
-                开始任务<Icon name="arrow-up-right" />
+              <span>{submittingGoal ? "正在处理，请稍候…" : (isMobile ? "提交后自动检查能力并执行" : "Enter 开始处理 · Shift + Enter 换行")}</span>
+              <button type="button" className="v3k-home-start" data-testid="workbench-home-submit" onClick={submit} disabled={!value.trim() || submittingGoal}>
+                {submittingGoal ? "正在处理…" : "开始处理"}<Icon name="arrow-up-right" />
               </button>
             </div>
           </div>
@@ -131,6 +165,39 @@ export function WorkbenchHome({ tasks, onCreateTask, onGoSearch, onGoTasks, onOp
             </button>
           ))}
         </nav>
+
+        {/* ── V3N (§2): 正在执行 / 需要你确认 / 最近成果 — the result-state
+            sections. Each row opens the task's progress/result page. ── */}
+        {runningTasks.length > 0 && (
+          <section className="v3k-section" data-testid="workbench-home-running">
+            <SectionHeading title="正在执行" />
+            <div className="v3k-home-list">
+              {runningTasks.slice(0, 3).map((t) => (
+                <button type="button" key={t.id} className="v3k-home-row v3k-panel" data-testid="workbench-home-running-item"
+                  onClick={() => onOpenTask && onOpenTask(t.id)} disabled={!onOpenTask}>
+                  <span className="v3k-home-row-icon"><Icon name="loader" /></span>
+                  <span className="v3k-home-row-copy"><strong>{t.title}</strong><span>提交后自动处理中，无需再次点击</span></span>
+                  <span className="v3k-home-task-status" data-status={t.status}>{SHARED_LABELS[t.status] || t.status}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+        {confirmTasks.length > 0 && (
+          <section className="v3k-section" data-testid="workbench-home-confirm">
+            <SectionHeading title="需要你确认" />
+            <div className="v3k-home-list">
+              {confirmTasks.slice(0, 3).map((t) => (
+                <button type="button" key={t.id} className="v3k-home-row v3k-panel" data-testid="workbench-home-confirm-item"
+                  onClick={() => onOpenTask && onOpenTask(t.id)} disabled={!onOpenTask}>
+                  <span className="v3k-home-row-icon"><Icon name="alert-triangle" /></span>
+                  <span className="v3k-home-row-copy"><strong>{t.title}</strong><span>{t.status === "failed" ? "有步骤未成功，可重试失败部分" : "等待你的确认后继续"}</span></span>
+                  <span className="v3k-home-task-status" data-status={t.status}>{SHARED_LABELS[t.status] || t.status}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="v3k-section" data-testid="workbench-today">
           <SectionHeading title="今日待办">
@@ -185,14 +252,15 @@ export function WorkbenchHome({ tasks, onCreateTask, onGoSearch, onGoTasks, onOp
         </section>
 
         <section className="v3k-section" data-testid="workbench-recent">
-          <SectionHeading title="最近任务"><button type="button" onClick={onGoTasks}>查看全部<Icon name="arrow-up-right" /></button></SectionHeading>
+          <SectionHeading title="最近成果"><button type="button" onClick={onGoTasks}>查看全部<Icon name="arrow-up-right" /></button></SectionHeading>
           {recent.length === 0 ? (
-            <p className="v3k-home-quiet-empty">还没有任务。写下第一个目标，让行动有个起点。</p>
+            <p className="v3k-home-quiet-empty">还没有成果。写下第一个目标，让行动有个起点。</p>
           ) : (
             <div className="v3k-home-list">
               {recent.map((t) => (
-                <button type="button" key={t.id} className="v3k-home-row v3k-panel" onClick={() => onOpenTask && onOpenTask(t.id)} disabled={!onOpenTask}>
-                  <span className="v3k-home-row-copy"><strong>{t.title}</strong><span>{fmtTime(t.createdAt)} · 本地任务数据</span></span>
+                <button type="button" key={t.id} className="v3k-home-row v3k-panel" data-testid="workbench-home-recent-result"
+                  onClick={() => onOpenTask && onOpenTask(t.id)} disabled={!onOpenTask}>
+                  <span className="v3k-home-row-copy"><strong>{t.title}</strong><span>{fmtTime(t.createdAt)} · {t.result ? "成果已保存" : "本地任务数据"}</span></span>
                   <span className="v3k-home-task-status" data-status={t.status}>{SHARED_LABELS[t.status] || t.status}</span>
                 </button>
               ))}
