@@ -72,3 +72,41 @@ E2E PASS: workbuddy.submitTask real execution over HTTP API verified
 3. 手机端填 `http://<局域网IP>:8765` + token.json 中 token 字段的值
 4. 验收 P0：连接成功；验收 P1：提交「读取登录账号」→ 返回真实账号名
 5. 验收结果记入 GitHub Issue #1
+
+## 8. Codex 额度恢复后重试记录（2026-10-23）
+
+**结论：BLOCKED_NETWORK —— 额度状态无法判定。** 两次真实调用均失败于网络层，日志中无 "usage limit" / "try again at" 字样（请求未到达后端额度检查环节），也无任何模型输出（无分支名/commit hash）。网关全链路验证未执行（前置条件「额度恢复」未满足），guide §3 场景 2 状态列未更新。如实记录，不做任何伪造。
+
+### 调用命令（两次相同）
+
+```
+cd F:/Gorgon-Parallel/v3i
+echo "" | timeout 150 "C:/Users/lin/AppData/Local/OpenAI/Codex/bin/a96ca4c1eee0cf35/codex.exe" exec --sandbox read-only "report the current git branch and HEAD commit of this repository, one line only"
+```
+
+### 尝试 1（2026-10-23 02:12 GMT+8）
+
+- 退出码 124（150s timeout 强杀）
+- 真实错误（节选）：
+  - `rmcp::transport::worker: worker quit with fatal: Transport channel closed, when UnexpectedServerResponse("HTTP 403: {\"error\":{\"code\":\"403\",\"message\":\"Forbidden\",\"id\":\"hnd1::stv69-1792692724342-b2bf37c13caf\"}}")`
+  - `rmcp::transport::worker: http/request failed: error sending request for url (https://chatgpt.com/backend-api/ps/mcp)`（多次）
+  - `Reconnecting... 2/5 → 5/5`（重连耗尽）
+  - `Falling back from WebSockets to HTTPS transport. workspace routing discovery timed out`
+- 无模型输出
+
+### 尝试 2（2026-10-23 02:17 GMT+8）
+
+- 退出码 124，错误与尝试 1 完全同型（HTTP 403 id `hnd1::stv69-1792693052840-48d222add95c`、chatgpt.com backend-api 请求失败、Reconnecting 5/5 耗尽）
+- 无模型输出
+
+### 网络环境诊断（真实探测，2026-10-23 02:13–02:20 GMT+8）
+
+- Clash 代理 127.0.0.1:7890 **未监听**（netstat 无 LISTENING 条目，无 clash/verge/mihomo/v2ray 进程）
+- chatgpt.com 直连：连接超时（10s 无响应）
+- chatgpt.com DNS 解析疑似被污染：`108.160.165.141`（Dropbox 网段）、`2a03:2880:f10c:83:face:b00c:0:25de`（Facebook IPv6），非 ChatGPT 真实地址
+- auth.openai.com → 403 Forbidden；api.openai.com → 超时
+- 对照组：api.github.com / github.com 直连 200，www.baidu.com 200（网络本身可用，仅 OpenAI 系不可达）
+
+### 后续
+
+需先恢复 Clash 代理（127.0.0.1:7890）或更换可用网络出口，再重跑本节命令；出现真实模型输出（分支名/commit hash）后，继续网关全链路验证（GORGON_GATEWAY_STATE_DIR + agent-gateway.mjs + POST /v1/runs → 轮询 run.status）。
