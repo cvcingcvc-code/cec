@@ -15,10 +15,24 @@ import { SKILL_IDS } from "./skills/registry.js";
 export const MAX_SKILLS_PER_TASK = 3;
 
 // Fixed keyword tables. Order here defines the canonical output order.
+//
+// V3M (P0 任务路由): the search rule now splits VERB keywords (找/搜索/查询 —
+// an explicit request to go find something) from NOUN keywords (活动/比赛 —
+// a topic that merely APPEARS in the goal). A noun hit alone must NOT force
+// the task online: "整理比赛报名资料清单" mentions 比赛 but the actual intent
+// is a local extract/organize job. Rule:
+//   * verb hit                    → search triggers as before;
+//   * noun-only hit               → search triggers ONLY when no other rule
+//     (extract / plan / summarize / write) also matched the goal;
+//   * verb + noun                 → search triggers as before.
+// This keeps "找上海的活动" online while making offline-local goals stay
+// offline-local. The same input still always yields the same output.
+
 const RULES = [
   {
     id: "search",
-    keywords: ["找", "搜索", "查一下", "查询", "哪里", "有哪些", "活动", "机会", "黑客松", "比赛", "附近", "最近", "检索", "搜"],
+    verbs: ["找", "搜索", "查一下", "查询", "哪里", "有哪些", "附近", "最近", "检索", "搜"],
+    nouns: ["活动", "机会", "黑客松", "比赛"],
   },
   {
     // V3H: added 准备/清单/事项/整理 — "帮我整理准备事项" / "面试准备" used to
@@ -64,12 +78,34 @@ export function routeTask(input = {}) {
   const matched = [];
   const reasons = [];
 
-  // Filter RULES to those whose keywords actually appear (stable order).
+  // First pass: match every NON-search rule (stable order).
+  let searchVerbHits = [];
+  let searchNounHits = [];
+  const otherMatched = [];
   for (const rule of RULES) {
+    if (rule.id === "search") {
+      searchVerbHits = rule.verbs.filter((k) => raw.includes(k));
+      searchNounHits = rule.nouns.filter((k) => raw.includes(k));
+      continue;
+    }
     const hits = rule.keywords.filter((k) => raw.includes(k));
     if (hits.length) {
+      otherMatched.push(rule.id);
       matched.push(rule.id);
       reasons.push(`检测到「${hits.join("、")}」→ ${rule.id}`);
+    }
+  }
+
+  // Second pass: the search rule — verbs always trigger; nouns only trigger
+  // when no local-intent rule already matched (V3M P0 routing fix).
+  const searchHits = searchVerbHits.length
+    ? searchVerbHits.concat(searchNounHits)
+    : (searchNounHits.length && otherMatched.length === 0 ? searchNounHits : []);
+  if (searchHits.length) {
+    matched.unshift("search");
+    reasons.unshift(`检测到「${searchHits.join("、")}」→ search`);
+    if (searchVerbHits.length === 0 && searchNounHits.length) {
+      reasons.push(`「${searchNounHits.join("、")}」仅为话题词，未伴随检索动作且无本地整理/规划意图时才触发在线搜索`);
     }
   }
 

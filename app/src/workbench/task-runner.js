@@ -9,6 +9,18 @@
 // Flow (§18/§19):
 //   created ─▶ planning ─(route)─▶ ready ─▶ running ─▶ completed | failed
 //
+// V3M (P0 部分成功): a failed skill no longer aborts the whole run. Every
+// routed skill still executes at most once and in stable order, but a
+// failure now marks THAT step failed and continues with the remaining
+// skills. Final state:
+//   * all succeeded                          → completed
+//   * some failed, at least one succeeded    → failed + partial:true
+//     (the partial result / successful steps are PRESERVED, and the
+//      failureReason records exactly which skills failed + their codes)
+//   * every skill failed                     → failed (as before)
+//   * a skill is NOT REGISTERED              → hard abort (config error, not
+//     a runtime failure — continuing would hide a broken engine)
+//
 // Determinism & safety (§48/§49):
 //   * Router runs exactly ONCE per run.
 //   * Each skill executes at most once, in a fixed, stable order.
@@ -163,12 +175,15 @@ export async function runTask(taskId, options = {}) {
   const previousResults = [];
   const previousSources = [];
   const aggregated = [];
+  const failures = []; // V3M: [{skillId, code, message}] — every failed skill
   let failed = false;
   let failureReason = null;
 
   for (const sid of skillIds) {
     const skill = registry.getSkill(sid);
     if (!skill) {
+      // NOT-registered is a config/engine error, not a runtime failure:
+      // continuing would hide a broken engine behind a partial result.
       repository.appendTimelineEvent(
         taskId, "skill_failed", `工具「${sid}」未注册`, { skillId: sid },
       );
@@ -178,6 +193,13 @@ export async function runTask(taskId, options = {}) {
     }
 
     const step = baseTask.steps.find((s) => s.metadata && s.metadata.skillId === sid);
+    // V3M: a skill that comes after a real failure still runs — record that
+    // it was NOT skipped by the engine (honest timeline).
+    if (failures.length && step) {
+      repository.appendTimelineEvent(
+        taskId, "skill_skipped_none", `继续执行：${skill.name}（前序有 ${failures.length} 个工具失败）`, { skillId: sid },
+      );
+    }
     repository.appendTimelineEvent(
       taskId, "skill_started", `开始执行：${skill.name}`, { skillId: sid },
     );
@@ -224,18 +246,50 @@ export async function runTask(taskId, options = {}) {
       repository.appendTimelineEvent(
         taskId, "skill_failed", `失败：${skill.name} — ${errMsg}`, { skillId: sid, code: errCode },
       );
+      // V3M: record the failure and CONTINUE with the remaining skills. The
+      // step stays failed; later skills still get their chance to produce a
+      // usable partial result. No break here (except for the unregistered
+      // hard-abort above).
+      failures.push({ skillId: sid, code: errCode, message: errMsg });
       failed = true;
       failureReason = errMsg;
-      break;
     }
   }
 
   // §22: single skill → its result; multi → workflow_result envelope.
+  // V3M: with failures, the workflow envelope keeps BOTH the successful
+  // outputs AND the failure records, so a partial run is still useful and
+  // honest (failed skills appear in content with ok:false entries).
   const finalResult = skillIds.length === 1
     ? (aggregated[0] ? aggregated[0].result : null)
-    : { type: "workflow_result", content: aggregated };
+    : {
+      type: "workflow_result",
+      content: aggregated.concat(failures.map((f) => ({
+        skillId: f.skillId, result: null, failed: true, code: f.code, error: f.message,
+      }))),
+    };
 
   if (finalResult) repository.setTaskResult(taskId, finalResult);
+
+  // V3M: partial-success bookkeeping. When some skills failed but others
+  // succeeded, the failed task keeps its partial result AND the timeline
+  // records a task_execution_partial event (plus a retry hint event) so the
+  // user can see what to re-run without losing what already worked.
+  const succeededCount = aggregated.length;
+  const failedCount = failures.length;
+  if (failed && failedCount > 0 && succeededCount > 0) {
+    const codes = failures.map((f) => `${f.skillId}:${f.code || "?"}`).join("、");
+    repository.appendTimelineEvent(
+      taskId, "task_execution_partial",
+      `部分成功：${succeededCount} 个工具完成，${failedCount} 个失败（${codes}）。已有结果已保留，可重试。`,
+      { skillIds, succeededCount, failedCount, failures },
+    );
+  }
+  // Enrich the failureReason with the structured codes (single failure keeps
+  // its original message; multi-failure lists them all).
+  if (failedCount > 1) {
+    failureReason = failures.map((f) => `${f.skillId}（${f.code || "未知"}）：${f.message}`).join("；");
+  }
 
   if (!failed) {
     repository.transitionTask(taskId, TASK_STATUS.COMPLETED, { at: now() });
@@ -250,6 +304,10 @@ export async function runTask(taskId, options = {}) {
     ok: true, executed: true,
     task: repository.getTask(taskId),
     routed: route, failed, failureReason,
+    // V3M: structured partial-success info for callers (UI/retry entry).
+    partial: failed && failedCount > 0 && succeededCount > 0,
+    failures,
+    retryableSkillIds: failures.map((f) => f.skillId),
   };
 }
 
