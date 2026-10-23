@@ -71,6 +71,10 @@ function manualRoute(ids) {
  *   search     : fn passed to the search skill as deps.search (real API client)
  *   aiClient   : OPT-IN AI client; when omitted every skill stays deterministic
  *   skillIds   : forced skill list (manual selection / re-run), overrides router
+ *   retryFailedOnly : V3N (P0 失败恢复) — when true, `skillIds` entries whose
+ *                step already COMPLETED are skipped (NOT re-executed, NOT
+ *                re-consumed). Used by the "重试失败步骤" recovery path so a
+ *                retry never re-does the parts that already succeeded.
  *   now        : () => timestamp string
  * @returns {Promise<{ok:boolean, executed?:boolean, task?:object,
  *                     routed?:object, failed?:boolean, failureReason?:string,
@@ -103,6 +107,10 @@ export async function runTask(taskId, options = {}) {
   const forced = Array.isArray(options.skillIds) && options.skillIds.length
     ? options.skillIds.slice()
     : null;
+  // V3N (P0 失败恢复): when retryFailedOnly is set, steps that already
+  // completed are dropped from the forced list — a retry re-runs ONLY the
+  // failed skills and never re-consumes a completed step.
+  const retryFailedOnly = options.retryFailedOnly === true;
 
   let skillIds = [];
   let route = null;
@@ -152,7 +160,29 @@ export async function runTask(taskId, options = {}) {
         message: "请选择要执行的工具", task: repository.getTask(taskId),
       };
     }
-    route = manualRoute(forced);
+    // V3N: recovery path — drop skills whose step already completed so a
+    // retry never re-executes (or re-consumes) a successful step.
+    const cur0 = repository.getTask(taskId);
+    const doneSkills = new Set(cur0.steps
+      .filter((s) => s.status === "completed" && s.metadata && s.metadata.skillId)
+      .map((s) => s.metadata.skillId));
+    let requested = manualRoute(forced);
+    if (retryFailedOnly) {
+      const remaining = requested.skillIds.filter((sid) => !doneSkills.has(sid));
+      if (remaining.length === 0) {
+        return {
+          ok: true, executed: false, reason: "all_steps_already_done",
+          message: "失败的步骤都已恢复完成，没有需要重试的内容", task: cur0,
+        };
+      }
+      requested = { intent: "manual", skillIds: remaining, confidence: 1, reasons: ["重试失败的步骤（已完成部分不重做）"] };
+      repository.appendTimelineEvent(
+        taskId, "retry_started",
+        `重试 ${remaining.length} 个失败步骤（已完成部分不重做）`,
+        { retryFailedOnly: true, remaining },
+      );
+    }
+    route = requested;
     skillIds = route.skillIds;
     const cur = repository.getTask(taskId);
     for (const sid of skillIds) {
@@ -277,6 +307,19 @@ export async function runTask(taskId, options = {}) {
   // user can see what to re-run without losing what already worked.
   const succeededCount = aggregated.length;
   const failedCount = failures.length;
+  // V3N: persist the recovery hints onto the task metadata so the UI (detail
+  // screen / retry button) can offer "重试失败步骤" after a restart, not just
+  // in the same session. Purity: metadata only — status/transition untouched.
+  if (failed && failures.length) {
+    const curMeta = repository.getTask(taskId).metadata || {};
+    repository.updateTask(taskId, {
+      metadata: Object.assign({}, curMeta, {
+        executionFailures: failures,
+        retryableSkillIds: failures.map((f) => f.skillId),
+        partial: failedCount > 0 && succeededCount > 0,
+      }),
+    });
+  }
   if (failed && failedCount > 0 && succeededCount > 0) {
     const codes = failures.map((f) => `${f.skillId}:${f.code || "?"}`).join("、");
     repository.appendTimelineEvent(
