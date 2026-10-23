@@ -15,14 +15,14 @@
 import React from "react";
 import {
   ArrowLeft, ArrowRight, ArrowUpRight, BadgeCheck, BatteryFull, Bell, Bot, Calendar, CalendarClock,
-  CalendarHeart, Check, ChevronLeft, ChevronRight, Clock, Compass, Download,
+  CalendarHeart, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, Compass, Download,
   ExternalLink,
   FileCheck, Files, Flag, FlaskConical, FolderKanban, FolderPlus, GitBranch, GitMerge,
-  Globe, Heart, HeartOff, Hexagon, History, Image as ImageIcon, ImageOff, Info, LayoutDashboard, Link,
-  ListPlus, ListTodo, LocateFixed, Map, MapPin, MapPinOff, Menu, Navigation,
+  Globe, Heart, HeartOff, Hexagon, History, Image as ImageIcon, ImageOff, Info, Laptop, LayoutDashboard, Link,
+  ListChecks, ListPlus, ListTodo, LocateFixed, Map, MapPin, MapPinOff, Menu, Navigation,
   NotebookPen, Pencil, Play, Plus, PlugZap, RotateCcw, Search, SearchX, Settings,
   Share2, ShieldAlert, ShieldCheck, Signal, SlidersHorizontal, Sparkles, Target,
-  Ticket, Trash2, TrendingUp, TriangleAlert, Users, Wifi, X,
+  Ticket, Trash2, TrendingUp, TriangleAlert, Trophy, Users, Wifi, X,
 } from "lucide-react";
 
 const ICONS = {
@@ -95,6 +95,11 @@ const ICONS = {
   "target": Target,
   "trash-2": Trash2,
   "x": X,
+  // V2.4 (feat/hackathon-discovery-v1)
+  "trophy": Trophy,
+  "list-checks": ListChecks,
+  "clipboard": ClipboardList,
+  "laptop": Laptop,
 };
 
 /**

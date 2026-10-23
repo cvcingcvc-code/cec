@@ -475,6 +475,15 @@ export function toView(rec, extra) {
   const sources = extra.sources || (extra.provenance || []).map((p) => p.source)
     .filter((s, i, arr) => s && arr.indexOf(s) === i);
 
+  // V2.4 hackathon-discovery (ADDITIVE): hackathon/AI-event fields. Legacy
+  // records and pipeline output carry none of these — they all normalize to
+  // null and the UI renders "待定"/hides the block. Never invented.
+  const mode = MODES.indexOf(rec.mode) >= 0 ? rec.mode : null;
+  const registrationDeadline =
+    typeof rec.registrationDeadline === "string" && !isNaN(Date.parse(rec.registrationDeadline))
+      ? rec.registrationDeadline
+      : null;
+
   return {
     __view: true,
     id: rec.id,
@@ -540,7 +549,122 @@ export function toView(rec, extra) {
 
     agenda: [].concat(rec.agenda || []),
     demo: !!rec.demo,
+
+    // V2.4 hackathon-discovery (ADDITIVE — null when the record lacks them)
+    mode,
+    modeLabel: mode ? MODE_LABEL[mode] : null,
+    registrationDeadline,
+    deadlineCountdown: deadlineCountdown(registrationDeadline),
+    prize: rec.prize == null ? null : String(rec.prize),
+    prizeType: rec.prizeType === "cash" ? "cash" : null,
+    eligibility: rec.eligibility == null ? null : String(rec.eligibility),
+    teamSize: rec.teamSize == null ? null : String(rec.teamSize),
   };
+}
+
+/* ── V2.4 hackathon-discovery helpers (ADDITIVE, pure) ────────────── */
+
+// The only mode vocabulary the UI renders. Existing records have no `mode`
+// and normalize to null ("形式待定").
+export const MODES = ["online", "offline", "hybrid"];
+export const MODE_LABEL = { online: "线上", offline: "线下", hybrid: "线上+线下" };
+
+/**
+ * "2026-10-26T23:59:00+08:00" -> a human countdown label.
+ *   > 48h   -> "X天后截止"
+ *   ≤ 48h   -> "X小时后截止"
+ *   today   -> "今天截止"
+ *   past    -> "已截止"
+ *   null/invalid -> null (the caller hides the badge — never a guess)
+ */
+export function deadlineCountdown(deadline, now) {
+  if (!deadline) return null;
+  const t = Date.parse(deadline);
+  if (!Number.isFinite(t)) return null;
+  const ref = now != null ? (now instanceof Date ? now.getTime() : Date.parse(now)) : Date.now();
+  if (!Number.isFinite(ref)) return null;
+  const diff = t - ref;
+  if (diff <= 0) return "已截止";
+  const hours = Math.floor(diff / 3600000);
+  if (hours < 1) return "1小时内截止";
+  if (hours < 24) return hours + "小时后截止";
+  const days = Math.floor(hours / 24);
+  return days + "天后截止";
+}
+
+/** Deadline has passed? null deadline -> false (never blocked by unknown). */
+export function isDeadlinePassed(deadline, now) {
+  if (!deadline) return false;
+  const t = Date.parse(deadline);
+  if (!Number.isFinite(t)) return false;
+  const ref = now != null ? (now instanceof Date ? now.getTime() : Date.parse(now)) : Date.now();
+  return Number.isFinite(ref) && t < ref;
+}
+
+/**
+ * Structural filter for the hackathon discovery lists. Every criterion is
+ * optional; an absent/empty criterion filters nothing. `timeframe`:
+ * "upcoming" (ends today or later, inclusive), "open" (deadline not passed),
+ * "thisWeek" (starts within 7 days). `query` matches title/tags/description.
+ * `city` is an exact match on the record's city (null-city records match any
+ * city filter only when `includeUnknownCity` is true, default true — an
+ * online event has no city and must not vanish under 上海).
+ */
+export function filterActivities(list, { city, mode, category, timeframe, query, includeUnknownCity = true } = {}) {
+  let out = (list || []).slice();
+  if (category && category !== "all") {
+    out = out.filter((a) => a.category === category || (a.category == null && category === "all"));
+  }
+  if (mode && MODES.indexOf(mode) >= 0) {
+    out = out.filter((a) => a.mode === mode);
+  }
+  if (city) {
+    out = out.filter((a) => a.city === city || (a.city == null && includeUnknownCity));
+  }
+  if (timeframe === "upcoming") {
+    out = out.filter((a) => {
+      const end = a.endDate || a.startDate;
+      if (!end) return true; // unknown schedule stays visible, honestly
+      const endT = parseIso(end);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return !endT || endT >= today;
+    });
+  } else if (timeframe === "open") {
+    out = out.filter((a) => !isDeadlinePassed(a.registrationDeadline));
+  } else if (timeframe === "thisWeek") {
+    out = out.filter((a) => {
+      if (!a.startDate) return true;
+      const startT = parseIso(a.startDate);
+      if (!startT) return true;
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const in7 = new Date(today.getTime() + 7 * 86400000);
+      return startT >= today && startT <= in7;
+    });
+  }
+  if (query && String(query).trim()) {
+    const q = String(query).trim().toLowerCase();
+    out = out.filter((a) => {
+      const hay = [a.title, a.description, (a.tags || []).join(" "), a.city, a.organizer]
+        .filter(Boolean).join(" ").toLowerCase();
+      return hay.indexOf(q) >= 0;
+    });
+  }
+  return out;
+}
+
+/** Sort key: "deadline" puts open events first by soonest deadline, then closed. */
+export function sortByDeadline(list, now) {
+  const view = (list || []).slice();
+  const key = (a) => {
+    const t = a.registrationDeadline ? Date.parse(a.registrationDeadline) : NaN;
+    const passed = isDeadlinePassed(a.registrationDeadline, now);
+    if (Number.isFinite(t) && !passed) return t;          // open, soonest first
+    if (Number.isFinite(t) && passed) return t + 8e15;    // closed, sink to the end
+    return 9e15;                                          // unknown deadline last
+  };
+  return view.sort((a, b) => key(a) - key(b));
 }
 
 /* ── Timeline helpers (My Weekend) ────────────────────────────────── */

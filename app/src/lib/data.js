@@ -22,6 +22,10 @@ import "../../../ui_kits/app/data.js";
 import "../../../ui_kits/app/generated-data.js";
 import "../../../ui_kits/app/generated-search-demo.js";
 import { readCachedDataset, stampDemoFlags } from "./data-sync.js";
+// V2.4 hackathon-discovery: curated real hackathon/AI events. ADDITIVE —
+// they extend the activity list, never replace any existing source.
+import { validatedHackathons } from "../data/hackathons.js";
+import { HACKATHONS } from "../data/hackathons.js";
 
 const data = window.GORGON_DATA;
 let gen = window.GORGON_GENERATED_DATA;
@@ -49,6 +53,21 @@ if (synced && Array.isArray(synced.activities) && synced.activities.length > 0
   data.activities = synced.activities;
   data.generatedAt = synced.generatedAt || data.generatedAt;
   data.syncedFromServer = true;
+}
+
+// V2.4 hackathon-discovery: merge the curated hackathon dataset in LAST.
+// Pipeline output / synced dataset / the data.js fallback all stay first;
+// hackathons only ADD records (id-deduped) and never remove any. Runs
+// regardless of which base is active so discovery works in every mode.
+if (data && typeof data === "object" && Array.isArray(data.activities)) {
+  const curated = validatedHackathons(HACKATHONS);
+  const seen = {};
+  data.activities.forEach((a) => { if (a && a.id != null) seen[String(a.id)] = true; });
+  const additions = curated.filter((a) => !seen[a.id]);
+  if (additions.length) {
+    data.activities = data.activities.concat(additions);
+    data.hackathonsMerged = true;
+  }
 }
 
 export const GORGON_DATA = data;

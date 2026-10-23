@@ -36,6 +36,8 @@ import { ScheduleScreen } from "./screens/ScheduleScreen.jsx";
 import { NotesScreen } from "./screens/NotesScreen.jsx";
 import { AgentScreen } from "./screens/AgentScreen.jsx";
 import { UserActivitiesScreen } from "./screens/UserActivitiesScreen.jsx";
+// V2.4 (feat/hackathon-discovery-v1): AI hackathon match screen.
+import { MatchScreen } from "./screens/MatchScreen.jsx";
 import { ReviewCenterScreen } from "./screens/ReviewCenterScreen.jsx";
 import { HistoryScreen } from "./screens/HistoryScreen.jsx";
 import { SettingsScreen } from "./screens/SettingsScreen.jsx";
@@ -796,6 +798,17 @@ export default function App() {
 
   const handleExportICS = (activityId, view) => WBStore.exportICS(activityId, view);
 
+  // V2.4 (feat/hackathon-discovery-v1): AI 匹配结果 → 报名准备清单。
+  // The prepList from match-model goes into the SAME registration record
+  // (setPrep), so 发现→匹配→准备 stays one honest loop. The activity must
+  // exist in the merged dataset; nothing is invented for a missing id.
+  const handleMatchUsePrep = (activity, prepList) => {
+    if (!activity || !activity.id || !Array.isArray(prepList)) return;
+    const items = prepList.map((title) => ({ title: String(title), done: false }));
+    WBStore.setPrep(activity.id, items, null);
+    setWbLog(WBStore.getLog());
+  };
+
   /** Module C UI: prep checklist — seed (null) / add (text) / toggle (id+done). */
   const handlePrepAdd = (activityId, text) => {
     const view = asView(activityId);
@@ -1130,6 +1143,11 @@ export default function App() {
         onCreate={handleCreateUserAct} onRemove={handleRemoveUserAct}
         onSync={handleSyncUserAct} onCreateProject={handleCreateProjectFromUserAct}
         onExecute={handleExecuteUserAct} tasks={wbTasks} />
+    ),
+    match: (
+      <MatchScreen activities={(GORGON_DATA.activities || []).filter((a) => !a.demo)}
+        onOpen={(view) => { setDetail(view); }}
+        onUsePrep={handleMatchUsePrep} flash={flash} />
     ),
     progress: (
       <ProgressCenterScreen data={progressCenterData} onOpenProject={openProjectDetail} />
