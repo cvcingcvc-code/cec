@@ -89,8 +89,9 @@ function intentLabel(router) {
   return skillName(router.intent);
 }
 
-// The 5 deterministic skills a user may pick manually (§27). Order matters.
-const MANUAL_SKILLS = ["search", "summarize", "extract", "plan", "write"];
+// The deterministic skills a user may pick manually (§27). Order matters.
+// V3N: activity-checklist joins (搜索活动→筛选→生成清单 closed loop).
+const MANUAL_SKILLS = ["search", "summarize", "extract", "plan", "write", "activity-checklist"];
 
 // V3J timezone fix: UTC ISO instant → LOCAL "YYYY-MM-DDTHH:mm" (datetime-local
 // shape). dueAt is stored as a UTC ISO; slicing the string directly treated the

@@ -175,7 +175,7 @@ export function WorkbenchHome({ tasks, onCreateTask, onSubmitGoal = null, submit
               {runningTasks.slice(0, 3).map((t) => (
                 <button type="button" key={t.id} className="v3k-home-row v3k-panel" data-testid="workbench-home-running-item"
                   onClick={() => onOpenTask && onOpenTask(t.id)} disabled={!onOpenTask}>
-                  <span className="v3k-home-row-icon"><Icon name="loader" /></span>
+                  <span className="v3k-home-row-icon"><Icon name="clock" /></span>
                   <span className="v3k-home-row-copy"><strong>{t.title}</strong><span>提交后自动处理中，无需再次点击</span></span>
                   <span className="v3k-home-task-status" data-status={t.status}>{SHARED_LABELS[t.status] || t.status}</span>
                 </button>

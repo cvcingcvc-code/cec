@@ -35,6 +35,17 @@ const RULES = [
     nouns: ["活动", "机会", "黑客松", "比赛"],
   },
   {
+    // V3N (P1 closed loop, §5 scenario 2): 搜索真实活动→筛选→生成清单.
+    // Triggers ONLY on a retrieval verb + activity noun + list intent —
+    // a plain「找活动」stays on the search skill; this skill is for goals
+    // that explicitly ask for a filtered, source-carrying participation
+    // checklist.
+    id: "activity-checklist",
+    verbs: ["找", "搜索", "查询", "有哪些", "检索"],
+    nouns: ["活动", "机会", "黑客松", "比赛", "展览", "讲座", "会议"],
+    intents: ["清单", "筛选", "报名清单", "参加清单", "参加名单"],
+  },
+  {
     // V3H: added 准备/清单/事项/整理 — "帮我整理准备事项" / "面试准备" used to
     // fall through to unknown (extract had no keyword to hit), leaving the
     // scenario-A goal with zero engine steps.
@@ -56,7 +67,7 @@ const RULES = [
 ];
 
 // Lower number = higher priority when trimming to MAX_SKILLS_PER_TASK.
-const PRIORITY = { search: 0, extract: 1, plan: 2, summarize: 3, write: 4 };
+const PRIORITY = { search: 0, extract: 1, plan: 2, summarize: 3, write: 4, "activity-checklist": 0 };
 
 // Keep only the highest-priority skills when more than the cap are matched.
 function trimToCap(skillIds, cap) {
@@ -82,10 +93,24 @@ export function routeTask(input = {}) {
   let searchVerbHits = [];
   let searchNounHits = [];
   const otherMatched = [];
+  // V3N: the activity-checklist rule needs verb+noun+intent to ALL hit.
+  let checklistHits = [];
   for (const rule of RULES) {
     if (rule.id === "search") {
       searchVerbHits = rule.verbs.filter((k) => raw.includes(k));
       searchNounHits = rule.nouns.filter((k) => raw.includes(k));
+      continue;
+    }
+    if (rule.id === "activity-checklist") {
+      const v = rule.verbs.filter((k) => raw.includes(k));
+      const n = rule.nouns.filter((k) => raw.includes(k));
+      const i = rule.intents.filter((k) => raw.includes(k));
+      if (v.length && n.length && i.length) {
+        checklistHits = v.concat(n, i);
+        otherMatched.push(rule.id);
+        matched.push(rule.id);
+        reasons.push(`检测到「${checklistHits.join("、")}」→ 活动检索+筛选清单`);
+      }
       continue;
     }
     const hits = rule.keywords.filter((k) => raw.includes(k));
@@ -98,9 +123,15 @@ export function routeTask(input = {}) {
 
   // Second pass: the search rule — verbs always trigger; nouns only trigger
   // when no local-intent rule already matched (V3M P0 routing fix).
-  const searchHits = searchVerbHits.length
+  // V3N: when activity-checklist matched, the standalone search skill is
+  // REDUNDANT (the checklist skill does its own retrieval) — drop it so the
+  // task doesn't search twice.
+  let searchHits = searchVerbHits.length
     ? searchVerbHits.concat(searchNounHits)
     : (searchNounHits.length && otherMatched.length === 0 ? searchNounHits : []);
+  if (searchHits.length && matched.includes("activity-checklist")) {
+    searchHits = [];
+  }
   if (searchHits.length) {
     matched.unshift("search");
     reasons.unshift(`检测到「${searchHits.join("、")}」→ search`);
