@@ -152,10 +152,18 @@ async function desktopChain() {
       return document.querySelectorAll('.gg-disc-card').length === 0;`);
     check("Phase 2: no fake legacy cards on the workbench boot", noFakeCards);
 
-    // legacy contract: /?legacy=1 still boots discover (§17/§18)
+    // legacy contract: /?legacy=1 still boots discover (§17/§18).
+    // Note: Discover defaults to 未来7天 recency; when the bundled snapshot is
+    // older than 7 days relative to the test clock, switching the time window
+    // to 全部 verifies the archived dataset renders without fabricating dates.
     await s.goto(BASE + "/?legacy=1");
     await s.waitFor(`!!document.querySelector('[data-gg-shell]')`);
-    const legacyCards = await s.waitFor(`document.querySelectorAll('.gg-disc-card').length > 0`);
+    await s.waitFor(`!!document.querySelector('[data-gg-screen="discover"]')`);
+    let legacyCards = await s.eval(`return document.querySelectorAll('.gg-disc-card').length > 0;`);
+    if (!legacyCards) {
+      await s.click(`[...document.querySelectorAll('[data-gg-screen="discover"] button')].filter(b => b.textContent.trim() === '全部').pop()`);
+      legacyCards = await s.waitFor(`document.querySelectorAll('.gg-disc-card').length > 0`);
+    }
     check("legacy=1 boots the real Discover cards (contract)", legacyCards);
     const navs = await s.eval(`
       return ['discover','search','smart','weekend','map'].every(k =>
@@ -414,9 +422,18 @@ async function desktopChain() {
 
     // ── legacy deep paths still work after all the shell work ──────
     await s.click(`document.querySelector('[data-gg-nav="discover"]')`);
-    const backToDiscover = await s.waitFor(`document.querySelectorAll('.gg-disc-card').length > 0`);
+    await s.waitFor(`!!document.querySelector('[data-gg-screen="discover"]')`);
+    let backToDiscover = await s.eval(`return document.querySelectorAll('.gg-disc-card').length > 0;`);
+    if (!backToDiscover) {
+      await s.click(`[...document.querySelectorAll('[data-gg-screen="discover"] button')].filter(b => b.textContent.trim() === '全部').pop()`);
+      backToDiscover = await s.waitFor(`document.querySelectorAll('.gg-disc-card').length > 0`);
+    }
     check("legacy discover still reachable from workbench sidebar", backToDiscover);
 
+    // Return to Gorgon Lite home before capturing the canonical desktop screenshot
+    await s.click(`document.querySelector('[data-workbench-nav="home"]')`);
+    await s.waitFor(`!!document.querySelector('[data-gg-screen="workbench-home"]')`);
+    await sleep(250);
     await s.shot(path.join(REPO, "docs", "screenshots", "workbench-desktop-1440.png"));
     const errs = appErrors(s);
     check("desktop: console errors = 0", errs.length === 0, errs.slice(0, 2).join(" | ").slice(0, 200));
@@ -432,41 +449,60 @@ async function mobileChain() {
   await setViewport(s, 390, 844);
   try {
     await gotoHome(s);
-    // boot tab is still the legacy discover on mobile
     const boot = await s.waitFor(`!!document.querySelector('[data-gg-shell="mobile"]')`);
     check("mobile 390: shell boots", boot);
     const tabbar = await s.waitFor(`!!document.querySelector('[data-gg-region="tabbar"]')`);
     check("mobile 390: tabbar present", tabbar);
-    // 搜索 tab (E2E contract label) still switches to the search screen
-    await s.click(`[...document.querySelectorAll('[data-gg-region="tabbar"] button')].find(b => b.innerText.includes('搜索'))`);
-    const searchUp = await s.waitFor(`!!document.querySelector('[data-gg-screen="search"]')`);
-    check("mobile 390: legacy 搜索 tab still switches screens", searchUp);
 
-    // workbench home via the tabbar
-    await s.click(`document.querySelector('[data-gg-region="tabbar"] [data-workbench-nav="home"]')`);
-    const homeUp = await s.waitFor(`!!document.querySelector('[data-gg-screen="workbench-home"]')`);
-    check("mobile 390: workbench home reachable from tabbar", homeUp);
+    // Gorgon Lite: strictly 3 primary bottom tabs (首页 / 任务 / 智能体), >=48px touch floor
+    const tabInfo = await s.eval(`
+      const btns = [...document.querySelectorAll('[data-gg-region="tabbar"] button')];
+      return {
+        labels: btns.map(b => b.textContent.trim()).join('/'),
+        touchOk: btns.every(b => { const r = b.getBoundingClientRect(); return r.width >= 48 && r.height >= 48; }),
+      };`);
+    check("mobile 390: Lite 3 primary tabs (首页/任务/智能体) + >=48px targets",
+      tabInfo.labels === "首页/任务/智能体" && tabInfo.touchOk, JSON.stringify(tabInfo));
 
-    // drawer exposes more entries
-    await s.click(`[...document.querySelectorAll('[data-gg-region="tabbar"] button')].find(b => b.innerText.includes('更多'))`);
+    // Switch across all 3 primary tabs and verify zero horizontal overflow across 360/390/412px
+    for (const width of [360, 390, 412]) {
+      await setViewport(s, width, 844);
+      for (const [key, screen] of [["home", "workbench-home"], ["tasks", "workbench-tasks"], ["agent", "workbench-agent"]]) {
+        await s.click(`document.querySelector('[data-gg-region="tabbar"] [data-workbench-nav="${key}"]')`);
+        await s.waitFor(`!!document.querySelector('[data-gg-screen="${screen}"]')`);
+        await sleep(120);
+        const noOverflow = await s.eval(`return document.documentElement.scrollWidth <= window.innerWidth + 1;`);
+        check(`mobile ${width}: ${key} has no horizontal overflow`, noOverflow);
+      }
+    }
+    await setViewport(s, 390, 844);
+
+    // Top-bar secondary tools sheet opens preserved data views (日程/笔记/项目/记录/人工确认)
+    await s.click(`document.querySelector('[data-testid="lite-tools-trigger"]')`);
     const drawer = await s.waitFor(`!!document.querySelector('[data-testid="workbench-more-drawer"]')`);
-    check("mobile 390: 更多 drawer opens", drawer);
-    const mapInDrawer = await s.eval(`
-      const d = document.querySelector('[data-testid="workbench-more-drawer"]');
-      return !!d && !!d.querySelector('[data-gg-nav="map"]');`);
-    check("mobile 390: drawer keeps legacy map reachable", mapInDrawer);
+    check("mobile 390: top 工具 button opens secondary data sheet", drawer);
     await s.click(`document.querySelector('[data-testid="workbench-more-drawer"] [data-workbench-nav="review"]')`);
     const reviewUp = await s.waitFor(`!!document.querySelector('[data-gg-screen="workbench-review"]')`);
-    check("mobile 390: drawer opens review center", reviewUp);
+    check("mobile 390: secondary sheet opens review center", reviewUp);
 
-    // no horizontal overflow on workbench home
-    await s.click(`document.querySelector('[data-gg-region="tabbar"] [data-workbench-nav="home"]')`);
+    // Settings reachable from top bar; archived legacy modules remain reachable (data preserved)
+    await s.click(`document.querySelector('[data-testid="lite-mobile-header"] [data-workbench-nav="settings"]')`);
+    await s.waitFor(`!!document.querySelector('[data-gg-screen="workbench-settings"]')`);
+    await s.click(`document.querySelector('[data-testid="settings-open-archived-map"]')`);
+    const mapUp = await s.waitFor(`!!document.querySelector('[data-gg-screen="map"]')`);
+    check("mobile 390: archived map screen stays reachable via Settings", mapUp);
+
+    // Rollback contract: ?nav=classic restores pre-Lite 4-tab bar with 搜索
+    await s.goto(BASE + "/?nav=classic");
+    await s.waitFor(`!!document.querySelector('[data-gg-region="tabbar"]')`);
+    await s.click(`[...document.querySelectorAll('[data-gg-region="tabbar"] button')].find(b => b.innerText.includes('搜索'))`);
+    const searchUp = await s.waitFor(`!!document.querySelector('[data-gg-screen="search"]')`);
+    check("mobile 390: ?nav=classic rollback restores legacy 搜索 tab", searchUp);
+
+    // Return to clean Lite home for screenshot
+    await s.goto(BASE + "/");
     await s.waitFor(`!!document.querySelector('[data-gg-screen="workbench-home"]')`);
     await sleep(300);
-    const noOverflow = await s.eval(
-      `return document.documentElement.scrollWidth <= window.innerWidth + 1;`);
-    check("mobile 390: workbench home has no horizontal overflow", noOverflow);
-
     await s.shot(path.join(REPO, "docs", "screenshots", "workbench-mobile-390.png"));
     const errs = appErrors(s);
     check("mobile 390: console errors = 0", errs.length === 0, errs.slice(0, 2).join(" | ").slice(0, 200));

@@ -148,45 +148,28 @@ test("workbench nav maps 智能搜索 onto the legacy smart screen", () => {
   assert.equal(Nav.WORKBENCH_TO_LEGACY.search, "smart");
 });
 
-test("workbench tabs cover the shell surfaces", () => {
-  const keys = Nav.WORKBENCH_TABS.map((t) => t.key);
-  // Phase 4 (P0-A) adds "projects" — the project hub linking activities,
-  // tasks, schedule and notes. Module D UI adds "places" — the field-visit
-  // screen closing the P1 loop. V2.2 (Stage 4) adds "progress" — the
-  // cross-project plain-language progress center. V2.3 (Phase 2) adds
-  // "schedule" — the formal 周/月 calendar view. V2.3 (Phase 4) adds
-  // "notes" — the notes center (global search + export). V2.3 (Phase 5)
-  // adds "useract" — user-created activities (the honest real data source).
-  // V3 Phase A (Task #3/E) adds "agent" — the PC agent gateway entry
-  // (submit runs + view results, real execution, allowlist only).
-  // The rest is unchanged.
-  assert.deepEqual(keys, ["home", "projects", "progress", "tasks", "schedule", "notes", "places", "useract", "search", "agent", "review", "history"]);
+test("Gorgon Lite primary tabs are strictly 首页 / 任务 / 智能体", () => {
+  assert.deepEqual(Nav.WORKBENCH_TABS.map((t) => t.key), ["home", "tasks", "agent"]);
+  assert.deepEqual(Nav.MOBILE_TABS.map((t) => t.key), ["home", "tasks", "agent"]);
+  assert.deepEqual(Nav.MOBILE_TABS.map((t) => t.label), ["首页", "任务", "智能体"]);
   assert.equal(Nav.WORKBENCH_SETTINGS.key, "settings");
 });
 
-test("schedule tab is reachable on mobile via the more drawer (V2.3)", () => {
+test("secondary user-data views stay reachable via mobile tools sheet without duplicating primary tabs", () => {
   const keys = Nav.MOBILE_MORE_TABS.map((t) => t.key);
-  assert.ok(keys.includes("schedule"), "mobile more drawer must expose the schedule view");
+  for (const required of ["schedule", "notes", "projects", "history", "review", "settings"]) {
+    assert.ok(keys.includes(required), `mobile tools sheet must expose ${required}`);
+  }
+  for (const primary of ["home", "tasks", "agent"]) {
+    assert.equal(keys.includes(primary), false, `mobile tools sheet must not duplicate primary tab ${primary}`);
+  }
 });
 
-test("notes tab is reachable on mobile via the more drawer (V2.3 Phase 4)", () => {
-  const keys = Nav.MOBILE_MORE_TABS.map((t) => t.key);
-  assert.ok(keys.includes("notes"), "mobile more drawer must expose the notes center");
-});
-
-test("user activities tab is reachable on mobile via the more drawer (V2.3 Phase 5)", () => {
-  const keys = Nav.MOBILE_MORE_TABS.map((t) => t.key);
-  assert.ok(keys.includes("useract"), "mobile more drawer must expose user activities");
-});
-
-test("projects tab is reachable on mobile via the more drawer", () => {
-  const keys = Nav.MOBILE_MORE_TABS.map((t) => t.key);
-  assert.ok(keys.includes("projects"), "mobile more drawer must expose projects");
-});
-
-test("progress center is reachable on mobile via the more drawer (V2.2)", () => {
-  const keys = Nav.MOBILE_MORE_TABS.map((t) => t.key);
-  assert.ok(keys.includes("progress"), "mobile more drawer must expose the progress center");
+test("frozen/archived modules keep historical user data reachable via LITE_ARCHIVED_TABS", () => {
+  const archived = Nav.LITE_ARCHIVED_TABS.map((t) => t.key);
+  for (const frozen of ["useract", "places", "progress", "search", "weekend", "discover", "map"]) {
+    assert.ok(archived.includes(frozen), `archived list must retain ${frozen} so historical data stays accessible`);
+  }
 });
 
 test("sidebar keeps the legacy capability entries reachable", () => {
@@ -196,16 +179,16 @@ test("sidebar keeps the legacy capability entries reachable", () => {
   }
 });
 
-test("mobile tabbar keeps a tab whose label is 搜索 (E2E contract)", () => {
-  const searchTab = Nav.MOBILE_TABS.find((t) => t.label === "搜索");
-  assert.ok(searchTab, "mobile tabbar must keep a 搜索 tab");
-  assert.equal(searchTab.key, "search");
-});
-
-test("mobile 更多 drawer exposes the remaining legacy tabs", () => {
-  const keys = Nav.MOBILE_MORE_TABS.map((t) => t.key);
-  for (const k of ["smart", "weekend", "map"]) {
-    assert.ok(keys.includes(k), `more drawer must expose ${k}`);
+test("classic rollback navigation snapshot preserves pre-Lite 12-tab / 搜索 contracts (?nav=classic)", () => {
+  assert.deepEqual(
+    Nav.CLASSIC_WORKBENCH_TABS.map((t) => t.key),
+    ["home", "projects", "progress", "tasks", "schedule", "notes", "places", "useract", "search", "agent", "review", "history"]
+  );
+  const searchTab = Nav.CLASSIC_MOBILE_TABS.find((t) => t.label === "搜索");
+  assert.ok(searchTab && searchTab.key === "search", "classic mobile tabbar preserves 搜索 tab");
+  const classicMore = Nav.CLASSIC_MOBILE_MORE_TABS.map((t) => t.key);
+  for (const k of ["smart", "weekend", "map", "useract", "progress"]) {
+    assert.ok(classicMore.includes(k), `classic more drawer preserves ${k}`);
   }
 });
 
