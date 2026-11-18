@@ -291,6 +291,17 @@ async function desktopChain() {
       !!document.querySelector('[data-testid="workbench-detail-result-view"]')`);
     check("Phase 2: result can be saved from Task Detail", resUp);
 
+    // Gorgon Lite closed loop: structured review tag + jump to Agent context + back
+    await s.click(`document.querySelector('[data-testid="workbench-detail-review-tag-outcome"]')`);
+    const tagInserted = await s.eval(`
+      return document.querySelector('[data-testid="workbench-detail-note-input"]').value.startsWith('[结果复盘] ');`);
+    check("Lite: structured review preset inserts [结果复盘] prefix", tagInserted);
+    await s.click(`document.querySelector('[data-testid="workbench-detail-go-agent"]')`);
+    const agentCtxUp = await s.waitFor(`!!document.querySelector('[data-testid="workbench-agent-context-task"]')`);
+    check("Lite: Task Detail -> Agent preserves task context banner", agentCtxUp);
+    await s.click(`document.querySelector('[data-testid="workbench-agent-back-task"]')`);
+    await s.waitFor(`!!document.querySelector('[data-gg-screen="workbench-task-detail"]')`);
+
     // ── refresh persistence: the task survives a full reload ───────
     await s.goto(BASE + "/");
     await s.waitFor(`!!document.querySelector('[data-gg-shell]')`);

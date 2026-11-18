@@ -114,8 +114,8 @@ async function main() {
     await s.click(`document.querySelector('[data-testid="workbench-detail-back"]')`);
     await sleep(400);
 
-    // ── open the notes center via the 更多 drawer ──
-    await s.click(`[...document.querySelectorAll('[data-gg-region="tabbar"] button')].find(b => b.innerText.includes('更多'))`);
+    // ── open the notes center via Lite top 工具 button (or classic 更多 drawer) ──
+    await s.click(`document.querySelector('[data-testid="lite-tools-trigger"]') || [...document.querySelectorAll('[data-gg-region="tabbar"] button')].find(b => b.innerText.includes('更多'))`);
     await s.waitFor(`!!document.querySelector('[data-testid="workbench-more-drawer"]')`);
     await s.click(`document.querySelector('[data-testid="workbench-more-drawer"] [data-workbench-nav="notes"]')`);
     await s.waitFor(`!!document.querySelector('[data-gg-screen="workbench-notes"]')`);

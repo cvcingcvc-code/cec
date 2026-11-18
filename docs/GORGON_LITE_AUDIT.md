@@ -95,11 +95,11 @@ flowchart TD
 
 | 分类 | 模块 / 路径 | Phase 1 实际动作 |
 |---|---|---|
-| **KEEP（主入口）** | `WorkbenchHome.jsx`、`TasksScreen.jsx`、`TaskDetailScreen.jsx`、`AgentScreen.jsx`、`LiteChrome.jsx`、`navigation.js`、`one-shot.js`、`task-*.js`、`reminder-*.js`、`agent-gateway.mjs` 及适配器 | 精简重构为 **首页 / 任务 / 智能体** 三主入口，强化主闭环 |
-| **KEEP（次级可达，不丢数据）** | `ScheduleScreen.jsx`、`NotesScreen.jsx`、`ProjectsScreen.jsx`、`ProjectDetailScreen.jsx`、`HistoryScreen.jsx`、`ReviewCenterScreen.jsx`、`SettingsScreen.jsx` | 移出移动端底栏，收纳至顶部「工具」面板、任务页快捷栏、任务详情与设置页 |
-| **HIDE（默认隐藏，保留恢复通道）** | `DiscoverScreen`、`SearchScreen`、`NaturalSearchScreen`、`MyWeekendScreen`、`MapScreen`、`PlacesScreen`、`UserActivitiesScreen`、`ProgressCenterScreen` | 从主导航移除；在「模型与设置 → 已隐藏模块与历史数据入口」及 `?legacy=1` / `?nav=classic` 保留完整访问 |
-| **ARCHIVE（冻结，下轮归档评估）** | `pipeline/`（Python 活动采集与检索服务）、`desktop/main.py`（pywebview 桌面壳）、`ui_kits/`（早期 Babel 前端）、`reports/` 历史报告 | 本轮零修改、零删除；静态活动数据拆分为独立 `archived-data` 构建分包 |
-| **REMOVE_CANDIDATE（仅标记，本轮不删）** | 未合并 PR #8 黑客松模块（未引入本分支）、未挂载 UI 的 `job-repository.js` / `job-model.js`、与项目页重叠的 `ProgressCenterScreen.jsx` | 仅记录为后续迭代清理候选，第一轮不删除任何源码文件 |
+| **KEEP（主入口）** | `WorkbenchHome.jsx`、`TasksScreen.jsx`、`TaskDetailScreen.jsx`、`AgentScreen.jsx`、`LiteChrome.jsx`、`navigation.js`、`one-shot.js`、`task-*.js`、`reminder-*.js`、`agent-gateway.mjs` 及适配器 | 精简重构为 **首页 / 任务 / 智能体** 三主入口，打通任务详情 ↔ 智能体上下文写回与结构化复盘闭环 |
+| **KEEP（次级可达，不丢数据）** | `ScheduleScreen.jsx`、`NotesScreen.jsx`、`ProjectsScreen.jsx`、`ProjectDetailScreen.jsx`、`HistoryScreen.jsx`、`ReviewCenterScreen.jsx`、`SettingsScreen.jsx` | 移出移动端底栏，收纳至顶部「工具」面板、任务页快捷栏、任务详情与设置页，并改为 `React.lazy` 按需加载 |
+| **HIDE（默认隐藏，保留恢复通道）** | `DiscoverScreen`、`SearchScreen`、`NaturalSearchScreen`、`MyWeekendScreen`、`MapScreen`、`PlacesScreen`、`UserActivitiesScreen`、`ProgressCenterScreen` + `hooks/useArchivedState.js` | 状态与回调从 `App.jsx` 抽离至 `useArchivedState.js`（`App.jsx` 由 1,238 行降至 557 行，主 JS 包由 `492.61 kB` 降至 `249.45 kB`）；在「设置 → 已隐藏模块与历史数据入口」及 `?legacy=1` / `?nav=classic` 保留完整访问 |
+| **ARCHIVE（冻结，下轮归档评估）** | `pipeline/`（Python 活动采集与检索服务）、`desktop/main.py`（pywebview 桌面壳）、`ui_kits/`（早期 Babel 前端）、`reports/` 历史报告 | 源码冻结不扩张（仅修正 `test_store.py` 1 处固定日期单测参数使 488 项 Python 测试全绿）；静态活动数据拆分为独立 `archived-data` 分包 |
+| **REMOVE_CANDIDATE（仅标记，本轮不删）** | 未合并 PR #8 黑客松模块（未引入本分支）、未挂载 UI 的 `job-repository.js` / `job-model.js`、与项目页重叠的 `ProgressCenterScreen.jsx` | 仅记录为后续迭代清理候选，本轮不删除任何源码文件 |
 
 ---
 

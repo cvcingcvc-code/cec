@@ -104,6 +104,22 @@ function appErrors(session) {
     !/favicon|fonts\.googleapis|fonts\.gstatic|net::ERR_INTERNET_DISCONNECTED/i.test(e));
 }
 
+async function ensureDiscoverCards(s) {
+  await s.waitFor(`!!document.querySelector('[data-gg-screen="discover"]')`);
+  let ok = await s.eval(`return document.querySelectorAll('.gg-disc-card').length > 0;`);
+  if (!ok) {
+    // When no crawled event starts in the narrow 7-day window around the test
+    // clock, widen to 未来30天 first (still non-expired, matching SearchScreen),
+    // then 全部 as final archive fallback.
+    for (const label of ["未来30天", "全部"]) {
+      await s.click(`[...document.querySelectorAll('[data-gg-screen="discover"] button')].filter(b => b.textContent.trim() === ${JSON.stringify(label)}).pop()`);
+      ok = await s.waitFor(`document.querySelectorAll('.gg-disc-card').length > 0`, { timeout: 2500 });
+      if (ok) break;
+    }
+  }
+  return ok;
+}
+
 /* ── scenarios ────────────────────────────────────────────────────────── */
 
 async function desktopChain(width, height, tag) {
@@ -117,7 +133,7 @@ async function desktopChain(width, height, tag) {
     check(`${tag}: app boots`, shell);
 
     // 1. Discover renders with activity cards
-    const discover = await s.waitFor(`document.querySelectorAll('.gg-disc-card').length > 0`);
+    const discover = await ensureDiscoverCards(s);
     check(`${tag}: Discover renders cards`, discover);
     const countAll = await s.eval(`
       const m = document.querySelector('.gg-section-head').innerText.match(/共\\s*(\\d+)\\s*场活动/);
@@ -231,7 +247,7 @@ async function desktopChain(width, height, tag) {
 
     // 12-13. reload -> My Weekend persists (localStorage)
     await s.goto(BASE + "/?legacy=1");
-    await s.waitFor(`document.querySelectorAll('.gg-disc-card').length > 0`);
+    await ensureDiscoverCards(s);
     await s.click(`document.querySelector('[data-gg-nav="weekend"]')`);
     await s.waitFor(`!!document.querySelector('[data-gg-screen="weekend"]')`);
     const weekendText = await s.text();
@@ -242,14 +258,14 @@ async function desktopChain(width, height, tag) {
     // The 收藏 tab lives on the weekend screen, but the card ids are only on
     // the Discover/Search/Smart cards — so hop to Discover first to grab one.
     await s.click(`document.querySelector('[data-gg-nav="discover"]')`);
-    await s.waitFor(`document.querySelectorAll('.gg-disc-card').length > 0`);
+    await ensureDiscoverCards(s);
     const favId = await s.eval(`
       const el = document.querySelector('[data-gg-card-id]');
       return el ? el.getAttribute('data-gg-card-id') : null;`);
     await s.eval(`
       localStorage.setItem('gorgon_favorites', JSON.stringify([${JSON.stringify(favId)}]));`);
     await s.goto(BASE + "/?legacy=1");
-    await s.waitFor(`document.querySelectorAll('.gg-disc-card').length > 0`);
+    await ensureDiscoverCards(s);
     await s.click(`document.querySelector('[data-gg-nav="weekend"]')`);
     await s.waitFor(`!!document.querySelector('[data-gg-screen="weekend"]')`);
     await s.click(`[...document.querySelectorAll('[data-gg-screen="weekend"] button')].find(b => b.innerText.trim() === '收藏')`);
@@ -290,7 +306,7 @@ async function mobileChain() {
     await s.goto(BASE + "/?legacy=1");
     const boot = await s.waitFor(`!!document.querySelector('[data-gg-shell="mobile"]')`);
     check("mobile 390: mobile shell", boot);
-    const cards = await s.waitFor(`document.querySelectorAll('.gg-disc-card').length > 0`);
+    const cards = await ensureDiscoverCards(s);
     check("mobile 390: Discover renders", cards);
     // 16. bottom nav works
     const tabbar = await s.waitFor(`!!document.querySelector('[data-gg-region="tabbar"]')`);
