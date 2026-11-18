@@ -46,9 +46,12 @@ import * as ActivityView from "./lib/activity-view.js";
 import { GORGON_DATA } from "./lib/data.js";
 import { Icon } from "./components/Icon.jsx";
 import {
-  WORKBENCH_TABS, WORKBENCH_SETTINGS, LEGACY_TABS, LEGACY_SIDEBAR_KEYS,
-  WORKBENCH_TO_LEGACY, MOBILE_TABS, MOBILE_MORE_TABS,
+  WORKBENCH_SETTINGS, LEGACY_TABS, WORKBENCH_TO_LEGACY,
+  CLASSIC_WORKBENCH_TABS, getNavMode, setNavMode,
 } from "./workbench/navigation.js";
+import {
+  LiteMobileHeader, WorkbenchSidebar, WorkbenchTabBar, MoreDrawer, Toast,
+} from "./components/LiteChrome.jsx";
 // V3 Phase A (gap 2): TXT/Markdown note import (pure parser).
 import { isImportableFileName, parseNoteText, MAX_IMPORT_BYTES } from "./lib/note-import.js";
 // Phase B3: PC gateway run-record mirror (TaskDetail「电脑执行记录」card).
@@ -81,163 +84,14 @@ function visualSkin() {
 }
 const V3K_SKIN = visualSkin();
 
-/* ── Workbench chrome (desktop sidebar + mobile tabbar/drawer) ─────── */
-
-const WORKBENCH_ALL = WORKBENCH_TABS.concat([WORKBENCH_SETTINGS]);
+/* ── Navigation key registries (supports both Lite & Classic rollback) ── */
+const ALL_WB_ENTRIES = CLASSIC_WORKBENCH_TABS.concat([WORKBENCH_SETTINGS]);
 const LEGACY_BY_KEY = LEGACY_TABS.reduce((m, t) => { m[t.key] = t; return m; }, {});
-const WB_BY_KEY = WORKBENCH_ALL.reduce((m, t) => { m[t.key] = t; return m; }, {});
+const WB_BY_KEY = ALL_WB_ENTRIES.reduce((m, t) => { m[t.key] = t; return m; }, {});
 
-function WorkbenchSidebar({ active, onWb, onLegacy, syncedCount }) {
-  const item = (t, attr, onClick) => {
-    return (
-      <button
-        key={attr + "-" + t.key}
-        data-workbench-nav={attr === "workbench" ? t.key : undefined}
-        data-gg-nav={attr === "legacy" ? t.key : undefined}
-        className={"gg-nav-item" + (active === t.key ? " is-active" : "")}
-        aria-current={active === t.key ? "page" : undefined}
-        onClick={() => onClick(t.key)}
-      >
-        <span style={{ position: "relative", display: "inline-flex", flex: "none" }}>
-          <Icon name={t.icon} style={{ width: 20, height: 20, flex: "none" }} />
-          {t.key === "weekend" && attr === "legacy" && syncedCount > 0 && (
-            <span style={{
-              position: "absolute", top: -7, right: -10, minWidth: 16, height: 16,
-              padding: "0 4px", borderRadius: "var(--radius-pill)", background: "var(--accent)",
-              color: "#06241B", fontSize: 10.5, fontWeight: 700, display: "inline-flex",
-              alignItems: "center", justifyContent: "center",
-            }}>{syncedCount}</span>
-          )}
-        </span>
-        <span className="gg-nav-label">{t.label}</span>
-      </button>
-    );
-  };
-
-  return (
-    <nav className="gg-sidebar" data-gg-region="sidebar" data-gg-shell-nav="workbench" aria-label="主导航">
-      {WORKBENCH_ALL.map((t) => item(t, "workbench", onWb))}
-      <div className="gg-nav-spacer" />
-      <div className="gg-sidebar-divider" />
-      <div className="gg-nav-label" style={{ fontSize: 10.5, fontWeight: 700, color: "var(--text-faint)", padding: "2px 12px 6px", letterSpacing: "0.04em" }}>
-        专业能力
-      </div>
-      {LEGACY_SIDEBAR_KEYS.map((k) => item(LEGACY_BY_KEY[k], "legacy", onLegacy))}
-      {/* Compatibility entries kept reachable but out of the visual flow:
-          the E2E drives data-gg-nav="search" / "smart" directly. */}
-      <div style={{ display: "none" }}>
-        {["search", "smart"].map((k) => item(LEGACY_BY_KEY[k], "legacy", onLegacy))}
-      </div>
-    </nav>
-  );
-}
-
-function WorkbenchTabBar({ active, onChange, syncedCount }) {
-  return (
-    <div className="gg-workbench-tabbar" data-gg-region="tabbar" aria-label="主导航" style={{
-      flex: "none", display: "flex", padding: "8px 12px 22px",
-      background: "color-mix(in oklch, var(--surface-card) 88%, transparent)",
-      backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
-      borderTop: "1px solid var(--border-subtle)",
-    }}>
-      {MOBILE_TABS.map((t) => {
-        const on = t.key === active;
-        const badge = t.key === "weekend" && syncedCount > 0;
-        return (
-          <button key={t.key}
-            className={"gg-workbench-tab" + (on ? " is-active" : "")}
-            aria-current={on ? "page" : undefined}
-            aria-label={t.label}
-            data-workbench-nav={t.workbench ? t.key : undefined}
-            data-gg-nav={t.legacy ? t.key : undefined}
-            onClick={() => onChange(t.key)}
-            style={{
-              flex: 1, border: "none", background: "transparent", cursor: "pointer",
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-              color: on ? "var(--brand)" : "var(--text-faint)",
-            }}>
-            <span style={{ position: "relative", display: "inline-flex" }}>
-              <Icon name={t.icon} style={{ width: 24, height: 24 }} />
-              {badge && (
-                <span style={{
-                  position: "absolute", top: -6, right: -10, minWidth: 16, height: 16,
-                  padding: "0 4px", borderRadius: "var(--radius-pill)", background: "var(--accent)",
-                  color: "#06241B", fontSize: 10.5, fontWeight: 700, display: "inline-flex",
-                  alignItems: "center", justifyContent: "center",
-                }}>{syncedCount}</span>
-              )}
-            </span>
-            <span style={{ fontSize: 10.5, fontWeight: on ? 700 : 500, fontFamily: "var(--font-sans)" }}>{t.label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Mobile drawer: exposes the remaining Workbench + legacy tabs. */
-function MoreDrawer({ open, onClose, active, onPick, syncedCount }) {
-  if (!open) return null;
-  const rows = MOBILE_MORE_TABS;
-  return (
-    <div onClick={onClose} style={{
-      position: "absolute", inset: 0, zIndex: 40,
-      background: "color-mix(in oklch, #000 45%, transparent)",
-      display: "flex", alignItems: "flex-end",
-    }} data-testid="workbench-more-drawer">
-      <div onClick={(e) => e.stopPropagation()} style={{
-        width: "100%", background: "var(--surface-card)", borderRadius: "18px 18px 0 0",
-        padding: "14px 14px 26px", boxShadow: "var(--shadow-xl)",
-      }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-faint)", padding: "2px 8px 10px" }}>
-          更多入口
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-          {rows.map((t) => {
-            const on = t.key === active;
-            return (
-              <button key={t.key}
-                data-workbench-nav={t.workbench ? t.key : undefined}
-                data-gg-nav={t.legacy ? t.key : undefined}
-                onClick={() => onPick(t.key)}
-                style={{
-                  border: "1px solid var(--border-subtle)", background: on ? "var(--brand-soft)" : "var(--bg-sunken)",
-                  color: on ? "var(--brand)" : "var(--text-body)", borderRadius: "var(--radius-md)",
-                  padding: "12px 6px", cursor: "pointer", display: "flex", flexDirection: "column",
-                  alignItems: "center", gap: 6, fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600,
-                  position: "relative",
-                }}>
-                <Icon name={t.icon} style={{ width: 20, height: 20 }} />
-                {t.label}
-                {t.key === "weekend" && syncedCount > 0 && (
-                  <span style={{
-                    position: "absolute", top: 6, right: 8, minWidth: 15, height: 15,
-                    borderRadius: "var(--radius-pill)", background: "var(--accent)", color: "#06241B",
-                    fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center",
-                    justifyContent: "center", padding: "0 3px",
-                  }}>{syncedCount}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Toast({ msg }) {
-  if (!msg) return null;
-  return (
-    <div style={{ position: "absolute", top: "var(--gg-toast-top)", left: "50%", transform: "translateX(-50%)", zIndex: 50,
-      background: "var(--ink)", color: "#fff", padding: "11px 18px", borderRadius: "var(--radius-pill)",
-      display: "flex", alignItems: "center", gap: 9, boxShadow: "var(--shadow-lg)", animation: "gg-toast-in var(--dur-base) var(--ease-out)", whiteSpace: "nowrap" }}>
-      <span style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--accent)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-        <Icon name="check" style={{ width: 14, height: 14, color: "#06241B" }} />
-      </span>
-      <span style={{ fontSize: 13.5, fontWeight: 600 }}>{msg}</span>
-    </div>
-  );
+function hasPairedGatewayToken() {
+  try { return Boolean(localStorage.getItem("gorgon_agent_gateway_token")); }
+  catch { return false; }
 }
 
 const ALL_ACTIVITIES = GORGON_DATA.activities || [];
@@ -995,12 +849,22 @@ export default function App() {
       notes: WBStore.getNotes({ projectId: p.id }).length,
     };
   }
-  // P0-D home data: today's tasks (scheduled/due today) + open count + recent notes.
+  // V3.4 (Gorgon Lite): navigation mode ("lite" default | "classic" rollback).
+  const [navMode, setNavModeState] = React.useState(() => getNavMode());
+  const handleChangeNavMode = (next) => {
+    const saved = setNavMode(next);
+    setNavModeState(saved);
+    flash(saved === "classic" ? "已切换为旧版完整导航（数据不变）" : "已切换为 Gorgon Lite 三入口");
+  };
+
+  // P0-D home data: today's tasks (scheduled/due today) + open count.
   const homeToday = WBStore.getTodayTasks();
   const homeOpenCount = WBStore.getOpenTasks().length;
-  const homeRecentNotes = WBStore.getNotes({ kind: "text" }).slice(0, 4);
   // V2.2 (Stage 4): progress center data — cross-project plain-language summary.
   const progressCenterData = WBStore.getProgressCenterData();
+  const pendingReviewCount =
+    wbProposals.filter((p) => p && p.status === "proposed").length +
+    wbTasks.filter((t) => t && t.status === "review_required").length;
 
   const workbenchScreens = {
     home: (
@@ -1008,17 +872,13 @@ export default function App() {
         onCreateTask={createTaskFromGoal}
         onSubmitGoal={submitGoalOnce}
         submittingGoal={submittingGoal}
-        onGoSearch={() => changeWbTab("search")} onGoTasks={() => changeWbTab("tasks")}
+        onGoTasks={() => changeWbTab("tasks")}
         onGoSchedule={() => changeWbTab("schedule")}
+        onGoAgent={() => changeWbTab("agent")}
         onOpenTask={openTaskDetail}
         todayTasks={homeToday}
         openTaskCount={homeOpenCount}
-
-        projects={wbProjects}
-        projectStats={projectStats}
-        recentNotes={homeRecentNotes}
-        onOpenProject={openProjectDetail}
-        onGoProjects={() => changeWbTab("projects")} />
+        agentPaired={hasPairedGatewayToken()} />
     ),
     projects: projectBundle ? (
       <ProjectDetailScreen
@@ -1077,11 +937,21 @@ export default function App() {
             setDetailTaskId(null);
             flash("任务已删除（30 天内可在工作记录回收站恢复）");
           }}
-          agentRuns={detailAgentRuns} />
+          agentRuns={detailAgentRuns}
+          onGoProjects={() => changeWbTab("projects")}
+          onOpenProject={openProjectDetail}
+          onGoNotes={() => changeWbTab("notes")}
+          onGoAgent={() => changeWbTab("agent")} />
       ) : (
         <TasksScreen tasks={wbTasks} onStatusChange={changeTaskStatus}
           onAddTask={(t) => addTaskLocal(t, { source: "任务页输入" })}
-          onOpenTask={openTaskDetail} />
+          onOpenTask={openTaskDetail}
+          projects={wbProjects}
+          notes={wbNotes}
+          onGoSchedule={() => changeWbTab("schedule")}
+          onGoNotes={() => changeWbTab("notes")}
+          onGoProjects={() => changeWbTab("projects")}
+          onGoHistory={() => changeWbTab("history")} />
       )
     ),
     review: (
@@ -1089,9 +959,7 @@ export default function App() {
         reviewTasks={wbTasks} onResumeTask={resumeReviewTask}
         proposals={wbProposals} onProposal={decideProposal} />
     ),
-    // V3 Phase A (Task #3/E): PC agent gateway entry.
-    // Phase B3: linkTask lets the user attach a finished gateway run back to
-    // a phone task (agentRunIds on the task) — closes the phone↔PC loop.
+    // V3 Phase A (Task #3/E): PC agent gateway + human approvals hub.
     agent: (
       <AgentScreen flash={flash}
         linkTask={(runId, taskId, run) => {
@@ -1107,7 +975,13 @@ export default function App() {
             flash("关联失败（任务不存在或已关联）");
           }
         }}
-        linkableTasks={wbTasks} />
+        linkableTasks={wbTasks}
+        proposals={wbProposals}
+        reviewTasks={wbTasks}
+        onDecideProposal={decideProposal}
+        onResumeTask={resumeReviewTask}
+        onOpenTask={openTaskDetail}
+        onOpenReviewCenter={() => changeWbTab("review")} />
     ),
     places: (
       <PlacesScreen places={wbPlaces} projects={wbProjects} tasks={wbTasks} notes={wbNotes}
@@ -1152,7 +1026,14 @@ export default function App() {
           flash("已彻底删除");
         }} />
     ),
-    settings: <SettingsScreen />,
+    settings: (
+      <SettingsScreen
+        navMode={navMode}
+        onChangeNavMode={handleChangeNavMode}
+        onOpenWb={changeWbTab}
+        onOpenLegacy={changeTab}
+      />
+    ),
   };
 
   const content = (
@@ -1200,32 +1081,57 @@ export default function App() {
   if (isMobile) {
     return (
       <PhoneFrame appearance={redesignedPage ? V3K_SKIN : undefined}>
-        {redesignedPage ? (
-          <header className="v3k-mobile-header">
-            <button type="button" data-workbench-nav="home" aria-label="回到工作台" onClick={() => changeWbTab("home")}>
-              <span className="v3k-brand-mark" aria-hidden="true">G</span><span>GORGON</span>
-            </button>
-            <span className="v3k-header-caption">行动工作台</span>
-          </header>
-        ) : <StatusBar dark={false} />}
+        {navMode === "classic" || LEGACY_MODE ? (
+          redesignedPage ? (
+            <header className="v3k-mobile-header">
+              <button type="button" data-workbench-nav="home" aria-label="回到工作台" onClick={() => changeWbTab("home")}>
+                <span className="v3k-brand-mark" aria-hidden="true">G</span><span>GORGON</span>
+              </button>
+              <span className="v3k-header-caption">行动工作台</span>
+            </header>
+          ) : <StatusBar dark={false} />
+        ) : (
+          <LiteMobileHeader
+            active={wbTab || tab}
+            dark={redesignedPage}
+            onHome={() => changeWbTab("home")}
+            onOpenTools={() => setMoreOpen(true)}
+            onOpenSettings={() => changeWbTab("settings")}
+            pendingReviewCount={pendingReviewCount}
+          />
+        )}
         {content}
-        <WorkbenchTabBar active={wbTab || (moreOpen ? "more" : tab)} syncedCount={syncedCount}
-          onChange={pickMobileTab} />
-        <MoreDrawer open={moreOpen} onClose={() => setMoreOpen(false)} active={wbTab || tab}
-          onPick={pickMobileTab} syncedCount={syncedCount} />
+        <WorkbenchTabBar
+          active={wbTab || (moreOpen ? "more" : tab)}
+          syncedCount={syncedCount}
+          navMode={navMode}
+          pendingReviewCount={pendingReviewCount}
+          onChange={pickMobileTab}
+        />
+        <MoreDrawer
+          open={moreOpen}
+          onClose={() => setMoreOpen(false)}
+          active={wbTab || tab}
+          onPick={pickMobileTab}
+          syncedCount={syncedCount}
+          navMode={navMode}
+          pendingReviewCount={pendingReviewCount}
+        />
       </PhoneFrame>
     );
   }
 
   return (
     <div className={"gg-app" + (redesignedPage ? " v3k-theme" : "")} data-v3k-theme={redesignedPage ? V3K_SKIN : undefined} data-gg-shell="wide" data-gg-shell-nav="workbench">
-      <DesktopHeader district={district} onWorkbenchHome={() => changeWbTab("home")} />
+      <DesktopHeader district={district} showDistrict={Boolean(tab) || navMode === "classic"} onWorkbenchHome={() => changeWbTab("home")} />
       <div className="gg-body">
         <WorkbenchSidebar
           active={wbTab || tab}
           onWb={changeWbTab}
           onLegacy={changeTab}
           syncedCount={syncedCount}
+          navMode={navMode}
+          pendingReviewCount={pendingReviewCount}
         />
         <div className="gg-main">
           <div className="gg-frame">

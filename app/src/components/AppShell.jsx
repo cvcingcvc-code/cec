@@ -140,14 +140,14 @@ function NotifyButton({ hasDot }) {
  *  the tagline reflects the Workbench product. Without it, the legacy
  *  rendering is untouched — legacy callers and the E2E contract keep
  *  working unchanged. */
-export function DesktopHeader({ district, onWorkbenchHome }) {
+export function DesktopHeader({ district, onWorkbenchHome, showDistrict = true }) {
   const { user } = GORGON_DATA;
   const text = D.label(district);
   const brand = onWorkbenchHome ? (
     <button
       data-workbench-nav="home"
       onClick={onWorkbenchHome}
-      title="回到工作台"
+      title="回到首页"
       style={{
         display: "flex", alignItems: "center", gap: 11, minWidth: 0,
         border: "none", background: "transparent", padding: 0, cursor: "pointer",
@@ -156,7 +156,7 @@ export function DesktopHeader({ district, onWorkbenchHome }) {
     >
       <BrandTile size={30} />
       <span className="gg-wordmark">GORGON</span>
-      <span className="gg-wordmark-sub">智能工作台</span>
+      <span className="gg-wordmark-sub">LITE · 行动助手</span>
     </button>
   ) : (
     <>
@@ -175,13 +175,15 @@ export function DesktopHeader({ district, onWorkbenchHome }) {
         <div style={{ flex: 1, minWidth: 0 }} />
 
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <span data-gg-region="header-district" data-gg-district={district || ""}
-            title="当前地区筛选（在页面中修改）"
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "var(--text-body)", whiteSpace: "nowrap" }}>
-            <Icon name="map-pin" style={{ width: 15, height: 15, color: "var(--brand)" }} />
-            {text}
-          </span>
-          <NotifyButton hasDot />
+          {showDistrict && (
+            <span data-gg-region="header-district" data-gg-district={district || ""}
+              title="当前地区筛选（在页面中修改）"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "var(--text-body)", whiteSpace: "nowrap" }}>
+              <Icon name="map-pin" style={{ width: 15, height: 15, color: "var(--brand)" }} />
+              {text}
+            </span>
+          )}
+          <NotifyButton hasDot={!onWorkbenchHome} />
           <Avatar name={user.name} size="sm" ring />
         </div>
       </div>

@@ -7,6 +7,7 @@ import { presentAgentResult } from "./agent-result-presenter.js";
 import {
   executorLabel, getAvailability, getInputMode, buildTaskInput,
   isTerminalRun, runStatusLabel, runSummary, mergeRunsForMirror, createAgentClient,
+  WORKBUDDY_OPERATIONS,
 } from "./agent-screen-model.js";
 
 const K_GATEWAY = "gorgon_agent_gateway_url";
@@ -49,13 +50,24 @@ function resultText(value) {
   return typeof value === "string" ? value : JSON.stringify(value, null, 2);
 }
 
-export function AgentScreen({ flash, linkTask = null, linkableTasks = [] }) {
+export function AgentScreen({
+  flash,
+  linkTask = null,
+  linkableTasks = [],
+  proposals = [],
+  reviewTasks = [],
+  onDecideProposal = null,
+  onResumeTask = null,
+  onOpenTask = null,
+  onOpenReviewCenter = null,
+}) {
   const [url, setUrl] = React.useState(() => loadLocal(K_GATEWAY, "http://192.168.1.100:8765"));
   const [token, setToken] = React.useState(() => loadLocal(K_TOKEN, ""));
   const [client, setClient] = React.useState(null);
   const [executors, setExecutors] = React.useState([]);
   const [executor, setExecutor] = React.useState("");
   const [documentPath, setDocumentPath] = React.useState("readme.md");
+  const [wbOperation, setWbOperation] = React.useState("describe_ipc");
   const [inputJson, setInputJson] = React.useState("{}");
   const [inputError, setInputError] = React.useState("");
   const [runs, setRuns] = React.useState([]);
@@ -216,7 +228,7 @@ export function AgentScreen({ flash, linkTask = null, linkableTasks = [] }) {
   const submit = async () => {
     if (!client || !selected || !availability.canSubmit || busyRef.current) return;
     setActionError(""); setInputError(""); setFeedback("");
-    try { buildTaskInput(selected, { documentPath, inputJson }); }
+    try { buildTaskInput(selected, { documentPath, inputJson, wbOperation }); }
     catch (error) { setInputError(error.message); return; }
     const session = generation.current;
     busyRef.current = true; setBusy(true);
@@ -228,7 +240,7 @@ export function AgentScreen({ flash, linkTask = null, linkableTasks = [] }) {
       setExecutors(available);
       const actual = available.find((item) => item.id === executor);
       if (!actual || !getAvailability(actual).canSubmit) throw new Error("这项任务目前不可用，请刷新状态或在电脑上检查配置。");
-      const input = buildTaskInput(actual, { documentPath, inputJson });
+      const input = buildTaskInput(actual, { documentPath, inputJson, wbOperation });
       const response = await client.submit(actual.id, input);
       if (generation.current !== session) return;
       setFeedback("任务已提交，电脑返回的执行状态会显示在下方记录中。");
@@ -322,11 +334,16 @@ export function AgentScreen({ flash, linkTask = null, linkableTasks = [] }) {
     }}>{label}</span>;
   };
 
+  const offlineRuns = connState === "ok" ? [] : readRunsMirror();
+  const pendingProposals = (proposals || []).filter((p) => p && p.status === "proposed");
+  const waitingTasks = (reviewTasks || []).filter((t) => t && t.status === "review_required");
+  const showApprovalSection = Boolean(onDecideProposal || onResumeTask || onOpenReviewCenter);
+
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }} data-gg-screen="workbench-agent">
       <div style={{ padding: "24px 16px 40px", boxSizing: "border-box", maxWidth: 860, margin: "0 auto", width: "100%" }}>
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text-strong)", margin: "0 0 8px" }}>智能体</h1>
-        <p style={{ ...textStyle, margin: "0 0 16px" }}>让电脑帮你查看项目、阅读文档或分析问题，执行进度和结果都留在记录里。</p>
+        <p style={{ ...textStyle, margin: "0 0 16px" }}>连接电脑执行获准只读任务、查看真实结果与失败原因，并集中处理需要人工审批的事项。</p>
 
         <section style={card} data-testid="workbench-agent-conn" aria-labelledby="agent-connect-title">
           <h2 id="agent-connect-title" style={{ fontSize: 18, color: "var(--text-strong)", margin: "0 0 8px" }}>连接你的电脑</h2>
@@ -347,6 +364,11 @@ export function AgentScreen({ flash, linkTask = null, linkableTasks = [] }) {
                 {connState === "connecting" ? "正在连接…" : connState === "ok" ? "重新连接" : "连接电脑"}
               </Button>
               {connState === "ok" && <span data-testid="workbench-agent-conn-ok" style={textStyle}>已连接电脑 · {executors.length} 项任务</span>}
+              {connState === "idle" && (
+                <span data-testid="workbench-agent-conn-idle" style={textStyle}>
+                  未连接电脑 · {token.trim() ? "已填配对码，点「连接电脑」验证可用任务" : "请先填写配对码"}
+                </span>
+              )}
             </div>
             {connState === "error" && <p role="alert" data-testid="workbench-agent-conn-error" style={{ ...textStyle, color: "var(--danger)", margin: 0 }}>连接失败：{connError}</p>}
           </div>
@@ -368,6 +390,12 @@ export function AgentScreen({ flash, linkTask = null, linkableTasks = [] }) {
                   <div>{availability.detail}</div>
                 </div>
                 {inputMode === "none" && <p style={{ ...textStyle, margin: 0 }}>这项任务不需要填写参数，点一次即可提交。</p>}
+                {inputMode === "wb_operation" && <label style={textStyle}>选择只读查询项
+                  <select aria-label="选择只读查询项" data-testid="workbench-agent-wb-op" value={wbOperation} style={inputStyle}
+                    onChange={(event) => { setWbOperation(event.target.value); setInputError(""); }}>
+                    {WORKBUDDY_OPERATIONS.map((op) => <option key={op.value} value={op.value}>{op.label}</option>)}
+                  </select>
+                </label>}
                 {inputMode === "document" && <label style={textStyle}>要阅读的文档
                   <input aria-label="文档路径" data-testid="workbench-agent-document-path" value={documentPath}
                     onChange={(event) => { setDocumentPath(event.target.value); setInputError(""); }} style={inputStyle}
@@ -468,6 +496,91 @@ export function AgentScreen({ flash, linkTask = null, linkableTasks = [] }) {
                   </div>
                   {linkControl(run)}
                 </article>)}
+              </div>
+            )}
+          </section>
+        )}
+
+        {connState !== "ok" && offlineRuns.length > 0 && (
+          <section style={{ marginTop: 24 }} data-testid="workbench-agent-offline-mirror" aria-labelledby="agent-mirror-title">
+            <h2 id="agent-mirror-title" style={{ fontSize: 18, color: "var(--text-strong)", marginBottom: 8 }}>本机保存的过往电脑记录（离线镜像）</h2>
+            <p style={textStyle}>当前未连接电脑，以下为此前同步到手机本机的终态记录，方便离线复盘。</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {offlineRuns.slice(0, 10).map((run) => (
+                <article key={run.runId} data-testid="workbench-agent-mirror-item" style={card}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    {statusBadge(run)}
+                    <strong style={{ ...textStyle, color: "var(--text-strong)" }}>{taskLabel(run.executor)}</strong>
+                  </div>
+                  <p style={textStyle}>{fmtTime(run.finishedAt || run.createdAt)}</p>
+                  {runSummary(run) && <p style={textStyle}>{runSummary(run)}</p>}
+                  {run.error && <p style={{ ...textStyle, color: "var(--danger)" }}>失败原因：{run.error}</p>}
+                  {run.outputText && (
+                    <details style={textStyle}>
+                      <summary style={{ cursor: "pointer", minHeight: 48 }}>查看保存的输出摘要</summary>
+                      <pre style={preStyle}>{run.outputText}</pre>
+                    </details>
+                  )}
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {showApprovalSection && (
+          <section style={{ ...card, marginTop: 24 }} data-testid="workbench-agent-approvals" aria-labelledby="agent-approvals-title">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+              <h2 id="agent-approvals-title" style={{ fontSize: 18, color: "var(--text-strong)", margin: 0 }}>
+                人工审批与确认 ({pendingProposals.length + waitingTasks.length})
+              </h2>
+              {onOpenReviewCenter && (
+                <Button size="sm" variant="ghost" style={buttonStyle} data-testid="workbench-agent-open-review" onClick={onOpenReviewCenter}>
+                  查看全部审批记录
+                </Button>
+              )}
+            </div>
+            {pendingProposals.length === 0 && waitingTasks.length === 0 ? (
+              <p style={{ ...textStyle, margin: 0 }}>
+                当前没有待人工批准的事项。涉及创建后续动作或敏感变更的建议，均需你在此明确批准后才会执行。
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {waitingTasks.map((t) => (
+                  <div key={t.id} data-testid="workbench-agent-waiting-task" style={{ ...card, background: "var(--bg-sunken)" }}>
+                    <strong style={{ ...textStyle, color: "var(--text-strong)", display: "block" }}>待确认任务：{t.title}</strong>
+                    <p style={{ ...textStyle, margin: "4px 0 10px" }}>{t.goal}</p>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {onResumeTask && (
+                        <Button size="sm" style={buttonStyle} data-testid="workbench-agent-resume-task" onClick={() => onResumeTask(t.id)}>
+                          允许继续执行
+                        </Button>
+                      )}
+                      {onOpenTask && (
+                        <Button size="sm" variant="secondary" style={buttonStyle} onClick={() => onOpenTask(t.id)}>
+                          查看任务详情
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {pendingProposals.map((p) => (
+                  <div key={p.id} data-testid="workbench-agent-proposal" style={{ ...card, background: "var(--bg-sunken)" }}>
+                    <strong style={{ ...textStyle, color: "var(--text-strong)", display: "block" }}>{p.title}</strong>
+                    {p.rationale && <p style={{ ...textStyle, margin: "4px 0 10px" }}>{p.rationale}</p>}
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {onDecideProposal && (
+                        <>
+                          <Button size="sm" style={buttonStyle} data-testid="workbench-agent-proposal-approve" onClick={() => onDecideProposal(p.id, "approved")}>
+                            批准执行
+                          </Button>
+                          <Button size="sm" variant="secondary" style={{ ...buttonStyle, color: "var(--danger)" }} data-testid="workbench-agent-proposal-reject" onClick={() => onDecideProposal(p.id, "rejected")}>
+                            拒绝
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </section>

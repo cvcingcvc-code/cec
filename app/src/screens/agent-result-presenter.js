@@ -51,12 +51,39 @@ function git(out) {
       : "电脑未报告待提交的文件变动。",
   };
 }
+function workbuddyTask(run, out) {
+  if (!out || typeof out !== "object" || Array.isArray(out)) return null;
+  const lines = [];
+  if (out.httpStatus != null) lines.push({ label: "接口状态", value: String(out.httpStatus) });
+  if (out.status != null && out.elapsedMs != null) {
+    lines.push({ label: "通道响应", value: `HTTP ${out.status}（${out.elapsedMs}ms）` });
+  }
+  if (Array.isArray(out.accounts)) {
+    lines.push({
+      label: "登录账号",
+      value: out.accounts.length
+        ? out.accounts.map((a) => `${short(a.nickname) || "账号"}(${short(a.type) || "未知"})`).join("、")
+        : "未检测到登录账号",
+    });
+  }
+  if (typeof out.totalChars === "number") {
+    lines.push({ label: "档案总字数", value: `${out.totalChars} 字` });
+  }
+  if (typeof out.total === "number") {
+    lines.push({ label: "智能体数量", value: `${out.total} 个` });
+  }
+  const text = typeof out.preview === "string" && out.preview.trim()
+    ? out.preview
+    : (short(run?.result?.summary || run?.summary) || "已完成受限只读查询，详细返回见下方技术详情。");
+  return { heading: "WorkBuddy 只读查询结果", lines, text };
+}
 export function presentAgentResult(run) {
   const result = run?.result;
   const out = result && typeof result === "object" && Object.hasOwn(result, "output")
     ? result.output : result;
   let view = run?.executor === "host.stats" ? stats(out)
     : run?.executor === "repo.status" ? git(out)
+    : run?.executor === "workbuddy.submitTask" ? workbuddyTask(run, out)
     : run?.executor === "workbuddy.status" || run?.executor === "workbuddy.launch" ? workbuddy(out) : null;
   if (!view && typeof out === "string") {
     const heading = run?.executor === "repo.readDoc" ? "文档内容"

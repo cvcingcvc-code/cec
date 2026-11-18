@@ -6,7 +6,15 @@ const TASK_LABELS = {
   "codex.readonly-diagnosis": "让 Codex 分析项目（只读）",
   "workbuddy.status": "查看 WorkBuddy 运行状态",
   "workbuddy.launch": "启动 WorkBuddy 桌面版",
+  "workbuddy.submitTask": "查询 WorkBuddy 只读信息",
 };
+
+export const WORKBUDDY_OPERATIONS = [
+  { value: "describe_ipc", label: "检查本地 IPC 通道（只读自检）" },
+  { value: "read_accounts", label: "读取当前登录账号（只读）" },
+  { value: "read_profile", label: "读取记忆档案摘要（只读）" },
+  { value: "list_cloud_agents", label: "查看云端智能体列表（只读）" },
+];
 
 export function executorLabel(executor) {
   const id = typeof executor === "string" ? executor : executor?.id;
@@ -19,13 +27,17 @@ export function getAvailability(executor) {
     const isTool = executor.agent !== "gateway";
     return {
       code, canSubmit: true,
-      label: isTool ? "可尝试执行 · 模型调用待验证" : "可用 · 电脑只读操作",
+      label: executor.id === "workbuddy.submitTask"
+        ? "可用 · 受限本地只读查询"
+        : (isTool ? "可尝试执行 · 模型调用待验证" : "可用 · 电脑只读操作"),
       detail: executor.agent === "codex"
         ? "电脑已检测到 Codex 工具。模型调用、登录、网络和额度尚未验证，执行结果以电脑返回的记录为准。"
-        : executor.agent === "workbuddy"
-          ? "电脑已检测到 WorkBuddy 桌面版。启动/状态为真实进程操作；WorkBuddy 没有已验证的任务接口，不能远程下达任务。"
-          : isTool ? "电脑报告此工具可用；是否能成功调用模型，需要实际执行后确认。"
-            : "由电脑直接读取信息，不调用 AI 模型。",
+        : executor.id === "workbuddy.submitTask"
+          ? "电脑已检测到 WorkBuddy 桌面版。仅支持已验证的 4 项本地只读查询，不支持发送消息或修改操作。"
+          : executor.agent === "workbuddy"
+            ? "电脑已检测到 WorkBuddy 桌面版。启动/状态为真实进程操作；写任务或对话下达尚未开放。"
+            : isTool ? "电脑报告此工具可用；是否能成功调用模型，需要实际执行后确认。"
+              : "由电脑直接读取信息，不调用 AI 模型。",
     };
   }
   return {
@@ -38,6 +50,7 @@ export function getAvailability(executor) {
 }
 
 export function getInputMode(executor) {
+  if (executor?.id === "workbuddy.submitTask") return "wb_operation";
   const input = executor?.input;
   if (input && typeof input === "object" && !Array.isArray(input)) {
     if (Object.keys(input).length === 0) return "none";
@@ -46,9 +59,14 @@ export function getInputMode(executor) {
   return "json";
 }
 
-export function buildTaskInput(executor, { documentPath = "", inputJson = "{}" } = {}) {
+export function buildTaskInput(executor, { documentPath = "", inputJson = "{}", wbOperation = "describe_ipc" } = {}) {
   const mode = getInputMode(executor);
   if (mode === "none") return {};
+  if (mode === "wb_operation") {
+    const allowed = WORKBUDDY_OPERATIONS.some((item) => item.value === wbOperation);
+    if (!allowed) throw new Error("请选择受支持的只读查询项。");
+    return { operation: wbOperation };
+  }
   if (mode === "document") {
     if (!documentPath.trim()) throw new Error("请填写要阅读的文档路径，例如 readme.md。");
     return { path: documentPath.trim() };

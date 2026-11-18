@@ -273,7 +273,9 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
   onDelete = null,
   // ── Phase B3: PC agent-run records (from the gateway runs.json mirror).
   //    Optional — the card renders only when records exist.
-  agentRuns = [] }) {
+  agentRuns = [],
+  // ── Gorgon Lite: contextual jumps to Projects / Notes / Agent hub.
+  onGoProjects = null, onOpenProject = null, onGoNotes = null, onGoAgent = null }) {
   const [stepTitle, setStepTitle] = React.useState("");
   const [sourceTitle, setSourceTitle] = React.useState("");
   const [resultText, setResultText] = React.useState("");
@@ -690,17 +692,33 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
         )}
 
         {/* ── Phase 4 (P0-A): project link ─────────────────────────────── */}
-        {onLinkProject && projects.length > 0 && (
+        {(onLinkProject || onGoProjects) && (
           <div style={{ ...card, marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }} data-testid="workbench-detail-project-link">
             <Icon name="folder-kanban" style={{ width: 15, height: 15, color: "var(--brand)", flex: "none" }} />
             <span style={{ fontSize: 12.5, color: "var(--text-muted)", fontWeight: 600 }}>所属项目：</span>
-            <select aria-label="所属项目" data-testid="workbench-detail-project-select"
-              value={task.projectId || ""}
-              onChange={(e) => onLinkProject(task.id, e.target.value || null)}
-              style={{ border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "7px 10px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", fontSize: 12.5, color: "var(--text-strong)" }}>
-              <option value="">（不关联）</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-            </select>
+            {onLinkProject && projects.length > 0 ? (
+              <select aria-label="所属项目" data-testid="workbench-detail-project-select"
+                value={task.projectId || ""}
+                onChange={(e) => onLinkProject(task.id, e.target.value || null)}
+                style={{ border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "7px 10px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", fontSize: 12.5, color: "var(--text-strong)" }}>
+                <option value="">（不关联）</option>
+                {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+              </select>
+            ) : (
+              <span style={{ fontSize: 12.5, color: "var(--text-faint)" }}>尚未创建项目</span>
+            )}
+            {task.projectId && onOpenProject && (
+              <button type="button" data-testid="workbench-detail-open-project" onClick={() => onOpenProject(task.projectId)}
+                style={{ border: "none", background: "transparent", color: "var(--brand)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "6px 4px", minHeight: 36, fontFamily: "var(--font-sans)" }}>
+                查看项目 →
+              </button>
+            )}
+            {onGoProjects && (
+              <button type="button" data-testid="workbench-detail-go-projects" onClick={onGoProjects}
+                style={{ border: "1px solid var(--border-subtle)", background: "transparent", color: "var(--text-body)", borderRadius: "var(--radius-sm)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "6px 10px", minHeight: 36, fontFamily: "var(--font-sans)" }}>
+                管理项目
+              </button>
+            )}
           </div>
         )}
 
@@ -1088,9 +1106,25 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
           </div>
         </Section>
 
-        {/* Phase 4 (P0-C): task notes — the execution record channel. */}
+        {/* Phase 4 (P0-C): task notes — the execution & post-mortem record channel. */}
         {onAddNote && (
-          <Section title={`执行记录（笔记） (${notes.length})`} testid="workbench-detail-notes">
+          <Section title={`记录与复盘（笔记） (${notes.length})`} testid="workbench-detail-notes"
+            extra={(
+              <div style={{ display: "inline-flex", gap: 10, alignItems: "center" }}>
+                {onGoAgent && (
+                  <button type="button" data-testid="workbench-detail-go-agent" onClick={onGoAgent}
+                    style={{ border: "none", background: "transparent", color: "var(--brand)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "4px 2px", fontFamily: "var(--font-sans)" }}>
+                    去智能体页连电脑 →
+                  </button>
+                )}
+                {onGoNotes && (
+                  <button type="button" data-testid="workbench-detail-go-notes" onClick={onGoNotes}
+                    style={{ border: "none", background: "transparent", color: "var(--brand)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "4px 2px", fontFamily: "var(--font-sans)" }}>
+                    全部笔记 →
+                  </button>
+                )}
+              </div>
+            )}>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {notes.map((n) => (
                 <div key={n.id} data-testid="workbench-detail-note" style={{ ...card, fontSize: 13, color: "var(--text-body)", lineHeight: 1.6 }}>
@@ -1100,7 +1134,7 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
               ))}
               <div style={{ display: "flex", gap: 9 }}>
                 <input aria-label="任务笔记" data-testid="workbench-detail-note-input"
-                  placeholder="执行过程中记一笔，例如：已完成电话确认，对方要求带身份证"
+                  placeholder="记录真实结果、失败原因或复盘结论…"
                   value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") submitNote(); }}
                   style={{ flex: 1, minWidth: 0, border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-md)", padding: "10px 13px", background: "var(--surface-card)", fontFamily: "var(--font-sans)", fontSize: 13.5, color: "var(--text-strong)" }} />

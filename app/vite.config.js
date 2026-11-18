@@ -55,6 +55,9 @@ export default defineConfig({
             }
             return "vendor-misc";
           }
+          if (id.includes("ui_kits") || id.includes("generated-data") || id.includes("generated-search")) {
+            return "archived-data";
+          }
           return undefined;
         },
       },
