@@ -1132,6 +1132,27 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
                   <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 6 }}>{fmtTime(n.updatedAt)}{n.projectId ? " · 已关联项目" : ""}</div>
                 </div>
               ))}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }} data-testid="workbench-detail-review-presets">
+                {[
+                  { key: "outcome", label: "结果复盘", prefix: "[结果复盘] " },
+                  { key: "blocker", label: "失败/阻塞原因", prefix: "[失败原因] " },
+                  { key: "next", label: "下一步改进", prefix: "[下一步改进] " },
+                ].map((tag) => (
+                  <button
+                    key={tag.key}
+                    type="button"
+                    data-testid={"workbench-detail-review-tag-" + tag.key}
+                    onClick={() => setNoteDraft((prev) => (prev.startsWith(tag.prefix) ? prev : tag.prefix + prev))}
+                    style={{
+                      border: "1px solid var(--border-subtle)", background: "var(--bg-sunken)",
+                      color: "var(--text-muted)", fontSize: 11.5, fontWeight: 600, cursor: "pointer",
+                      padding: "6px 10px", minHeight: 34, borderRadius: "var(--radius-pill)", fontFamily: "var(--font-sans)",
+                    }}
+                  >
+                    + {tag.label}
+                  </button>
+                ))}
+              </div>
               <div style={{ display: "flex", gap: 9 }}>
                 <input aria-label="任务笔记" data-testid="workbench-detail-note-input"
                   placeholder="记录真实结果、失败原因或复盘结论…"

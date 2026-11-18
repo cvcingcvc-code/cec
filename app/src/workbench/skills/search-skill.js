@@ -23,6 +23,7 @@
 // SEARCH_OFFLINE / SEARCH_NOT_CONFIGURED with the retry hint.
 
 import { createSkillResult, createSkillError, CAP_NETWORK_READ } from "./skill-base.js";
+import { searchActivities as defaultSearchActivities } from "../../lib/api.js";
 
 /** Defensive source normalization (§11). Never assumes activity-specific fields. */
 function normalizeSource(item) {
@@ -77,12 +78,7 @@ function offlineTemplateFor(goal) {
 }
 
 async function loadDefaultSearch() {
-  try {
-    const m = await import("../../lib/api.js");
-    return m && typeof m.searchActivities === "function" ? m.searchActivities : null;
-  } catch {
-    return null;
-  }
+  return typeof defaultSearchActivities === "function" ? defaultSearchActivities : null;
 }
 
 const searchSkill = {

@@ -60,6 +60,8 @@ export function AgentScreen({
   onResumeTask = null,
   onOpenTask = null,
   onOpenReviewCenter = null,
+  contextTask = null,
+  onClearContextTask = null,
 }) {
   const [url, setUrl] = React.useState(() => loadLocal(K_GATEWAY, "http://192.168.1.100:8765"));
   const [token, setToken] = React.useState(() => loadLocal(K_TOKEN, ""));
@@ -308,6 +310,19 @@ export function AgentScreen({
   const linkControl = (run) => linkTask && isTerminalRun(run) && (
     <div style={{ marginTop: 8 }}>
       {linkedNames(run).length > 0 && <p style={textStyle}>已关联：{linkedNames(run).join("、")}</p>}
+      {contextTask && onOpenTask && !contextTask.agentRunIds?.includes(run.runId) && (
+        <div style={{ marginBottom: 8 }}>
+          <Button size="sm" style={buttonStyle} data-testid="workbench-agent-link-and-open"
+            onClick={() => {
+              const full = mergeRunsForMirror([run], details, readRunsMirror())[0];
+              importRunsMirror(JSON.stringify({ runs: [full] }));
+              linkTask(run.runId, contextTask.id, { ...full, summary: full.summary || full.result?.summary || "" });
+              onOpenTask(contextTask.id);
+            }}>
+            写回「{contextTask.title}」并去复盘
+          </Button>
+        </div>
+      )}
       {linkableTasks.length ? (
         <label style={textStyle}>关联已有任务
           <select aria-label="关联到任务" data-testid="workbench-agent-run-link" value="" style={inputStyle}
@@ -344,6 +359,29 @@ export function AgentScreen({
       <div style={{ padding: "24px 16px 40px", boxSizing: "border-box", maxWidth: 860, margin: "0 auto", width: "100%" }}>
         <h1 style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--text-strong)", margin: "0 0 8px" }}>智能体</h1>
         <p style={{ ...textStyle, margin: "0 0 16px" }}>连接电脑执行获准只读任务、查看真实结果与失败原因，并集中处理需要人工审批的事项。</p>
+
+        {contextTask && (
+          <section style={{ ...card, marginBottom: 16, background: "var(--bg-sunken)" }} data-testid="workbench-agent-context-task">
+            <strong style={{ ...textStyle, color: "var(--text-strong)", display: "block" }}>
+              当前正在辅助任务：「{contextTask.title}」
+            </strong>
+            <p style={{ ...textStyle, margin: "4px 0 10px" }}>
+              电脑任务执行结束后，可一键将真实结果或失败原因写回该任务并进入复盘。
+            </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {onOpenTask && (
+                <Button size="sm" variant="secondary" style={buttonStyle} data-testid="workbench-agent-back-task" onClick={() => onOpenTask(contextTask.id)}>
+                  返回该任务详情
+                </Button>
+              )}
+              {onClearContextTask && (
+                <Button size="sm" variant="ghost" style={buttonStyle} onClick={onClearContextTask}>
+                  清除上下文
+                </Button>
+              )}
+            </div>
+          </section>
+        )}
 
         <section style={card} data-testid="workbench-agent-conn" aria-labelledby="agent-connect-title">
           <h2 id="agent-connect-title" style={{ fontSize: 18, color: "var(--text-strong)", margin: "0 0 8px" }}>连接你的电脑</h2>
