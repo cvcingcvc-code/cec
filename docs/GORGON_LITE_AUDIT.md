@@ -11,7 +11,7 @@
 ### 1.1 工作树与远端基线
 
 - **唯一正式 GitHub 仓库**：`https://github.com/cvcingcvc-code/cec`
-- **宿主机原始工作树保护**：宿主机 `F:\Gorgon-Workbench` 挂载了 10 个历史 `git worktree` 且当前索引处于 `feat/hackathon-discovery-v1` 未提交变更状态。按安全接手原则，**未修改、未清理宿主机任何原有工作树**；本轮审计与开发均在独立克隆工作区 `C:\Users\lin\.gemini\antigravity\scratch\cec` 的独立分支 `refactor/gorgon-lite-mvp` 上执行。
+- **宿主机原始工作树保护**：宿主机 `F:\Gorgon-Workbench` 挂载了 10 个历史 `git worktree` 且当前索引处于 `feat/hackathon-discovery-v1` 未提交变更状态。按安全接手原则与全局开发规范（严禁在 C 盘开发），**未修改、未清理宿主机任何原有工作树**；开发与验证均在非系统盘合规工作区 `E:\Projects\cec` 的独立分支 `refactor/gorgon-lite-mvp` 上执行。
 
 ### 1.2 核心分支线性演进核实（关键发现）
 
