@@ -22,6 +22,7 @@ const API_PROXY = {
 export default defineConfig({
   plugins: [react()],
   server: {
+    host: "127.0.0.1",
     port: 5173,
     // The app imports the design-system sources (components/) and the
     // pipeline-generated demo data (ui_kits/app/generated-*.js) straight from
@@ -30,6 +31,7 @@ export default defineConfig({
     proxy: API_PROXY,
   },
   preview: {
+    host: "127.0.0.1",
     port: 4173,
     proxy: API_PROXY,
   },

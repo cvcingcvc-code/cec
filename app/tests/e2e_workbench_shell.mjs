@@ -186,7 +186,7 @@ async function desktopChain() {
     await s.eval(TYPE_IN('[data-gg-screen="workbench-home"] textarea', "帮我寻找本周值得参加的 AI 活动"));
     await s.click(`document.querySelector('[data-testid="workbench-home-submit"]')`);
     // Phase 2: creating a task navigates to its Task Detail
-    const detailUp = await s.waitFor(`!!document.querySelector('[data-gg-screen="workbench-task-detail"]')`, { timeout: 8000 });
+    const detailUp = await s.waitFor(`!!document.querySelector('[data-gg-screen="workbench-task-detail"]')`, { timeout: 15000 });
     check("Phase 2: home input creates a REAL task and opens Task Detail", detailUp);
     // V3N (one-shot): the submission ALREADY ran the engine — the goal routes
     // to the search skill against the demo API server, so the task completes

@@ -111,7 +111,7 @@ async function fixture(t, options = {}) {
     });
     return { status: response.status, body: await response.json() };
   }
-  return { api, moduleMarker, jsonMarker, activeState };
+  return { api, port, moduleMarker, jsonMarker, activeState };
 }
 
 const enabled = { NODE_ENV: "test", GORGON_GATEWAY_TEST_MODE: "1" };
@@ -168,4 +168,29 @@ test("test fixtures cannot replace shipped executors or evaluate replacement JSO
   assert.ok(list.body.executors.some((entry) => entry.id === "repo.status"));
   assert.ok(list.body.executors.every((entry) => !entry.description.startsWith("injected")));
   assert.equal(fs.existsSync(gateway.jsonMarker), false, "reject existing IDs before evaluating JSON source");
+});
+
+test("constant-time token check rejects empty, wrong-length, and mismatched tokens", async (t) => {
+  const gateway = await fixture(t, { env: enabled });
+  const realToken = JSON.parse(fs.readFileSync(path.join(gateway.activeState, "token.json"), "utf8")).token;
+
+  // 1. Missing token header
+  const resNoHeader = await fetch(`http://127.0.0.1:${gateway.port}/health`); // health is public
+  assert.equal(resNoHeader.status, 200);
+
+  // We can test against the fixture's api method with custom tokens:
+  const testTokens = [
+    "",
+    "short",
+    "a".repeat(realToken.length),
+    realToken.slice(0, -1) + (realToken.slice(-1) === "a" ? "b" : "a"),
+  ];
+
+  // Pick up the port from active child
+  for (const badToken of testTokens) {
+    const res = await fetch(`http://127.0.0.1:${gateway.port}/v1/executors`, {
+      headers: { "X-Gorgon-Token": badToken },
+    });
+    assert.equal(res.status, 401, `token "${badToken.slice(0, 8)}..." must be rejected with 401`);
+  }
 });

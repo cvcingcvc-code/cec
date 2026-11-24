@@ -167,7 +167,7 @@ function SearchItemCard({ item }) {
         </div>
       )}
       {item.url && (
-        <a href={item.url} target="_blank" rel="noreferrer"
+        <a href={item.url} target="_blank" rel="noopener noreferrer"
           style={{ display: "inline-block", marginTop: 5, fontSize: 12, color: "var(--brand)", fontWeight: 600 }}>
           查看来源链接 ↗
         </a>
@@ -970,7 +970,7 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
               <div key={s.id} data-testid="workbench-detail-source" style={{ ...card, display: "flex", alignItems: "center", gap: 12 }}>
                 <Icon name="link" style={{ width: 15, height: 15, color: "var(--text-faint)", flex: "none" }} />
                 <div style={{ minWidth: 0, flex: 1, fontSize: 13, color: "var(--text-body)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {s.url ? <a href={s.url} target="_blank" rel="noreferrer" style={{ color: "var(--brand)" }}>{s.title}</a> : s.title}
+                  {s.url ? <a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--brand)" }}>{s.title}</a> : s.title}
                 </div>
                 {s.demo && (
                   <span data-testid="workbench-detail-demo-badge" style={{ flex: "none", fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: "var(--radius-pill)", background: "var(--warning-soft)", color: "var(--warning-ink)" }}>

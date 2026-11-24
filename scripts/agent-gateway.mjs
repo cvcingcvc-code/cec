@@ -709,13 +709,25 @@ function executeRun(run) {
 
 // ── HTTP surface ───────────────────────────────────────────────────────
 
-function sendJson(res, code, obj) {
+function safeTokenCompare(provided, expected) {
+  if (typeof provided !== "string" || typeof expected !== "string") return false;
+  const bufA = Buffer.from(provided, "utf8");
+  const bufB = Buffer.from(expected, "utf8");
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+function sendJson(res, code, obj, origin) {
   const body = JSON.stringify(obj);
-  res.writeHead(code, {
+  const headers = {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": Buffer.byteLength(body),
     "Cache-Control": "no-store",
-  });
+  };
+  if (origin) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+  res.writeHead(code, headers);
   res.end(body);
 }
 
@@ -780,7 +792,7 @@ const server = http.createServer(async (req, res) => {
 
   // Everything else: token check (S1).
   const token = req.headers["x-gorgon-token"];
-  if (!token || token !== TOKEN) {
+  if (!token || !safeTokenCompare(token, TOKEN)) {
     audit({ kind: "auth_fail", path: p, ip: req.socket.remoteAddress });
     return sendJson(res, 401, { ok: false, error: "unauthorized" });
   }

@@ -400,3 +400,20 @@ test("Phase-3 interface: the exact §34 chain works end to end", () => {
   }
   assert.ok(t.completedAt);
 });
+
+/* ── Security & Hardening: prototype pollution defense ─────────────────── */
+
+test("sanitizeMetadata strips __proto__, constructor, and prototype", () => {
+  const malicious = JSON.parse('{"validKey":"safe","__proto__":{"polluted":true},"constructor":{"bad":1},"prototype":{"foo":2}}');
+  const sanitized = M.sanitizeMetadata(malicious);
+  assert.equal(sanitized.validKey, "safe");
+  assert.equal(Object.prototype.polluted, undefined);
+  assert.equal(sanitized.__proto__, Object.prototype);
+  assert.equal(sanitized.constructor, Object);
+  assert.equal(sanitized.prototype, undefined);
+
+  const t = M.createTask("原型安全测试", { metadata: malicious });
+  assert.equal(t.metadata.validKey, "safe");
+  assert.equal(t.metadata.polluted, undefined);
+  assert.equal(Object.prototype.polluted, undefined);
+});

@@ -115,9 +115,14 @@ export async function wbipcConnect(configDir, { sessionId } = {}) {
   let buf = Buffer.alloc(0);
   const queue = [];
   let waiter = null;
+  const MAX_BUFFER_BYTES = 2 * 1024 * 1024; // 2MB frame buffer ceiling
 
   function pushData(chunk) {
     buf = Buffer.concat([buf, chunk]);
+    if (buf.length > MAX_BUFFER_BYTES && buf.indexOf(0x0a) < 0) {
+      sock.destroy(Object.assign(new Error("wbipc: frame buffer exceeded size limit"), { code: "WBIPC_FRAME_TOO_LARGE" }));
+      return;
+    }
     for (;;) {
       const idx = buf.indexOf(0x0a);
       if (idx < 0) break;
@@ -138,7 +143,11 @@ export async function wbipcConnect(configDir, { sessionId } = {}) {
         waiter = null;
         reject(Object.assign(new Error("wbipc: timeout waiting for frame"), { code: "WBIPC_TIMEOUT" }));
       }, timeoutMs);
-      waiter = (f) => { clearTimeout(timer); resolve(f); };
+      waiter = (f, err) => {
+        clearTimeout(timer);
+        if (err) reject(err);
+        else resolve(f);
+      };
     });
   }
 
@@ -148,6 +157,20 @@ export async function wbipcConnect(configDir, { sessionId } = {}) {
     sock.on("error", (e) => { clearTimeout(timer); reject(Object.assign(new Error(`wbipc: pipe connect failed: ${e.message}`), { code: "WBIPC_CONNECT_FAILED" })); });
   });
   sock.on("data", pushData);
+  sock.on("close", () => {
+    if (waiter) {
+      const w = waiter;
+      waiter = null;
+      w(null, Object.assign(new Error("wbipc: connection closed by peer"), { code: "WBIPC_CLOSED" }));
+    }
+  });
+  sock.on("error", (err) => {
+    if (waiter) {
+      const w = waiter;
+      waiter = null;
+      w(null, Object.assign(new Error(`wbipc: connection error: ${err.message}`), { code: "WBIPC_SOCKET_ERROR" }));
+    }
+  });
 
   const clientNonce = randomBytes(16).toString("base64url");
   sock.write(JSON.stringify({

@@ -25,6 +25,16 @@
 
 import { randomUUID } from "./uuid.js";
 
+export function sanitizeMetadata(obj) {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return {};
+  const clean = Object.create(null);
+  for (const [key, val] of Object.entries(obj)) {
+    if (key === "__proto__" || key === "constructor" || key === "prototype") continue;
+    clean[key] = val;
+  }
+  return Object.assign({}, clean);
+}
+
 // ── §3 formal statuses ────────────────────────────────────────────────
 export const TASK_STATUS = {
   CREATED: "created",
@@ -258,7 +268,7 @@ export function createTask(goal, opts = {}) {
 
     sources: [],
 
-    metadata: opts.metadata && typeof opts.metadata === "object" ? Object.assign({}, opts.metadata) : {},
+    metadata: sanitizeMetadata(opts.metadata),
 
     timeline: [],
     failureReason: null,
@@ -314,7 +324,7 @@ export function makeStep(title, opts = {}) {
     createdAt: ts,
     updatedAt: ts,
     // Phase 3: links a step to the Skill that produces it (§20). Optional.
-    metadata: opts.metadata && typeof opts.metadata === "object" ? Object.assign({}, opts.metadata) : {},
+    metadata: sanitizeMetadata(opts.metadata),
     result: null,
   };
 }
@@ -425,7 +435,7 @@ export function normalizeTask(t) {
     steps: Array.isArray(t.steps) ? t.steps.map(normalizeStep).filter(Boolean) : [],
     result: t.result && typeof t.result === "object" ? (makeResult(t.result) || null) : null,
     sources: Array.isArray(t.sources) ? t.sources.map((s) => makeSource(s) || s).filter(Boolean) : [],
-    metadata: t.metadata && typeof t.metadata === "object" ? t.metadata : {},
+    metadata: sanitizeMetadata(t.metadata),
     timeline: Array.isArray(t.timeline) ? t.timeline.filter(evValid) : [],
     failureReason: t.failureReason == null ? null : String(t.failureReason),
   });
@@ -445,7 +455,7 @@ function normalizeStep(s) {
     status: Object.values(STEP_STATUS).indexOf(s.status) >= 0 ? s.status : STEP_STATUS.PENDING,
     createdAt: typeof s.createdAt === "string" ? s.createdAt : nowIso(),
     updatedAt: typeof s.updatedAt === "string" ? s.updatedAt : nowIso(),
-    metadata: s.metadata && typeof s.metadata === "object" ? s.metadata : {},
+    metadata: sanitizeMetadata(s.metadata),
     result: s.result == null ? null : s.result,
   };
 }
