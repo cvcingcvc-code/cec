@@ -25,7 +25,8 @@ function setup() {
   return HACKATHONS.map(normalizeHackathon).filter(Boolean);
 }
 
-test("closure: discover -> filter -> match -> favorite-id -> registration", () => {
+test("closure: discover -> filter -> match -> favorite-id -> registration", (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: NOW.getTime() });
   const list = setup();
 
   // 1. discover: filter to upcoming hackathons
