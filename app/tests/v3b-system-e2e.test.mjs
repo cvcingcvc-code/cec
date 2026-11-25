@@ -181,7 +181,11 @@ test("B3 SYSTEM E2E: task -> gateway run -> result -> link back -> complete", as
   const run = await waitRun(runId);
   assert.equal(run.status, "completed", "real run completed");
   assert.ok(run.result && run.result.summary, "real structured result");
-  assert.ok(BRANCH && String(run.result.output).includes(BRANCH), "output contains this worktree's real branch");
+  if (BRANCH) {
+    assert.ok(String(run.result.output).includes(BRANCH), "output contains this worktree's real branch");
+  } else {
+    assert.ok(String(run.result.output).includes("HEAD"), "output reports detached HEAD when no branch is checked out");
+  }
 
   // 4. link the run back to the phone task
   const linked = linkTaskToAgentRun(taskId, runId, {
