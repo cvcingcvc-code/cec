@@ -11,20 +11,15 @@ import * as WB from "../store/workbench-store.js";
 import { TASK_STATUS, canTransition } from "../workbench/task-model.js";
 import * as SkillRegistry from "../workbench/skills/registry.js";
 import { summarizeResult, RESULT_TYPE_LABEL } from "../workbench/result-summary.js";
+import { statusLabel } from "../workbench/task-status-labels.js";
 import { Icon } from "../components/Icon.jsx";
 import { DatePickerSheet } from "../components/mobile/DatePickerSheet.jsx";
 import { findConflictFor, formatCN, formatCNTime } from "../lib/calendar.js";
 import { reminderMode, describeReminder, REMINDER_LEAD_CHOICES, REMINDER_MODE } from "../workbench/reminder-model.js";
 
-const STATUS_LABEL = {
-  created: "已创建",
-  planning: "规划中",
-  ready: "等待执行",
-  running: "执行中",
-  review_required: "待审核",
-  completed: "已完成",
-  failed: "失败",
-};
+// V3N: status labels come from workbench/task-status-labels.js (statusLabel
+// renders 部分完成 for failed-with-partial-results); the former local
+// STATUS_LABEL map (which could not distinguish partial results) is gone.
 
 const STEP_LABEL = { pending: "待执行", running: "执行中", completed: "已完成", failed: "失败" };
 
@@ -94,8 +89,21 @@ function intentLabel(router) {
   return skillName(router.intent);
 }
 
-// The 5 deterministic skills a user may pick manually (§27). Order matters.
-const MANUAL_SKILLS = ["search", "summarize", "extract", "plan", "write"];
+// The deterministic skills a user may pick manually (§27). Order matters.
+// V3N: activity-checklist joins (搜索活动→筛选→生成清单 closed loop).
+const MANUAL_SKILLS = ["search", "summarize", "extract", "plan", "write", "activity-checklist"];
+
+// V3J timezone fix: UTC ISO instant → LOCAL "YYYY-MM-DDTHH:mm" (datetime-local
+// shape). dueAt is stored as a UTC ISO; slicing the string directly treated the
+// UTC wall time as local and shifted due times by the UTC offset. null/invalid
+// → "" (never guess).
+function localDueInput(dueIso) {
+  if (typeof dueIso !== "string") return "";
+  const d = new Date(dueIso);
+  if (isNaN(d.getTime())) return "";
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 // Issue #3 (readable results): a plain <details> disclosure that keeps the
 // raw JSON reachable for anyone who needs it, without putting a wall of
@@ -191,16 +199,36 @@ function fmtTime(iso) {
  * Phase 4 (P0-B): extract the suggested steps from a plan-skill result.
  * A plan result is {type:"plan", content:[...]} — content may be an array of
  * strings/objects or a newline-delimited string. Returns clean titles.
+ *
+ * V3I (P1 scenarios A/C): extract-skill json results now also carry savable
+ * suggestions — content.checklist.items (scene checklist) and content.todos
+ * (recognized todo lines). They flow through the SAME save-as-todos channel:
+ * checklist first (a curated suggestion), then todo lines (extracted facts).
  */
 function extractPlanSteps(result) {
-  if (!result || result.type !== "plan") return [];
-  const c = result.content;
-  if (Array.isArray(c)) {
-    return c.map((x) => (x && typeof x === "object" ? (x.title || x.text || "") : String(x)))
-      .map((s) => s.trim()).filter(Boolean);
+  if (!result) return [];
+  if (result.type === "plan") {
+    const c = result.content;
+    if (Array.isArray(c)) {
+      return c.map((x) => (x && typeof x === "object" ? (x.title || x.text || "") : String(x)))
+        .map((s) => s.trim()).filter(Boolean);
+    }
+    if (typeof c === "string") {
+      return c.split(/\r?\n/).map((s) => s.trim().replace(/^[\d.\-\s]+/, "")).filter(Boolean);
+    }
+    return [];
   }
-  if (typeof c === "string") {
-    return c.split(/\r?\n/).map((s) => s.trim().replace(/^[\d.\-\s]+/, "")).filter(Boolean);
+  if (result.type === "json") {
+    const c = result.content;
+    if (!c || typeof c !== "object") return [];
+    const items = [];
+    if (c.checklist && typeof c.checklist === "object" && Array.isArray(c.checklist.items)) {
+      items.push(...c.checklist.items.map((s) => String(s == null ? "" : s).trim()).filter(Boolean));
+    }
+    if (Array.isArray(c.todos)) {
+      items.push(...c.todos.map((s) => String(s == null ? "" : s).trim()).filter(Boolean));
+    }
+    return items;
   }
   return [];
 }
@@ -223,6 +251,10 @@ const card = {
 };
 
 export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpdateStep, onSetResult, onAddSource, onRun,
+  // ── V3N (P0 失败恢复): onRetryFailed(taskId) — retry ONLY the failed
+  //    steps (runner's retryFailedOnly skips completed work). Renders only
+  //    when wired AND the task carries retryable skills.
+  onRetryFailed = null,
   // ── Phase 4 (P0-B): schedule editor, plan→todos, step title editing,
   //    project link. All optional — the screen degrades gracefully.
   onSetSchedule = null, onSavePlanTodos = null, onLinkProject = null, projects = [],
@@ -272,7 +304,11 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
   React.useEffect(() => {
     if (!task) return;
     setSchedDate(task.scheduledDate || "");
-    setDueInput(task.dueAt ? task.dueAt.slice(0, 16) : "");
+    // V3J timezone fix: dueAt is a UTC ISO instant — slicing it as if it were
+    // a local datetime-local string shifted the displayed/reseeded time by the
+    // UTC offset (crash fix follow-up: reopening the due picker showed 10:30
+    // for an 18:30 local due). Convert to the LOCAL "YYYY-MM-DDTHH:mm" instead.
+    setDueInput(task.dueAt ? localDueInput(task.dueAt) : "");
   }, [task && task.id, task && task.scheduledDate, task && task.dueAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // V3 Phase A (gap 1): quick reminder presets — local now + offset minutes.
@@ -307,6 +343,21 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
   // task with no skills (unknown intent) must use manual selection instead, so
   // we disable Run there rather than producing a no-op error click (§8/§27).
   const isRunnable = (task.status === TASK_STATUS.CREATED || (task.status === TASK_STATUS.READY && routerHasSkills)) && !running;
+
+  // V3N (P0 失败恢复): the task carries its failed skills in metadata
+  // (persisted by the runner) — the recovery entry stays available after an
+  // app restart, not just in the same session.
+  const retryableSkills = task.metadata && Array.isArray(task.metadata.retryableSkillIds)
+    ? task.metadata.retryableSkillIds : [];
+  const showRetry = !!onRetryFailed && retryableSkills.length > 0 &&
+    (task.status === TASK_STATUS.FAILED);
+  const [retrying, setRetrying] = React.useState(false);
+  const handleRetryFailed = async () => {
+    if (!onRetryFailed || retrying) return;
+    setRetrying(true);
+    try { await onRetryFailed(task.id); }
+    finally { setRetrying(false); }
+  };
 
   const handleRun = async (skillIds) => {
     if (!onRun || running) return;
@@ -436,10 +487,17 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
               background: task.status === "completed" ? "var(--accent-soft)" : task.status === "failed" ? "var(--danger-soft)" : "var(--brand-soft)",
               color: task.status === "completed" ? "var(--accent-strong, #047857)" : task.status === "failed" ? "var(--danger)" : "var(--brand)",
             }}>
-              {STATUS_LABEL[task.status] || task.status}
+              {statusLabel(task.status, task)}
             </span>
             {task.status === "created" && (
               <span style={{ fontSize: 12, color: "var(--text-faint)" }}>等待任务引擎 · 尚未开始执行</span>
+            )}
+            {/* V3N (§2): partial-success honesty — preserved results are real,
+                the failed part is stated plainly with its recovery entry. */}
+            {task.status === "failed" && statusLabel(task.status, task) === "部分完成" && (
+              <span style={{ fontSize: 12, color: "var(--warning-ink, #9A6300)" }}>
+                部分成果已保留（见下方结果），失败步骤可单独重试
+              </span>
             )}
           </div>
           {editingTitle && onSetTitle ? (
@@ -695,8 +753,17 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
             <Button variant="primary" data-testid="workbench-detail-run" disabled={!isRunnable}
               onClick={() => handleRun(null)}
               leadingIcon={<Icon name={running ? "compass" : "play"} style={{ width: 15, height: 15 }} />}>
-              {running ? "正在执行…" : "运行任务"}
+              {running ? "正在执行…" : task.status === TASK_STATUS.CREATED ? "开始处理" : "运行任务"}
             </Button>
+            {/* V3N (P0 失败恢复): retry ONLY the failed steps — completed work
+                is never re-executed (runner retryFailedOnly). */}
+            {showRetry && (
+              <Button variant="primary" data-testid="workbench-detail-retry-failed" disabled={retrying}
+                onClick={handleRetryFailed}
+                leadingIcon={<Icon name={retrying ? "compass" : "rotate-ccw"} style={{ width: 15, height: 15 }} />}>
+                {retrying ? "正在重试…" : `重试失败的 ${retryableSkills.length} 个步骤`}
+              </Button>
+            )}
             {task.status === TASK_STATUS.CREATED && !running && (
               <span style={{ fontSize: 12, color: "var(--text-faint)" }}>
                 任务引擎会先分析目标，再按顺序执行对应工具。
@@ -763,8 +830,9 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
           )}
 
           {router && router.intent === "unknown" && (
-            <div style={{ fontSize: 12.5, color: "var(--text-muted)", background: "var(--bg-sunken)", borderRadius: "var(--radius-md)", padding: "9px 13px", lineHeight: 1.6 }}>
-              暂时无法确定该使用哪项能力。你可以修改目标，或手动选择一个工具。
+            <div data-testid="workbench-detail-unknown-help" style={{ fontSize: 12.5, color: "var(--text-muted)", background: "var(--bg-sunken)", borderRadius: "var(--radius-md)", padding: "9px 13px", lineHeight: 1.7 }}>
+              <div style={{ fontWeight: 700, color: "var(--text-strong)", marginBottom: 4 }}>我还不能直接完成这类操作。</div>
+              没有识别出明确的处理方式（未猜测）。你可以：①修改目标描述，让它更具体（例如「整理一份××清单」或「找出本周的××活动」）；②在下方手动选择一个处理方式，例如本地提取或本地规划。
             </div>
           )}
         </div>
@@ -783,7 +851,7 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
           ))}
           {legalActions.length === 0 && (
             <span style={{ fontSize: 12, color: "var(--text-faint)" }}>
-              任务已到终态（{STATUS_LABEL[task.status] || task.status}），没有可用流转。
+              任务已到终态（{statusLabel(task.status, task)}），没有可用流转。
             </span>
           )}
         </div>
@@ -926,7 +994,17 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
                   {resultSummary.groups.map((g, i) => (
                     <div key={i} style={{ fontSize: 13, color: "var(--text-body)", lineHeight: 1.7 }}>
                       <span style={{ fontWeight: 700, color: "var(--text-strong)", marginRight: 6 }}>{g.label}</span>
-                      <span>{g.values.join("、")}</span>
+                      {g.checklist ? (
+                        /* V3I: scene checklist renders one item per line so a
+                           5-item prep list stays readable on a phone. */
+                        <span style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
+                          {g.values.map((v, j) => (
+                            <span key={j} style={{ fontSize: 12.5, color: "var(--text-body)" }}>· {v}</span>
+                          ))}
+                        </span>
+                      ) : (
+                        <span>{g.values.join("、")}</span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -983,7 +1061,7 @@ export function TaskDetailScreen({ task, onTransition, onBack, onAddStep, onUpda
               {planSteps.length > 0 && onSavePlanTodos && (
                 <div data-testid="workbench-detail-plan-todos" style={{ marginTop: 12, paddingTop: 11, borderTop: "1px dashed var(--border-subtle)" }}>
                   <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6, marginBottom: 9 }}>
-                    这是一份本地规划<b style={{ color: "var(--text-strong)" }}>建议</b>（{planSteps.length} 步）。保存为待办后，它们会以「待执行」状态出现在上方步骤里，由你逐条手动推进 —— AI 不会替你标记完成。
+                    这是一份本地<b style={{ color: "var(--text-strong)" }}>建议</b>（{planSteps.length} 条）。保存为待办后，它们会以「待执行」状态出现在上方步骤里，由你逐条手动推进 —— AI 不会替你标记完成。
                   </div>
                   <Button size="sm" variant="primary" data-testid="workbench-detail-save-plan"
                     onClick={doSavePlanTodos} disabled={alreadySavedAsTodos}

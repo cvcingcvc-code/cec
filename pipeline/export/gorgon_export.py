@@ -30,7 +30,15 @@ def _atomic_write(path, text):
         fh.write(text)
     os.replace(tmp, path)
 
-# Presentation-only district centroids (lng, lat) for the demo map fallback.
+# Presentation-only district centroids (lng, lat).
+#
+# V3J (P1 真实地图): these CENTROIDS are no longer emitted as an activity's
+# coord — a district centroid is a presentation default, NOT a real place,
+# and putting every activity in a district at the same point fakes map
+# pins. Real coordinates come from pipeline/data/locations/places.json
+# (Amap geocode, GCJ-02, district cross-validated); a record without a
+# resolved coordinate emits coord: null and the UI shows it without a pin.
+# The table stays only for _distance_label's demo fallback.
 _DISTRICT_CENTROIDS = {
     "黄浦": (121.484, 31.231), "徐汇": (121.463, 31.190), "长宁": (121.425, 31.221),
     "静安": (121.448, 31.230), "普陀": (121.397, 31.249), "虹口": (121.491, 31.268),
@@ -41,6 +49,54 @@ _DISTRICT_CENTROIDS = {
 }
 # Demo user location mirrors ui_kits/app/data.js.
 _USER_COORD = (121.51, 31.30)
+
+# V3J (P1 真实地图): the real-coords dataset. Loaded once per export run;
+# every entry is a REAL Amap geocode (GCJ-02) whose returned district was
+# cross-validated against the record's own district (wrong matches are
+# status "district_mismatch" and carry NO lat/lng).
+_PLACES_JSON = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "pipeline", "data", "locations", "places.json")
+
+
+def _load_real_coords():
+    """venue|address key -> {lat, lng} from the real geocode dataset."""
+    try:
+        with open(_PLACES_JSON, encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    for p in doc.get("places") or []:
+        if p.get("status") == "resolved" and p.get("lat") and p.get("lng"):
+            out[p.get("key")] = {"lat": p["lat"], "lng": p["lng"],
+                                 "provider": p.get("provider"),
+                                 "coordSystem": p.get("coordSystem")}
+    return out
+
+
+_REAL_COORDS = None
+
+
+def _real_coord(act):
+    """The REAL geocoded coordinate for this activity, or None.
+
+    Keyed by "venue|address" — the same key the geocode run wrote. A
+    record with NEITHER a real venue NOR an address has no coordinate:
+    null stays null, nothing is invented (V3J task rule: 禁止按数组序号
+    生成假坐标). Douban rows carry no venueName but DO carry the venue
+    text as their address — the "|address" key covers them.
+    """
+    global _REAL_COORDS
+    if _REAL_COORDS is None:
+        _REAL_COORDS = _load_real_coords()
+    venue = (act.get("venue") or "").strip()
+    address = (act.get("address") or "").strip()
+    if venue == "地点待定":
+        venue = ""
+    if not venue and not address:
+        return None
+    return _REAL_COORDS.get("%s|%s" % (venue, address))
 
 # Deterministic keyword -> category mapping (checked in order).
 _CATEGORY_RULES = [
@@ -126,7 +182,11 @@ def _location_label(act):
 
 def to_gorgon_record(act):
     """Canonical approved activity -> Gorgon UI activity record."""
-    coord = _DISTRICT_CENTROIDS.get(act.get("district"))
+    # V3J (P1 真实地图): a REAL geocoded coordinate (Amap, district
+    # cross-validated) — or None. The old district-centroid fallback faked
+    # map pins and is gone; distance falls back to "—" for null coords.
+    real = _real_coord(act)
+    coord = (real["lng"], real["lat"]) if real else None
     tags = [t for t in (act.get("tags") or []) if isinstance(t, str)][:4]
     if act.get("priceType") == "free" and "免费" not in tags and len(tags) < 4:
         tags.append("免费")
@@ -156,7 +216,11 @@ def to_gorgon_record(act):
         "venue": act.get("venue") or "地点待定",
         "distance": _distance_label(coord),
         "address": act.get("address"),
+        # V3J: real geocode coord {lng, lat} or null — never a centroid.
         "coord": {"lng": coord[0], "lat": coord[1]} if coord else None,
+        # Provenance for the coordinate (amap / gcj02) when real.
+        "coordProvider": real["provider"] if real else None,
+        "coordSystem": real["coordSystem"] if real else None,
         "price": price_label(act.get("priceType"), act.get("price")),
         "hot": False,
         "going": 0,

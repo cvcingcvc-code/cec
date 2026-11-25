@@ -9,6 +9,18 @@
 // Flow (§18/§19):
 //   created ─▶ planning ─(route)─▶ ready ─▶ running ─▶ completed | failed
 //
+// V3M (P0 部分成功): a failed skill no longer aborts the whole run. Every
+// routed skill still executes at most once and in stable order, but a
+// failure now marks THAT step failed and continues with the remaining
+// skills. Final state:
+//   * all succeeded                          → completed
+//   * some failed, at least one succeeded    → failed + partial:true
+//     (the partial result / successful steps are PRESERVED, and the
+//      failureReason records exactly which skills failed + their codes)
+//   * every skill failed                     → failed (as before)
+//   * a skill is NOT REGISTERED              → hard abort (config error, not
+//     a runtime failure — continuing would hide a broken engine)
+//
 // Determinism & safety (§48/§49):
 //   * Router runs exactly ONCE per run.
 //   * Each skill executes at most once, in a fixed, stable order.
@@ -59,6 +71,10 @@ function manualRoute(ids) {
  *   search     : fn passed to the search skill as deps.search (real API client)
  *   aiClient   : OPT-IN AI client; when omitted every skill stays deterministic
  *   skillIds   : forced skill list (manual selection / re-run), overrides router
+ *   retryFailedOnly : V3N (P0 失败恢复) — when true, `skillIds` entries whose
+ *                step already COMPLETED are skipped (NOT re-executed, NOT
+ *                re-consumed). Used by the "重试失败步骤" recovery path so a
+ *                retry never re-does the parts that already succeeded.
  *   now        : () => timestamp string
  * @returns {Promise<{ok:boolean, executed?:boolean, task?:object,
  *                     routed?:object, failed?:boolean, failureReason?:string,
@@ -91,6 +107,10 @@ export async function runTask(taskId, options = {}) {
   const forced = Array.isArray(options.skillIds) && options.skillIds.length
     ? options.skillIds.slice()
     : null;
+  // V3N (P0 失败恢复): when retryFailedOnly is set, steps that already
+  // completed are dropped from the forced list — a retry re-runs ONLY the
+  // failed skills and never re-consumes a completed step.
+  const retryFailedOnly = options.retryFailedOnly === true;
 
   let skillIds = [];
   let route = null;
@@ -140,7 +160,29 @@ export async function runTask(taskId, options = {}) {
         message: "请选择要执行的工具", task: repository.getTask(taskId),
       };
     }
-    route = manualRoute(forced);
+    // V3N: recovery path — drop skills whose step already completed so a
+    // retry never re-executes (or re-consumes) a successful step.
+    const cur0 = repository.getTask(taskId);
+    const doneSkills = new Set(cur0.steps
+      .filter((s) => s.status === "completed" && s.metadata && s.metadata.skillId)
+      .map((s) => s.metadata.skillId));
+    let requested = manualRoute(forced);
+    if (retryFailedOnly) {
+      const remaining = requested.skillIds.filter((sid) => !doneSkills.has(sid));
+      if (remaining.length === 0) {
+        return {
+          ok: true, executed: false, reason: "all_steps_already_done",
+          message: "失败的步骤都已恢复完成，没有需要重试的内容", task: cur0,
+        };
+      }
+      requested = { intent: "manual", skillIds: remaining, confidence: 1, reasons: ["重试失败的步骤（已完成部分不重做）"] };
+      repository.appendTimelineEvent(
+        taskId, "retry_started",
+        `重试 ${remaining.length} 个失败步骤（已完成部分不重做）`,
+        { retryFailedOnly: true, remaining },
+      );
+    }
+    route = requested;
     skillIds = route.skillIds;
     const cur = repository.getTask(taskId);
     for (const sid of skillIds) {
@@ -163,12 +205,15 @@ export async function runTask(taskId, options = {}) {
   const previousResults = [];
   const previousSources = [];
   const aggregated = [];
+  const failures = []; // V3M: [{skillId, code, message}] — every failed skill
   let failed = false;
   let failureReason = null;
 
   for (const sid of skillIds) {
     const skill = registry.getSkill(sid);
     if (!skill) {
+      // NOT-registered is a config/engine error, not a runtime failure:
+      // continuing would hide a broken engine behind a partial result.
       repository.appendTimelineEvent(
         taskId, "skill_failed", `工具「${sid}」未注册`, { skillId: sid },
       );
@@ -178,6 +223,13 @@ export async function runTask(taskId, options = {}) {
     }
 
     const step = baseTask.steps.find((s) => s.metadata && s.metadata.skillId === sid);
+    // V3M: a skill that comes after a real failure still runs — record that
+    // it was NOT skipped by the engine (honest timeline).
+    if (failures.length && step) {
+      repository.appendTimelineEvent(
+        taskId, "skill_skipped_none", `继续执行：${skill.name}（前序有 ${failures.length} 个工具失败）`, { skillId: sid },
+      );
+    }
     repository.appendTimelineEvent(
       taskId, "skill_started", `开始执行：${skill.name}`, { skillId: sid },
     );
@@ -224,18 +276,63 @@ export async function runTask(taskId, options = {}) {
       repository.appendTimelineEvent(
         taskId, "skill_failed", `失败：${skill.name} — ${errMsg}`, { skillId: sid, code: errCode },
       );
+      // V3M: record the failure and CONTINUE with the remaining skills. The
+      // step stays failed; later skills still get their chance to produce a
+      // usable partial result. No break here (except for the unregistered
+      // hard-abort above).
+      failures.push({ skillId: sid, code: errCode, message: errMsg });
       failed = true;
       failureReason = errMsg;
-      break;
     }
   }
 
   // §22: single skill → its result; multi → workflow_result envelope.
+  // V3M: with failures, the workflow envelope keeps BOTH the successful
+  // outputs AND the failure records, so a partial run is still useful and
+  // honest (failed skills appear in content with ok:false entries).
   const finalResult = skillIds.length === 1
     ? (aggregated[0] ? aggregated[0].result : null)
-    : { type: "workflow_result", content: aggregated };
+    : {
+      type: "workflow_result",
+      content: aggregated.concat(failures.map((f) => ({
+        skillId: f.skillId, result: null, failed: true, code: f.code, error: f.message,
+      }))),
+    };
 
   if (finalResult) repository.setTaskResult(taskId, finalResult);
+
+  // V3M: partial-success bookkeeping. When some skills failed but others
+  // succeeded, the failed task keeps its partial result AND the timeline
+  // records a task_execution_partial event (plus a retry hint event) so the
+  // user can see what to re-run without losing what already worked.
+  const succeededCount = aggregated.length;
+  const failedCount = failures.length;
+  // V3N: persist the recovery hints onto the task metadata so the UI (detail
+  // screen / retry button) can offer "重试失败步骤" after a restart, not just
+  // in the same session. Purity: metadata only — status/transition untouched.
+  if (failed && failures.length) {
+    const curMeta = repository.getTask(taskId).metadata || {};
+    repository.updateTask(taskId, {
+      metadata: Object.assign({}, curMeta, {
+        executionFailures: failures,
+        retryableSkillIds: failures.map((f) => f.skillId),
+        partial: failedCount > 0 && succeededCount > 0,
+      }),
+    });
+  }
+  if (failed && failedCount > 0 && succeededCount > 0) {
+    const codes = failures.map((f) => `${f.skillId}:${f.code || "?"}`).join("、");
+    repository.appendTimelineEvent(
+      taskId, "task_execution_partial",
+      `部分成功：${succeededCount} 个工具完成，${failedCount} 个失败（${codes}）。已有结果已保留，可重试。`,
+      { skillIds, succeededCount, failedCount, failures },
+    );
+  }
+  // Enrich the failureReason with the structured codes (single failure keeps
+  // its original message; multi-failure lists them all).
+  if (failedCount > 1) {
+    failureReason = failures.map((f) => `${f.skillId}（${f.code || "未知"}）：${f.message}`).join("；");
+  }
 
   if (!failed) {
     repository.transitionTask(taskId, TASK_STATUS.COMPLETED, { at: now() });
@@ -250,6 +347,10 @@ export async function runTask(taskId, options = {}) {
     ok: true, executed: true,
     task: repository.getTask(taskId),
     routed: route, failed, failureReason,
+    // V3M: structured partial-success info for callers (UI/retry entry).
+    partial: failed && failedCount > 0 && succeededCount > 0,
+    failures,
+    retryableSkillIds: failures.map((f) => f.skillId),
   };
 }
 

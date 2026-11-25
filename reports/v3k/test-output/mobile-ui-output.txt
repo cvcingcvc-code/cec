@@ -1,0 +1,55 @@
+PASS real V3K homepage renders
+PASS selected OBSIDIAN skin is active on home
+PASS new-profile empty state is honest
+PASS 360: home navigation
+PASS 360: home has no horizontal overflow
+PASS 360: four original navigation labels and 48px touch targets
+PASS 360: search navigation
+PASS 360: search has no horizontal overflow
+PASS 360: four original navigation labels and 48px touch targets
+PASS 390: home navigation
+PASS 390: home has no horizontal overflow
+PASS 390: four original navigation labels and 48px touch targets
+PASS 390: search navigation
+PASS 390: search has no horizontal overflow
+PASS 390: four original navigation labels and 48px touch targets
+PASS 412: home navigation
+PASS 412: home has no horizontal overflow
+PASS 412: four original navigation labels and 48px touch targets
+PASS 412: search navigation
+PASS 412: search has no horizontal overflow
+PASS 412: four original navigation labels and 48px touch targets
+PASS current real dataset has a searchable activity
+PASS keyword search returns matching real records
+PASS district sheet remains reachable
+PASS district and keyword are combined with AND
+PASS result count matches rendered cards
+PASS no-result search never pads with unrelated records
+PASS empty-state action clears the region through its original callback
+PASS clear keyword restores the preview
+PASS natural-language search remains a separate reachable screen
+PASS More drawer opens
+PASS schedule remains reachable
+PASS schedule retains its V3J presentation
+PASS More drawer opens
+PASS notes remains reachable
+PASS notes retains its V3J presentation
+PASS More drawer opens
+PASS map remains reachable
+PASS map retains its V3J presentation
+PASS More drawer opens
+PASS agent remains reachable
+PASS agent retains its V3J presentation
+PASS return to home
+PASS home creates a real task and opens detail
+PASS original task schema and created state persist
+PASS original local task engine completes the planning task
+PASS application reloads
+PASS completed task survives reload
+PASS first DARK ORBIT skin is still available
+PASS changing the visual skin preserves task data
+PASS return to selected OBSIDIAN skin
+PASS submit remains scroll-reachable with a reduced keyboard-sized viewport
+PASS legacy=1 boot contract is intact
+PASS no application console errors: []
+[v3k-mobile-ui-e2e] 54 passed, 0 failed

@@ -1,0 +1,17 @@
+[v3j-e2e] starting vite preview (dist/) ...
+PASS  servers up (vite preview)
+PASS  notes center opens
+PASS  P1: 醒目的「+ 新建笔记」入口存在
+PASS  P1: 按钮文案是 新建笔记  — 新建笔记
+PASS  P1: 点击后新建表单打开
+PASS  P1: 表单提供可选关联任务
+PASS  P1: 空文本时保存按钮禁用（不产生空笔记）
+PASS  P1: 保存后笔记立即出现在列表
+PASS  P1: 笔记带任务关联（点击可达）
+PASS  P1: note envelope 带正确关联字段（同一种数据模型）  — {"taskId":"e5e6ff0f-d394-4692-9b08-91408b39c868","kind":"text","deletedAt":null}
+PASS  P1: 编辑后列表更新
+PASS  P1: TXT/Markdown 导入按钮保留
+PASS  P1: 任务详情「记一笔」快速新建仍工作
+PASS  console errors = 0 across the whole flow
+
+[v3j-e2e] 14 passed, 0 failed

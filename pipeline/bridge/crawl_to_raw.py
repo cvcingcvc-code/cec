@@ -15,6 +15,13 @@
 #   * venueName -> venue (the schema's field name for the same fact).
 #   * sourceName / sourceUrl / sourceEventId / organizer / address /
 #     district / city / price pass through verbatim.
+#   * V3J (P1 搜索图片): the listing row's poster URL
+#     (rawData["listing"]["imageUrl"]) is a REAL image the source published
+#     — it is promoted verbatim to the top-level imageUrl with
+#     imageSource "listing-thumbnail" (provenance: the listing-row artwork,
+#     not verified detail art). Records without one keep imageUrl None —
+#     the UI then shows its own clearly-labelled placeholder. No URL is
+#     ever invented.
 #   * Every record keeps the crawl's sourceUrl — traceable provenance.
 #
 # Records already in canonical shape (no "T" in startTime) pass through
@@ -51,10 +58,29 @@ def _split_iso(value):
     return date_part, hh or None
 
 
+def _listing_image_url(ev):
+    """The listing row's own poster URL, verbatim — or None.
+
+    V3J: the douban crawler records the listing-row image under
+    rawData["listing"]["imageUrl"] (it is real artwork the source
+    published), but the flat RawEvent contract has no top-level image
+    field, so the URL never reached the normalized/approved/export chain
+    and every search card fell back to the category placeholder. Promote
+    it verbatim: no rewriting, no invented URL, None stays None.
+    """
+    raw = ev.get("rawData") or {}
+    listing = raw.get("listing") or {}
+    url = listing.get("imageUrl")
+    if isinstance(url, str) and url.strip():
+        return url.strip()
+    return None
+
+
 def convert_event(ev, collected_at=None):
     """One RawEvent dict -> one canonical raw activity dict."""
     start_date, start_time = _split_iso(ev.get("startTime"))
     end_date, end_time = _split_iso(ev.get("endTime"))
+    image_url = _listing_image_url(ev)
     act = {
         "title": ev.get("title"),
         "startDate": start_date,
@@ -69,6 +95,13 @@ def convert_event(ev, collected_at=None):
         "organizer": ev.get("organizer"),
         "sourceName": ev.get("sourceName"),
         "sourceUrl": ev.get("sourceUrl"),
+        # V3J (P1 搜索图片): real listing artwork, provenance-labelled.
+        # schema.py already knows imageUrl/imageSource/imageType; emitting
+        # None keeps records without one honest (UI shows its labelled
+        # placeholder). No URL is ever invented.
+        "imageUrl": image_url,
+        "imageSource": "listing-thumbnail" if image_url else None,
+        "imageType": "remote" if image_url else None,
     }
     if collected_at:
         act["collectedAt"] = collected_at

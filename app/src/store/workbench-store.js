@@ -913,9 +913,44 @@ export function exportICS(activityId, view) {
 // can never be compiled into the frontend. When omitted every skill stays
 // purely deterministic; when a provider fails the assist bridge falls back to
 // the local path, so the task still completes (AI 失败本地可用).
-export async function runTask(id, { skillIds = null, aiClient = null } = {}) {
-  const result = await runTaskEngine(id, { search: searchActivities, skillIds, aiClient });
+export async function runTask(id, { skillIds = null, aiClient = null, retryFailedOnly = false } = {}) {
+  const result = await runTaskEngine(id, { search: searchActivities, skillIds, aiClient, retryFailedOnly });
   return result;
+}
+
+// ── V3N (P0): one-shot submission — the "submit once → done" channel ────
+//
+// submitOneShotGoal binds the pure orchestrator (workbench/one-shot.js) to
+// the REAL collaborators: the task repository (persistence), the engine
+// runner (routing + execution, with the real search client), and the local
+// clock. The UI calls ONLY this — no second "运行任务" click, no skill
+// selection, no manual state juggling. Dedupe (submissionKey), atomic
+// create→run and honest error language all live in the orchestrator.
+
+import { submitOneShot, findExistingSubmission, normalizeSubmissionKey, explainError, explainRunProblem } from "../workbench/one-shot.js";
+
+export { findExistingSubmission, normalizeSubmissionKey, explainError, explainRunProblem };
+
+/**
+ * Submit a goal once. Returns { ok, task, deduped, run, code?, message? } —
+ * `run` carries the runner's full result (partial/failure included) so the
+ * caller can show real progress and real problems, never a fake success.
+ */
+export async function submitOneShotGoal(goal, { now = null } = {}) {
+  const out = await submitOneShot(goal, {
+    repository: {
+      createTaskEntry: (text, opts) => {
+        const list = Repo.createTaskEntry(text, opts);
+        logEvent("task_create", `一句话提交：创建任务「${Array.isArray(list) && list[0] ? list[0].title : text}」`);
+        return list;
+      },
+      listTasks: () => Repo.listTasks(),
+      getTask: (id) => Repo.getTask(id),
+    },
+    runTask: (taskId) => runTaskEngine(taskId, { search: searchActivities }),
+    now,
+  });
+  return out;
 }
 
 // ---- Review cards (DEMO / PREVIEW — local UI state only) --------------

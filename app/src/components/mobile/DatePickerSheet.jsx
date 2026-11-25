@@ -19,7 +19,7 @@
 import React from "react";
 import {
   WEEKDAY_HEADERS, monthGrid, daysInMonth, todayStr, addDays,
-  formatCN, formatCNMonth, diffDays,
+  formatCN, formatCNMonth, formatCNTime, diffDays,
 } from "../../lib/calendar.js";
 import { Icon } from "../Icon.jsx";
 

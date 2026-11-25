@@ -5,6 +5,15 @@
 // step's text result: dates, times, URLs, amounts, emails, phone numbers,
 // and obvious todo lines. Anything semantically ambiguous is left UNRECOGNIZED
 // (empty arrays + a clear "未识别" summary) rather than guessed (§14).
+//
+// V3I additions (P1 scenarios A/C, still 100% local + deterministic):
+//   * numbered todo lines ("1. 买礼物" / "2、写周报" / "3) 预约牙医") are
+//     recognized as todos — scenario C (structured list → editable todos);
+//   * a rule-based SCENE CHECKLIST suggestion: when the input mentions
+//     面试, a fixed interview-prep checklist is attached to the result as
+//     content.checklist. It is clearly a SUGGESTION (the UI labels it
+//     清单建议 and the save button creates pending, editable todos) —
+//     never fabricated facts, never auto-completed (§12/§46).
 
 import { createSkillResult, createSkillError, CAP_LOCAL } from "./skill-base.js";
 import { withAiAssist } from "../ai/assist.js";
@@ -72,6 +81,53 @@ function extractTodos(text) {
   return out;
 }
 
+// V3I: numbered-line todo marker (scenario C). A line like "1. 买礼物" /
+// "2、写周报" / "3) 预约牙医" / "一、买礼物" is an obvious list item.
+// Dot-separator ambiguity guard: "10.12 是截止日" is a DATE, not item #10 —
+// so for a dot separator the remainder must not start with a 1-2 digit
+// fragment followed by whitespace/dot/end (that pattern is a date/time
+// fragment like 10.12 or 3.15). CJK/3+ digit remainders ("1.2026年目标")
+// are still accepted.
+const RE_NUM_LINE = /^(?:\d{1,2}|[一二三四五六七八九十]{1,3})\s*(?:[、)）:：]\s*|\.(?!\d{1,2}(?:[\s.、)）:：]|$))\s*)(.+)$/;
+
+function extractNumberedTodos(text) {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const out = [];
+  for (const l of lines) {
+    const m = l.match(RE_NUM_LINE);
+    // Remainder must have content AND not be a bare number — a lone "10.12"
+    // line is a date, not a todo item.
+    if (m && m[1].trim() && !/^\d+$/.test(m[1].trim())) out.push(m[1].trim());
+  }
+  return out;
+}
+
+// V3I (scenario A): rule-based scene checklists. Pure templates, keyed by a
+// trigger keyword in the input. Each entry is a SUGGESTION the user must
+// confirm via the save button — the engine never marks them done.
+const SCENE_CHECKLISTS = [
+  {
+    trigger: /面试/,
+    title: "面试准备清单",
+    items: [
+      "更新简历并针对目标岗位调整重点",
+      "研究目标公司背景、业务与近期动态",
+      "准备常见面试问题的回答思路",
+      "准备要向面试官提出的问题",
+      "确认面试时间、地点/链接与着装，预留路程时间",
+    ],
+  },
+];
+
+function sceneChecklistFor(text) {
+  for (const scene of SCENE_CHECKLISTS) {
+    if (scene.trigger.test(text)) {
+      return { title: scene.title, items: scene.items.slice() };
+    }
+  }
+  return null;
+}
+
 /** Public, pure extraction used by both the skill and unit tests. */
 export function extractStructured(text) {
   const t = typeof text === "string" ? text : "";
@@ -82,8 +138,9 @@ export function extractStructured(text) {
   const amounts = uniq((t.match(RE.amount) || []).map((s) => s.replace(/\s+/g, "")));
   const emails = uniq(t.match(RE.email) || []);
   const phones = uniq(t.match(RE.phone) || []);
-  const todos = extractTodos(t);
-  return { dates, times, urls, amounts, emails, phones, todos };
+  const todos = Array.from(new Set([...extractTodos(t), ...extractNumberedTodos(t)]));
+  const checklist = sceneChecklistFor(t);
+  return { dates, times, urls, amounts, emails, phones, todos, checklist };
 }
 
 function describe(data) {
@@ -95,6 +152,7 @@ function describe(data) {
   if (data.emails.length) parts.push(`${data.emails.length} 个邮箱`);
   if (data.phones.length) parts.push(`${data.phones.length} 个电话`);
   if (data.todos.length) parts.push(`${data.todos.length} 条待办`);
+  if (data.checklist) parts.push("1 份场景清单建议");
   return parts;
 }
 
@@ -125,9 +183,15 @@ const extractSkill = {
     const deterministic = () => {
       const data = extractStructured(input);
       const parts = describe(data);
-      const summary = parts.length
-        ? `本地提取到：${parts.join("、")}`
-        : "未识别到结构化信息（已如实返回空结果，未猜测）";
+      let summary;
+      if (parts.length) {
+        summary = `本地提取到：${parts.join("、")}`;
+        if (data.checklist) {
+          summary += `（已附「${data.checklist.title}」，可在下方一键保存为待办）`;
+        }
+      } else {
+        summary = "未识别到结构化信息（已如实返回空结果，未猜测）";
+      }
       return createSkillResult("extract", {
         summary,
         result: { type: "json", content: data },

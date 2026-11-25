@@ -126,6 +126,33 @@ export function ActivityDetailScreen({
     </div>
   );
 
+  // V2.4 hackathon-discovery (ADDITIVE): the structured hackathon facts card.
+  // Renders ONLY the fields the record actually carries; absent fields are
+  // rendered as 待定 so the reader knows what to verify, never a guess.
+  const hasHackathonFacts = !!(v.mode || v.registrationDeadline || v.prize || v.eligibility || v.teamSize);
+  const hackathonFacts = hasHackathonFacts ? (
+    <Section title="赛事信息">
+      <div style={{ display: "flex", flexDirection: "column", gap: 0 }} data-testid="hackathon-facts">
+        {[
+          { icon: "laptop", label: "参赛形式", value: v.modeLabel || "待定" },
+          { icon: "clock", label: "报名截止", value: v.registrationDeadline
+              ? String(v.registrationDeadline).slice(0, 10) + (v.deadlineCountdown ? " · " + v.deadlineCountdown : "")
+              : "待定（以官方页面为准）" },
+          { icon: "trophy", label: "奖金", value: v.prize || "未公布" },
+          { icon: "shield-check", label: "参赛条件", value: v.eligibility || "未知条件 · 需查看官方页面确认" },
+          { icon: "users", label: "团队规模", value: v.teamSize || "待定" },
+        ].map((row) => (
+          <div key={row.label} style={{ display: "flex", gap: 12, padding: "10px 0", borderTop: "1px solid var(--border-subtle)", alignItems: "baseline" }}>
+            <span style={{ width: 150, flex: "none", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "var(--text-muted)" }}>
+              <Icon name={row.icon} style={{ width: 14, height: 14, color: "var(--brand)" }} />{row.label}
+            </span>
+            <span style={{ fontSize: 13.5, color: "var(--text-body)", lineHeight: 1.6 }}>{row.value}</span>
+          </div>
+        ))}
+      </div>
+    </Section>
+  ) : null;
+
   /* ── Sidebar: actions + trust + place + sources ──────────────────── */
 
   const sidebar = (
@@ -410,6 +437,8 @@ export function ActivityDetailScreen({
             </header>
 
             {facts}
+
+            {hackathonFacts}
 
             {v.reasons.length > 0 && (
               <Section title="为什么推荐">

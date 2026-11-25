@@ -32,6 +32,19 @@ const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".
 const GW_SCRIPT = path.join(REPO, "scripts", "agent-gateway.mjs");
 const TEST_ROOT = path.join(REPO, "work", "gateway-lifecycle");
 
+// WorkBuddy sandbox shim compatibility: the host's node-safe-delete-shim
+// may turn a bulk rmSync into SAFE_DELETE_BULK_CONFIRM_REQUIRED (>=50
+// deletions in one turn). Scratch state dirs are disposable, so cleanup
+// is best-effort here — never a test failure.
+function rmSyncBestEffort(target, options) {
+  try {
+    fs.rmSync(target, options);
+  } catch (error) {
+    if (String(error && error.message || error).includes("SAFE_DELETE")) return;
+    throw error;
+  }
+}
+
 function pickPort() {
   // 20000–39999, unprivileged range; collision chance across 6 tests is
   // negligible, and each test picks FRESH ports for every gateway start.
@@ -60,7 +73,7 @@ async function stopGateway(child) {
 function cleanStateDir(stateDir) {
   const relative = path.relative(TEST_ROOT, stateDir);
   assert.ok(relative && !relative.startsWith("..") && !path.isAbsolute(relative));
-  fs.rmSync(stateDir, { recursive: true, force: true });
+  rmSyncBestEffort(stateDir, { recursive: true, force: true });
 }
 
 async function childPid(stateDir) {

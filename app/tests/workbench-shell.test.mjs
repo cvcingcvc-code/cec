@@ -159,8 +159,10 @@ test("workbench tabs cover the shell surfaces", () => {
   // adds "useract" — user-created activities (the honest real data source).
   // V3 Phase A (Task #3/E) adds "agent" — the PC agent gateway entry
   // (submit runs + view results, real execution, allowlist only).
+  // V2.4 (feat/hackathon-discovery-v1) adds "match" — the AI hackathon
+  // match entry (deterministic match-model over the verified activity list).
   // The rest is unchanged.
-  assert.deepEqual(keys, ["home", "projects", "progress", "tasks", "schedule", "notes", "places", "useract", "search", "agent", "review", "history"]);
+  assert.deepEqual(keys, ["home", "projects", "progress", "tasks", "schedule", "notes", "places", "useract", "match", "search", "agent", "review", "history"]);
   assert.equal(Nav.WORKBENCH_SETTINGS.key, "settings");
 });
 

@@ -1,17 +1,20 @@
-// Gorgon Workbench — WorkbenchHome (Phase 2: creates REAL tasks).
+// Gorgon Workbench — WorkbenchHome (V3N: one-shot submission home).
 //
-// The main task input now calls the formal createTask() engine path (§16):
-//   * goal = the full user text
-//   * title = auto-truncated from the goal
-//   * status = created (formal state machine vocabulary)
-//   * then the app navigates to the Task Detail screen, which honestly
-//     shows 等待任务引擎 — nothing pretends the AI understood the task.
+// The composer is the SINGLE main entry (§2 of ONE_SHOT_AGENT_REDESIGN.md):
+// one submission ("开始处理") atomically creates the task AND runs the
+// engine — capability check, plan, low-risk execution. No second
+// "运行任务" click. The page surfaces 正在执行 / 需要你确认 / 最近成果;
+// search, task lists and other management stay reachable as secondary
+// entries. Unknown goals get a plain-Chinese "我还不能直接完成这类操作"
+// explanation with the nearest actionable alternative — never a fake
+// created/ready state.
 
 import React from "react";
-import { Button } from "../lib/ds.js";
 import { useResponsive } from "../lib/useResponsive.js";
 import { STATUS_LABELS as SHARED_LABELS } from "../workbench/task-status-labels.js";
+import { explainRunProblem } from "../workbench/one-shot.js";
 import { Icon } from "../components/Icon.jsx";
+import "../styles/v3k-home.css";
 
 const QUICK_ACTIONS = [
   { key: "opportunity", label: "寻找行业机会", text: "帮我寻找本周值得参加的行业机会活动" },
@@ -39,317 +42,259 @@ function fmtTime(iso) {
   } catch (e) { return ""; }
 }
 
-export function WorkbenchHome({ tasks, onCreateTask, onGoSearch, onGoTasks, onOpenTask,
+function SectionHeading({ title, children }) {
+  return <div className="v3k-home-section-heading"><h2>{title}</h2><div>{children}</div></div>;
+}
+
+function EmptyState({ icon, title, children }) {
+  return (
+    <div className="v3k-home-empty v3k-panel">
+      <span className="v3k-home-empty-icon"><Icon name={icon} /></span>
+      <div><p>{title}</p><span>{children}</span></div>
+    </div>
+  );
+}
+
+export function WorkbenchHome({ tasks, onCreateTask, onSubmitGoal = null, submittingGoal = false,
+  onGoSearch, onGoTasks, onOpenTask,
   onGoSchedule = null,
-  // ── Phase 4 (P0-D): the home must show the whole loop, not just tasks.
-  //    All data comes from the parent (computed through the store facade).
   todayTasks = [], openTaskCount = 0, projects = [], projectStats = {},
   recentNotes = [], onOpenProject = null, onGoProjects = null }) {
   const { isMobile } = useResponsive();
   const [value, setValue] = React.useState("");
   const [notice, setNotice] = React.useState("");
+  const [noticeTone, setNoticeTone] = React.useState("info");
   const inputRef = React.useRef(null);
+  // V3N: home result-state sections (§2 正在执行 / 需要你确认 / 最近成果).
+  const runningTasks = tasks.filter((t) => t.status === "running" || t.status === "planning");
+  const confirmTasks = tasks.filter((t) => t.status === "review_required" || (t.status === "failed" && t.metadata && Array.isArray(t.metadata.retryableSkillIds) && t.metadata.retryableSkillIds.length));
+  const finishedTasks = tasks.filter((t) => t.status === "completed" || t.status === "failed");
+  const recent = finishedTasks.length ? finishedTasks.slice(0, 3) : tasks.slice(0, 3);
 
-  const recent = tasks.slice(0, 3);
-
-  const submit = () => {
+  // V3N: submit → the WHOLE chain runs (dedupe → create → engine). The
+  // outcome lands as an honest notice; the task itself carries the real
+  // progress/results. onOpenTask only when the user asked to inspect.
+  const submit = async () => {
     const t = value.trim();
     if (!t) return;
-    const task = onCreateTask(t); // returns the created task (or null)
-    setValue("");
-    if (task && onOpenTask) {
-      onOpenTask(task.id); // §16: navigate straight to the Task Detail
+    if (!onSubmitGoal) {
+      // Legacy path (no orchestrator wired): create only, honest notice.
+      const task = onCreateTask(t);
+      setValue("");
+      if (task && onOpenTask) { onOpenTask(task.id); return; }
+      setNoticeTone("info");
+      setNotice(task ? "任务已创建并保存到本地。任务引擎尚未执行它。" : "任务创建失败，请检查输入内容。");
       return;
     }
-    setNotice(task
-      ? "任务已创建并保存到本地。任务引擎尚未执行它——这是如实状态，不是 AI 理解结果。"
-      : "任务创建失败，请检查输入内容。");
+    setNoticeTone("info");
+    setNotice("正在处理…");
+    const out = await onSubmitGoal(t);
+    setValue("");
+    if (out && out.deduped && out.task) {
+      setNoticeTone("info");
+      setNotice("这个目标已提交过，已为你打开原任务，不会重复执行。");
+      if (onOpenTask) onOpenTask(out.task.id);
+      return;
+    }
+    if (out && out.ok && out.task) {
+      if (onOpenTask) { onOpenTask(out.task.id); return; }
+      const run = out.run;
+      const problem = explainRunProblem(run);
+      setNoticeTone(problem ? "warn" : "ok");
+      setNotice(problem
+        ? `已创建任务「${out.task.title}」。${problem.text}${problem.hint || ""}`
+        : `已完成「${out.task.title}」，成果在任务详情中。`);
+      return;
+    }
+    setNoticeTone("warn");
+    setNotice((out && out.message) || "任务创建失败，请检查输入内容。");
   };
 
   const quick = (a) => {
     if (a.gotoSearch) { onGoSearch(); return; }
     setValue(a.text);
-    if (inputRef.current && inputRef.current.focus) inputRef.current.focus();
+    inputRef.current?.focus();
   };
 
-  const gutter = "var(--gg-gutter)";
-
   return (
-    <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }} data-gg-screen="workbench-home">
-      <div style={{ padding: isMobile ? "22px 16px 0" : "34px 32px 0", maxWidth: 860, margin: "0 auto", width: "100%" }}>
-        {/* A. Top */}
-        <div data-testid="workbench-hero">
-          <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
-            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 12, letterSpacing: "0.1em", color: "var(--brand)", textTransform: "uppercase" }}>
-              Gorgon Workbench
-            </span>
-          </div>
-          <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: isMobile ? 25 : 31, color: "var(--text-strong)", letterSpacing: "-0.02em", margin: "8px 0 0", lineHeight: 1.3 }}>
-            把目标交给工作台，<br />把决定留给你。
-          </h1>
-        </div>
+    <div className="v3k-home v3k-page" data-gg-screen="workbench-home">
+      <div className="v3k-home-inner">
+        <header className="v3k-home-heading" data-testid="workbench-hero">
+          <div className="v3k-home-eyebrow"><span className="v3k-home-signal" />个人行动空间</div>
+          <h1>把想法，<br className="v3k-home-title-break" />变成下一步。</h1>
+          <p>把重要的事，变成看得见的进展。</p>
+        </header>
 
-        {/* B. Main task input — the visual core of the home.
-            The whole card is a tap target for the textarea: tapping the
-            title or the card padding used to do nothing, so the soft
-            keyboard never appeared (A3.1 in the UI audit). */}
-        <div style={{ marginTop: 22 }} data-testid="workbench-task-input">
-          <div onClick={() => { if (inputRef.current && inputRef.current.focus) inputRef.current.focus(); }}
-            style={{
-              background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
-              borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-md)", padding: "18px 20px 14px",
-              cursor: "text",
-            }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15.5, color: "var(--text-strong)", marginBottom: 10 }}>
-              今天想完成什么？
+        <section data-testid="workbench-task-input" aria-label="一句话提交，自动处理">
+          <div className="v3k-hero v3k-home-composer" onClick={() => inputRef.current?.focus()}>
+            <div className="v3k-home-composer-top">
+              <span className="v3k-home-composer-kicker"><Icon name="sparkles" />一句话，自动处理</span>
+              <span className="v3k-home-connection"><span />AI 未连接</span>
             </div>
+            <label htmlFor="v3k-home-goal" className="v3k-home-composer-title">告诉 Gorgon，你想完成什么？</label>
             <textarea
+              id="v3k-home-goal"
+              className="v3k-goal-input"
               aria-label="描述一个目标"
-              placeholder={"描述一个目标，例如：\n帮我寻找本周值得参加的 AI 活动……"}
+              placeholder="写下你的目标，例如：帮我整理一份比赛报名资料清单…"
               rows={isMobile ? 2 : 3}
               enterKeyHint="send"
               value={value}
               ref={inputRef}
               onChange={(e) => setValue(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }}
-              style={{
-                width: "100%", border: "none", outline: "none", resize: "none",
-                background: "var(--bg-sunken)", borderRadius: "var(--radius-md)",
-                padding: "12px 14px", fontFamily: "var(--font-sans)", fontSize: 14.5,
-                lineHeight: 1.6, color: "var(--text-strong)", boxSizing: "border-box",
+              onKeyDown={(e) => {
+                if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
               }}
             />
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginTop: 10, gap: 10 }}>
-              <span style={{ fontSize: 11.5, color: "var(--text-faint)", marginRight: "auto" }}>
-                {isMobile ? "点这里输入 · 回车即可开始" : "Enter 提交 · Shift + Enter 换行"}
-              </span>
-              <Button variant="primary" onClick={submit} disabled={!value.trim()}
-                leadingIcon={<Icon name="arrow-right" style={{ width: 16, height: 16 }} />}>
-                开始任务
-              </Button>
-            </div>
-          </div>
-          {notice && (
-            <div data-testid="workbench-task-notice" role="status"
-              style={{ marginTop: 10, fontSize: 12.5, color: "var(--text-muted)", background: "var(--bg-sunken)", borderRadius: "var(--radius-md)", padding: "9px 13px", lineHeight: 1.6 }}>
-              {notice}
-            </div>
-          )}
-        </div>
-
-        {/* C. Quick actions — few and real */}
-        <div style={{ marginTop: 18 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-muted)", marginBottom: 9 }}>快捷任务</div>
-          <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
-            {QUICK_ACTIONS.map((a) => (
-              <button key={a.key} data-testid={"workbench-quick-" + a.key} onClick={() => quick(a)}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 7,
-                  border: "1px solid var(--border-subtle)", background: "var(--surface-card)",
-                  color: "var(--text-body)", fontFamily: "var(--font-sans)", fontWeight: 600,
-                  fontSize: 13, padding: "9px 15px", borderRadius: "var(--radius-pill)", cursor: "pointer",
-                  transition: "all var(--dur-fast) var(--ease-out)",
-                }}>
-                <Icon name={a.gotoSearch ? "sparkles" : "plus"} style={{ width: 14, height: 14, color: a.gotoSearch ? "var(--brand)" : "var(--text-faint)" }} />
-                {a.label}
+            <div className="v3k-home-composer-footer">
+              <span>{submittingGoal ? "正在处理，请稍候…" : (isMobile ? "提交后自动检查能力并执行" : "Enter 开始处理 · Shift + Enter 换行")}</span>
+              <button type="button" className="v3k-home-start" data-testid="workbench-home-submit" onClick={submit} disabled={!value.trim() || submittingGoal}>
+                {submittingGoal ? "正在处理…" : "开始处理"}<Icon name="arrow-up-right" />
               </button>
-            ))}
-          </div>
-        </div>
-
-        {/* C2. Phase 4 (P0-D): 今日待办 — real scheduled/due tasks for today. */}
-        <div style={{ marginTop: 26 }} data-testid="workbench-today">
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 9 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-muted)" }}>
-              今日待办{todayTasks.length > 0 ? `（${todayTasks.length}）` : ""}
-              {openTaskCount > 0 && <span style={{ fontWeight: 500, color: "var(--text-faint)" }}> · 待完成 {openTaskCount}</span>}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              {/* Phase 2 (V2.3): the formal schedule view entry */}
-              {onGoSchedule && (
-                <button onClick={onGoSchedule} data-testid="workbench-today-goschedule" style={{ border: "none", background: "transparent", color: "var(--brand)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>
-                  日程视图
+          </div>
+          {notice && <div className="v3k-home-notice" data-testid="workbench-task-notice" role="status">{notice}</div>}
+        </section>
+
+        <nav className="v3k-home-shortcuts" aria-label="快捷任务">
+          {QUICK_ACTIONS.map((a) => (
+            <button type="button" key={a.key} data-testid={"workbench-quick-" + a.key} onClick={() => quick(a)}>
+              <Icon name={a.gotoSearch ? "search" : a.key === "plan" ? "calendar-clock" : a.key === "organize" ? "files" : "compass"} />
+              {a.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* ── V3N (§2): 正在执行 / 需要你确认 / 最近成果 — the result-state
+            sections. Each row opens the task's progress/result page. ── */}
+        {runningTasks.length > 0 && (
+          <section className="v3k-section" data-testid="workbench-home-running">
+            <SectionHeading title="正在执行" />
+            <div className="v3k-home-list">
+              {runningTasks.slice(0, 3).map((t) => (
+                <button type="button" key={t.id} className="v3k-home-row v3k-panel" data-testid="workbench-home-running-item"
+                  onClick={() => onOpenTask && onOpenTask(t.id)} disabled={!onOpenTask}>
+                  <span className="v3k-home-row-icon"><Icon name="clock" /></span>
+                  <span className="v3k-home-row-copy"><strong>{t.title}</strong><span>提交后自动处理中，无需再次点击</span></span>
+                  <span className="v3k-home-task-status" data-status={t.status}>{SHARED_LABELS[t.status] || t.status}</span>
                 </button>
-              )}
-              <button onClick={onGoTasks} style={{ border: "none", background: "transparent", color: "var(--brand)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>
-                任务页
-              </button>
+              ))}
             </div>
-          </div>
+          </section>
+        )}
+        {confirmTasks.length > 0 && (
+          <section className="v3k-section" data-testid="workbench-home-confirm">
+            <SectionHeading title="需要你确认" />
+            <div className="v3k-home-list">
+              {confirmTasks.slice(0, 3).map((t) => (
+                <button type="button" key={t.id} className="v3k-home-row v3k-panel" data-testid="workbench-home-confirm-item"
+                  onClick={() => onOpenTask && onOpenTask(t.id)} disabled={!onOpenTask}>
+                  <span className="v3k-home-row-icon"><Icon name="alert-triangle" /></span>
+                  <span className="v3k-home-row-copy"><strong>{t.title}</strong><span>{t.status === "failed" ? "有步骤未成功，可重试失败部分" : "等待你的确认后继续"}</span></span>
+                  <span className="v3k-home-task-status" data-status={t.status}>{SHARED_LABELS[t.status] || t.status}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="v3k-section" data-testid="workbench-today">
+          <SectionHeading title="今日待办">
+            {onGoSchedule && <button type="button" onClick={onGoSchedule} data-testid="workbench-today-goschedule">日程视图<Icon name="arrow-up-right" /></button>}
+            <button type="button" onClick={onGoTasks} aria-label="查看全部任务"><Icon name="arrow-right" /></button>
+          </SectionHeading>
+          {openTaskCount > 0 && <p className="v3k-home-section-caption">今日 {todayTasks.length} 项安排 · 还有 {openTaskCount} 项任务待推进</p>}
           {todayTasks.length === 0 ? (
-            <div style={{ fontSize: 13, color: "var(--text-faint)", padding: "12px 0", lineHeight: 1.6 }}>
-              今天没有安排。在任务详情里设置计划日期或截止时间，任务就会出现在这里。
-            </div>
+            <EmptyState icon="calendar-clock" title="今天还没有安排">
+              在任务详情设置计划日期或截止时间，待办就会出现在这里。
+            </EmptyState>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="v3k-home-list">
               {todayTasks.slice(0, 5).map((t) => (
-                <div key={t.id} data-testid="workbench-today-item" onClick={() => onOpenTask && onOpenTask(t.id)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 12, padding: "11px 14px",
-                    background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
-                    borderRadius: "var(--radius-md)", minWidth: 0, cursor: onOpenTask ? "pointer" : "default",
-                  }}>
-                  <Icon name="calendar-clock" style={{ width: 16, height: 16, color: "var(--brand)", flex: "none" }} />
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {t.title}
-                    </div>
-                    <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 2 }}>
-                      {t.scheduledDate ? `计划 ${t.scheduledDate}` : ""}{t.dueAt ? `${t.scheduledDate ? " · " : ""}截止 ${fmtTime(t.dueAt)}` : ""}
-                    </div>
-                  </div>
-                  <span style={{ flex: "none", fontSize: 11.5, fontWeight: 700, color: t.status === "completed" ? "var(--accent-strong, #047857)" : "var(--text-muted)" }}>
-                    {SHARED_LABELS[t.status] || t.status}
-                  </span>
-                </div>
+                <button type="button" key={t.id} className="v3k-home-row v3k-panel" data-testid="workbench-today-item"
+                  onClick={() => onOpenTask && onOpenTask(t.id)} disabled={!onOpenTask}>
+                  <span className="v3k-home-row-icon"><Icon name="calendar-clock" /></span>
+                  <span className="v3k-home-row-copy"><strong>{t.title}</strong><span>
+                    {t.scheduledDate ? `计划 ${t.scheduledDate}` : ""}{t.dueAt ? `${t.scheduledDate ? " · " : ""}截止 ${fmtTime(t.dueAt)}` : ""}
+                  </span></span>
+                  <span className="v3k-home-task-status" data-status={t.status}>{SHARED_LABELS[t.status] || t.status}</span>
+                </button>
               ))}
             </div>
           )}
-        </div>
+        </section>
 
-        {/* C3. Phase 4 (P0-D): 我的项目 — the loop hub. */}
-        <div style={{ marginTop: 26 }} data-testid="workbench-home-projects">
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 9 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-muted)" }}>我的项目</div>
-            <button onClick={onGoProjects} style={{ border: "none", background: "transparent", color: "var(--brand)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>
-              全部项目
-            </button>
-          </div>
+        <section className="v3k-section" data-testid="workbench-home-projects">
+          <SectionHeading title="我的项目"><button type="button" onClick={onGoProjects}>全部项目<Icon name="arrow-up-right" /></button></SectionHeading>
           {projects.length === 0 ? (
-            <div style={{ fontSize: 13, color: "var(--text-faint)", padding: "12px 0", lineHeight: 1.6 }}>
-              还没有项目。在项目页创建，或在活动详情页「以此活动创建项目」。
-            </div>
+            <EmptyState icon="folder-kanban" title="给重要的事，一个空间">
+              在项目页新建项目，把任务、活动和笔记放在一起。
+            </EmptyState>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="v3k-home-list">
               {projects.slice(0, 4).map((p) => {
                 const st = projectStats[p.id] || { tasks: 0, openTasks: 0, notes: 0 };
                 const hasDemo = p.activities.some((a) => a.isDemo);
                 return (
-                  <div key={p.id} data-testid="workbench-home-project" onClick={() => onOpenProject && onOpenProject(p.id)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 12, padding: "11px 14px",
-                      background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
-                      borderRadius: "var(--radius-md)", minWidth: 0, cursor: onOpenProject ? "pointer" : "default",
-                    }}>
-                    <Icon name="folder-kanban" style={{ width: 16, height: 16, color: "var(--brand)", flex: "none" }} />
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                        <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {p.title}
-                        </span>
-                        {hasDemo && (
-                          <span style={{ flex: "none", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: "var(--radius-pill)", background: "var(--warning-soft)", color: "#9A6300" }}>
-                            DEMO
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 2 }}>
-                        任务 {st.tasks}{st.openTasks ? `（进行中 ${st.openTasks}）` : ""} · 笔记 {st.notes} · 活动 {p.activities.length}
-                      </div>
-                    </div>
-                    <Icon name="chevron-right" style={{ width: 15, height: 15, color: "var(--text-faint)", flex: "none" }} />
-                  </div>
+                  <button type="button" key={p.id} className="v3k-home-row v3k-panel" data-testid="workbench-home-project"
+                    onClick={() => onOpenProject && onOpenProject(p.id)} disabled={!onOpenProject}>
+                    <span className="v3k-home-row-icon"><Icon name="folder-kanban" /></span>
+                    <span className="v3k-home-row-copy"><strong>{p.title}{hasDemo && <small className="v3k-home-demo">DEMO</small>}</strong>
+                      <span>任务 {st.tasks}{st.openTasks ? `（进行中 ${st.openTasks}）` : ""} · 笔记 {st.notes} · 活动 {p.activities.length}</span>
+                    </span>
+                    <Icon className="v3k-home-chevron" name="chevron-right" />
+                  </button>
                 );
               })}
             </div>
           )}
-        </div>
+        </section>
 
-        {/* D. Recent tasks — real engine data */}
-        <div style={{ marginTop: 26 }} data-testid="workbench-recent">
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 9 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-muted)" }}>最近任务</div>
-            <button onClick={onGoTasks} style={{ border: "none", background: "transparent", color: "var(--brand)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>
-              查看全部
-            </button>
-          </div>
+        <section className="v3k-section" data-testid="workbench-recent">
+          <SectionHeading title="最近成果"><button type="button" onClick={onGoTasks}>查看全部<Icon name="arrow-up-right" /></button></SectionHeading>
           {recent.length === 0 ? (
-            <div style={{ fontSize: 13, color: "var(--text-faint)", padding: "14px 0", lineHeight: 1.6 }}>
-              还没有任务。上面输入一个目标，或点一个快捷任务开始。
-            </div>
+            <p className="v3k-home-quiet-empty">还没有成果。写下第一个目标，让行动有个起点。</p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="v3k-home-list">
               {recent.map((t) => (
-                <div key={t.id} onClick={() => onOpenTask && onOpenTask(t.id)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 12, padding: "11px 14px",
-                    background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
-                    borderRadius: "var(--radius-md)", minWidth: 0,
-                    cursor: onOpenTask ? "pointer" : "default",
-                  }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {t.title}
-                    </div>
-                    <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 2 }}>
-                      {fmtTime(t.createdAt)} · 本地任务数据
-                    </div>
-                  </div>
-                  <span style={{
-                    flex: "none", fontSize: 11.5, fontWeight: 700,
-                    color: t.status === "completed" ? "var(--accent-strong, #047857)"
-                      : t.status === "failed" ? "var(--danger)" : "var(--text-muted)",
-                  }}>
-                    {SHARED_LABELS[t.status] || t.status}
-                  </span>
-                </div>
+                <button type="button" key={t.id} className="v3k-home-row v3k-panel" data-testid="workbench-home-recent-result"
+                  onClick={() => onOpenTask && onOpenTask(t.id)} disabled={!onOpenTask}>
+                  <span className="v3k-home-row-copy"><strong>{t.title}</strong><span>{fmtTime(t.createdAt)} · {t.result ? "成果已保存" : "本地任务数据"}</span></span>
+                  <span className="v3k-home-task-status" data-status={t.status}>{SHARED_LABELS[t.status] || t.status}</span>
+                </button>
               ))}
             </div>
           )}
-        </div>
+        </section>
 
-        {/* D2. Phase 4 (P0-D): 最近记录 — real notes from the data layer. */}
-        <div style={{ marginTop: 26 }} data-testid="workbench-recent-notes">
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-muted)", marginBottom: 9 }}>最近记录</div>
+        <section className="v3k-section" data-testid="workbench-recent-notes">
+          <SectionHeading title="最近记录" />
           {recentNotes.length === 0 ? (
-            <div style={{ fontSize: 13, color: "var(--text-faint)", padding: "12px 0", lineHeight: 1.6 }}>
-              还没有记录。在项目详情里「记一笔」，笔记会出现在这里。
-            </div>
+            <p className="v3k-home-quiet-empty">还没有记录。在项目详情里「记一笔」，留下你的思考。</p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="v3k-home-list">
               {recentNotes.slice(0, 4).map((n) => (
-                <div key={n.id} data-testid="workbench-recent-note"
-                  style={{
-                    display: "flex", alignItems: "flex-start", gap: 11, padding: "10px 14px",
-                    background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
-                    borderRadius: "var(--radius-md)", minWidth: 0,
-                  }}>
-                  <Icon name="notebook-pen" style={{ width: 15, height: 15, color: "var(--text-faint)", flex: "none", marginTop: 2 }} />
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 13, color: "var(--text-body)", lineHeight: 1.55, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {n.text}
-                    </div>
-                    <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 3 }}>
-                      {fmtTime(n.updatedAt)}{n.taskId ? " · 关联任务" : ""}{n.projectId ? " · 关联项目" : ""}
-                    </div>
-                  </div>
+                <div key={n.id} className="v3k-home-row v3k-panel" data-testid="workbench-recent-note">
+                  <span className="v3k-home-row-icon"><Icon name="notebook-pen" /></span>
+                  <div className="v3k-home-row-copy"><strong>{n.text}</strong><span>{fmtTime(n.updatedAt)}{n.taskId ? " · 关联任务" : ""}{n.projectId ? " · 关联项目" : ""}</span></div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </section>
 
-        {/* E. Workbench status — must be truthful */}
-        <div style={{ margin: "26px 0 34px" }} data-testid="workbench-status">
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-muted)", marginBottom: 9 }}>工作台状态</div>
-          <div style={{
-            background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
-            borderRadius: "var(--radius-md)", padding: "4px 16px",
-          }}>
-            {STATUS_ITEMS.map((s, i) => (
-              <div key={s.key} data-testid={"workbench-status-" + s.key} style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
-                padding: "11px 0", borderTop: i === 0 ? "none" : "1px solid var(--border-subtle)",
-              }}>
-                <span style={{ fontSize: 13, color: "var(--text-body)", fontWeight: 600 }}>{s.label}</span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 700, color: s.ok ? "var(--accent-strong, #047857)" : "var(--text-faint)" }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.ok ? "var(--accent)" : "var(--slate-400)" }} />
-                  {s.value}
-                </span>
+        <section className="v3k-section v3k-home-status" data-testid="workbench-status">
+          <SectionHeading title="工作台状态" />
+          <div className="v3k-panel v3k-home-status-panel">
+            {STATUS_ITEMS.map((s) => (
+              <div key={s.key} data-testid={"workbench-status-" + s.key}>
+                <span>{s.label}</span>
+                <strong data-ready={s.ok}><i aria-hidden="true" />{s.value}</strong>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

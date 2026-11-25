@@ -36,6 +36,8 @@ import { ScheduleScreen } from "./screens/ScheduleScreen.jsx";
 import { NotesScreen } from "./screens/NotesScreen.jsx";
 import { AgentScreen } from "./screens/AgentScreen.jsx";
 import { UserActivitiesScreen } from "./screens/UserActivitiesScreen.jsx";
+// V2.4 (feat/hackathon-discovery-v1): AI hackathon match screen.
+import { MatchScreen } from "./screens/MatchScreen.jsx";
 import { ReviewCenterScreen } from "./screens/ReviewCenterScreen.jsx";
 import { HistoryScreen } from "./screens/HistoryScreen.jsx";
 import { SettingsScreen } from "./screens/SettingsScreen.jsx";
@@ -60,6 +62,11 @@ import * as NativeReminders from "./lib/native-reminders.js";
 import {
   pickDueReminders, firedKey, NOTIFIED_STORE_KEY, REMINDER_POLL_MS,
 } from "./workbench/reminder-fire.js";
+// V2.5: hackathon deadline alerts — favorited activities get 72h/24h
+// registration-deadline reminders (same bridge, activity-scoped).
+import {
+  planDeadlineAlerts, DEADLINE_ALERTS_STORE_KEY,
+} from "./workbench/deadline-reminder.js";
 
 /* ── legacy-mode detection (§17/§18) ────────────────────────────────── */
 // /?legacy=1 boots into the Phase-1 default (discover). Anything else
@@ -73,6 +80,13 @@ function isLegacyBoot() {
   }
 }
 const LEGACY_MODE = typeof window !== "undefined" ? isLegacyBoot() : false;
+
+// Previewing another visual skin never writes preferences or application data.
+function visualSkin() {
+  try { return new URLSearchParams(window.location.search).get("skin") === "orbit" ? "orbit-dark" : "obsidian"; }
+  catch { return "obsidian"; }
+}
+const V3K_SKIN = visualSkin();
 
 /* ── Workbench chrome (desktop sidebar + mobile tabbar/drawer) ─────── */
 
@@ -127,7 +141,7 @@ function WorkbenchSidebar({ active, onWb, onLegacy, syncedCount }) {
 
 function WorkbenchTabBar({ active, onChange, syncedCount }) {
   return (
-    <div data-gg-region="tabbar" style={{
+    <div className="gg-workbench-tabbar" data-gg-region="tabbar" aria-label="主导航" style={{
       flex: "none", display: "flex", padding: "8px 12px 22px",
       background: "color-mix(in oklch, var(--surface-card) 88%, transparent)",
       backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
@@ -138,6 +152,9 @@ function WorkbenchTabBar({ active, onChange, syncedCount }) {
         const badge = t.key === "weekend" && syncedCount > 0;
         return (
           <button key={t.key}
+            className={"gg-workbench-tab" + (on ? " is-active" : "")}
+            aria-current={on ? "page" : undefined}
+            aria-label={t.label}
             data-workbench-nav={t.workbench ? t.key : undefined}
             data-gg-nav={t.legacy ? t.key : undefined}
             onClick={() => onChange(t.key)}
@@ -353,6 +370,50 @@ export default function App() {
     setWbLog(WBStore.getLog());
     const created = WBStore.getTasks()[0] || null;
     return created;
+  };
+
+  // ── V3N (P0 one-shot): submit once → auto capability-check, plan, run ──
+  // The home composer's single submission drives the whole chain: dedupe
+  // (submissionKey, restart-safe) → create & persist → IMMEDIATELY run the
+  // engine. No second "运行任务" click. Returns { task, deduped, run } so the
+  // composer can show real state (执行中/需要确认/最近成果) and honest
+  // Chinese errors. The runner's own partial/failure bookkeeping is kept —
+  // nothing here pretends an unexecuted task succeeded.
+  const [submittingGoal, setSubmittingGoal] = React.useState(false);
+
+  const submitGoalOnce = async (goal) => {
+    const text = String(goal || "").trim();
+    if (!text || submittingGoal) return { ok: false, task: null, deduped: false, run: null, message: "请先写下你想完成的事" };
+    setSubmittingGoal(true);
+    try {
+      const out = await WBStore.submitOneShotGoal(text);
+      setWbTasks(WBStore.getTasks());
+      setWbLog(WBStore.getLog());
+      return out;
+    } catch (e) {
+      return { ok: false, task: null, deduped: false, run: null, code: "SUBMIT_THREW", message: String((e && e.message) || e) };
+    } finally {
+      setSubmittingGoal(false);
+    }
+  };
+
+  // V3N (P0 失败恢复): retry ONLY the failed steps of a failed/partial task.
+  // The runner (retryFailedOnly) skips steps that already completed — the
+  // successful parts are never re-done or re-consumed.
+  const retryFailedSteps = async (id) => {
+    const task = WBStore.getTask(id);
+    const retryable = task && task.metadata && Array.isArray(task.metadata.retryableSkillIds)
+      ? task.metadata.retryableSkillIds : [];
+    if (!retryable.length) {
+      flash("没有可重试的失败步骤");
+      return { ok: false, code: "NOTHING_TO_RETRY" };
+    }
+    // The state machine requires failed → ready before a re-run.
+    transitionTask(id, "ready");
+    const out = await runTaskEngine(id, { skillIds: retryable, retryFailedOnly: true });
+    if (out && out.ok) flash(out.failed ? "已重试失败步骤（部分仍未成功）" : "失败步骤已全部恢复完成");
+    else flash((out && out.message) || "重试未成功");
+    return out;
   };
 
   const addTaskLocal = (title, opts) => {
@@ -582,6 +643,37 @@ export default function App() {
     flash("笔记已删除");
   };
 
+  // ── V3J (P1 笔记新建): direct creation from the notes center ────────
+  // Same note envelope as every other addNote call site (facade ->
+  // opportunities repository): kind "text" + optional task/project/place
+  // associations. No second data model, no extra storage keys.
+  const handleCreateNote = (text, links) => {
+    const t = String(text || "").trim();
+    if (!t) return;
+    const l = links || {};
+    const n = WBStore.addNote({
+      kind: "text",
+      text: t,
+      taskId: l.taskId || null,
+      projectId: l.projectId || null,
+      placeId: l.placeId || null,
+    });
+    if (!n) { flash("笔记创建失败"); return; }
+    setWbNotes(WBStore.getNotes());
+    setWbLog(WBStore.getLog());
+    flash("笔记已保存");
+  };
+
+  const handleUpdateNote = (noteId, text) => {
+    const t = String(text || "").trim();
+    if (!t) return;
+    const n = WBStore.updateNote(noteId, { text: t });
+    if (!n) { flash("笔记保存失败（不存在）"); return; }
+    setWbNotes(WBStore.getNotes());
+    setWbLog(WBStore.getLog());
+    flash("笔记已更新");
+  };
+
   // ── V3 Phase A (gap 2): TXT / Markdown note import ──────────────────
   // 防覆盖纪律：导入永远创建新笔记（append-only），绝不改写/覆盖已有数据。
   // 解析在纯模块 lib/note-import.js 中；这里只负责读文件（UTF-8）、
@@ -710,6 +802,17 @@ export default function App() {
   };
 
   const handleExportICS = (activityId, view) => WBStore.exportICS(activityId, view);
+
+  // V2.4 (feat/hackathon-discovery-v1): AI 匹配结果 → 报名准备清单。
+  // The prepList from match-model goes into the SAME registration record
+  // (setPrep), so 发现→匹配→准备 stays one honest loop. The activity must
+  // exist in the merged dataset; nothing is invented for a missing id.
+  const handleMatchUsePrep = (activity, prepList) => {
+    if (!activity || !activity.id || !Array.isArray(prepList)) return;
+    const items = prepList.map((title) => ({ title: String(title), done: false }));
+    WBStore.setPrep(activity.id, items, null);
+    setWbLog(WBStore.getLog());
+  };
 
   /** Module C UI: prep checklist — seed (null) / add (text) / toggle (id+done). */
   const handlePrepAdd = (activityId, text) => {
@@ -865,6 +968,46 @@ export default function App() {
     flash(has ? "已取消收藏" : "已收藏");
   };
 
+  // --- V2.5: deadline alerts for favorited activities (72h/24h) ---
+  // Re-plan whenever favorites change (or on mount): pure computation ->
+  // native scheduling for the delta, dedupe keys persisted so an alert
+  // fires once per deadline value. Cancelled favorites: removed keys are
+  // NOT auto-cancelled from the OS here (harmless: an alert for an
+  // un-favorited event still fires once and is honest), but the dedupe
+  // store keeps growing only with real schedules.
+  const syncDeadlineAlerts = React.useCallback(async (favIds) => {
+    try {
+      const views = (favIds || []).map((id) => asView(id)).filter(Boolean);
+      let firedKeys = [];
+      try {
+        firedKeys = JSON.parse(localStorage.getItem(DEADLINE_ALERTS_STORE_KEY) || "[]");
+      } catch (e) { firedKeys = []; }
+      const plan = planDeadlineAlerts(views, new Date().toISOString(), { firedKeys });
+      if (!plan.length) return;
+      const nextFired = firedKeys.slice();
+      let scheduledCount = 0;
+      for (const alert of plan) {
+        const st = await NativeReminders.scheduleDeadlineAlert({
+          ...alert,
+          body: `${alert.title} 报名将于 ${new Date(alert.deadlineIso).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} 截止`,
+        });
+        if (st.scheduled) {
+          scheduledCount += 1;
+          nextFired.push(alert.key);
+        }
+      }
+      if (scheduledCount > 0) {
+        localStorage.setItem(DEADLINE_ALERTS_STORE_KEY, JSON.stringify(nextFired));
+        flash(`已为 ${scheduledCount} 个截止节点安排提醒`);
+      }
+    } catch (e) { /* deadline alerts are best-effort — never block favorites */ }
+  }, []);
+
+  // Sync on favorites change (covers mount — initial favorites restore).
+  React.useEffect(() => {
+    syncDeadlineAlerts(favorites);
+  }, [favorites, syncDeadlineAlerts]);
+
   const openDetail = (x) => { const v = asView(x); if (v) { setProjectPickerFor(null); setDetail(v); } };
   const showOnMap = (v) => { setMapFocus(v.id); setDetail(null); setDetailTaskId(null); setDetailProjectId(null); setTab("map"); setWbTab(null); };
   const changeTab = (t) => { setDetail(null); setDetailTaskId(null); setDetailProjectId(null); setTab(t); setWbTab(null); setMoreOpen(false); };
@@ -921,6 +1064,8 @@ export default function App() {
     home: (
       <WorkbenchHome tasks={wbTasks}
         onCreateTask={createTaskFromGoal}
+        onSubmitGoal={submitGoalOnce}
+        submittingGoal={submittingGoal}
         onGoSearch={() => changeWbTab("search")} onGoTasks={() => changeWbTab("tasks")}
         onGoSchedule={() => changeWbTab("schedule")}
         onOpenTask={openTaskDetail}
@@ -970,6 +1115,7 @@ export default function App() {
           onSetResult={(r) => { setWbTasks(WBStore.setTaskResult(detailTask.id, r)); }}
           onAddSource={(s) => { setWbTasks(WBStore.addTaskSource(detailTask.id, s)); }}
           onRun={runTaskEngine}
+          onRetryFailed={retryFailedSteps}
           onSetSchedule={handleSetSchedule}
           onSavePlanTodos={handleSavePlanTodos}
           onLinkProject={handleLinkTaskToProject}
@@ -1034,13 +1180,19 @@ export default function App() {
     notes: (
       <NotesScreen notes={wbNotes} tasks={wbTasks} places={wbPlaces} projects={wbProjects}
         onRemoveNote={handleRemovePlaceNote} onOpenTask={openTaskDetail} flash={flash}
-        onImportNotes={handleImportNotes} />
+        onImportNotes={handleImportNotes}
+        onCreateNote={handleCreateNote} onUpdateNote={handleUpdateNote} />
     ),
     useract: (
       <UserActivitiesScreen activities={wbUserActs} weekend={weekend} projects={wbProjects}
         onCreate={handleCreateUserAct} onRemove={handleRemoveUserAct}
         onSync={handleSyncUserAct} onCreateProject={handleCreateProjectFromUserAct}
         onExecute={handleExecuteUserAct} tasks={wbTasks} />
+    ),
+    match: (
+      <MatchScreen activities={(GORGON_DATA.activities || []).filter((a) => !a.demo)}
+        onOpen={(view) => { setDetail(view); }}
+        onUsePrep={handleMatchUsePrep} flash={flash} />
     ),
     progress: (
       <ProgressCenterScreen data={progressCenterData} onOpenProject={openProjectDetail} />
@@ -1070,7 +1222,7 @@ export default function App() {
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
       {tab === "discover" && <DiscoverScreen synced={weekend} onSync={toggleSync} onOpen={openDetail} onGoSearch={() => setTab("search")} onGoSmart={() => setTab("smart")} district={district} onDistrictChange={setDistrict} />}
       {tab === "smart" && <NaturalSearchScreen synced={weekend} onSync={toggleSync} onOpen={openDetail} district={district} onDistrictChange={setDistrict} />}
-      {tab === "search" && <SearchScreen synced={weekend} onSync={toggleSync} onOpen={openDetail} district={district} onDistrictChange={setDistrict} />}
+      {tab === "search" && <SearchScreen synced={weekend} onSync={toggleSync} onOpen={openDetail} district={district} onDistrictChange={setDistrict} onGoSmart={() => changeTab("smart")} />}
       {tab === "weekend" && <MyWeekendScreen weekend={weekend} onSync={toggleSync} onOpen={openDetail} onDiscover={() => setTab("discover")} favorites={favorites} onToggleFavorite={toggleFavorite} />}
       {tab === "map" && <MapScreen synced={weekend} onSync={toggleSync} onOpen={openDetail} focusId={mapFocus} district={district} onDistrictChange={setDistrict} />}
 
@@ -1104,10 +1256,21 @@ export default function App() {
     </div>
   );
 
+  // A presentation-only skin for the first two V3K screens. Detail views and
+  // the remaining workbench pages retain their V3J chrome and color tokens.
+  const redesignedPage = !detail && (wbTab === "home" || tab === "search");
+
   if (isMobile) {
     return (
-      <PhoneFrame>
-        <StatusBar dark={false} />
+      <PhoneFrame appearance={redesignedPage ? V3K_SKIN : undefined}>
+        {redesignedPage ? (
+          <header className="v3k-mobile-header">
+            <button type="button" data-workbench-nav="home" aria-label="回到工作台" onClick={() => changeWbTab("home")}>
+              <span className="v3k-brand-mark" aria-hidden="true">G</span><span>GORGON</span>
+            </button>
+            <span className="v3k-header-caption">行动工作台</span>
+          </header>
+        ) : <StatusBar dark={false} />}
         {content}
         <WorkbenchTabBar active={wbTab || (moreOpen ? "more" : tab)} syncedCount={syncedCount}
           onChange={pickMobileTab} />
@@ -1118,7 +1281,7 @@ export default function App() {
   }
 
   return (
-    <div className="gg-app" data-gg-shell="wide" data-gg-shell-nav="workbench">
+    <div className={"gg-app" + (redesignedPage ? " v3k-theme" : "")} data-v3k-theme={redesignedPage ? V3K_SKIN : undefined} data-gg-shell="wide" data-gg-shell-nav="workbench">
       <DesktopHeader district={district} onWorkbenchHome={() => changeWbTab("home")} />
       <div className="gg-body">
         <WorkbenchSidebar

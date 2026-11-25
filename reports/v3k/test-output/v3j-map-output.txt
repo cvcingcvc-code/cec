@@ -1,0 +1,14 @@
+[v3j-map-e2e] starting vite preview (dist/) ...
+PASS  servers up (vite preview)
+PASS  地图 tab 渲染 MapScreen
+PASS  假地图已移除（无 CSS 河流/装饰块）  — {"fakeRiver":0}
+PASS  地图 marker 渲染（真实坐标 pin）  — pins=15
+PASS  pin 位置为真实投影（distinct 坐标数 > 2，非网格序号）  — {"distinctLefts":6,"distinctTops":6,"n":15}
+PASS  pin 排序可复现（left 值来自数据投影）
+PASS  点击 marker → 名称/地址卡片渲染  — douban_36988401
+PASS  「打开地图导航」按钮存在  — https://uri.amap.com/marker?position=121.420814,31.197524&name=%E8%99%B9%E6%A1%A
+PASS  导航入口为高德 marker URI（真实外部地图）  — https://uri.amap.com/marker?position=121.420814,31.197524&name=%E8%99%B9%E6%A1%A5%E8%B7%AF
+PASS  无坐标记录不画 pin（列表如实标注）  — {"listN":16,"noCoordN":1,"pinN":15}
+PASS  console errors = 0
+
+[v3j-map-e2e] 11 passed, 0 failed

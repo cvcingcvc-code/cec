@@ -707,11 +707,35 @@ class GorgonRequestHandler(SimpleHTTPRequestHandler):
         return client_identity(peer, self.headers.get("X-Forwarded-For"),
                                peer_is_a_proxy(peer))
 
+    def _drain_body(self, length):
+        """Consume the request body BEFORE rejecting it.
+
+        Sending 413 while the client is still uploading closes the socket
+        with unread bytes in the receive buffer — a Linux peer answers that
+        with a TCP RST, and the client dies on BrokenPipeError before it
+        ever reads the 413 (Windows tolerates it, CI did not). Draining,
+        bounded, lets the refusal actually land.
+        """
+        try:
+            self.connection.settimeout(5)
+        except OSError:
+            pass
+        remaining = min(length, 8_000_000)
+        try:
+            while remaining > 0:
+                chunk = self.rfile.read(min(remaining, 65_536))
+                if not chunk:
+                    break
+                remaining -= len(chunk)
+        except OSError:
+            pass  # client gave up — the 413 is moot anyway
+
     def _read_body(self):
         length = int(self.headers.get("Content-Length") or 0)
         if length <= 0:
             return {}
         if length > 64_000:
+            self._drain_body(length)
             raise ValueError("request body too large")
         raw = self.rfile.read(length)
         try:

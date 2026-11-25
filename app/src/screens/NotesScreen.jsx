@@ -17,6 +17,12 @@
 // accept=".txt,.md,.markdown">）→ App.handleImportNotes（解析 + 追加创建，
 // 绝不覆盖已有数据）。导入成功/失败都通过 flash 如实报告。
 //
+// V3J (P1 笔记新建): 醒目的「+ 新建笔记」入口 + 内联表单（正文必填，可选
+// 关联任务/项目/地点）+ 逐条编辑。数据契约不变：全部经 facade addNote /
+// updateNote 走 opportunities 仓库的既有 note envelope（text + 关联 id 字段
+// + kind），不建立第二套数据模型、不新增存储键。保存后列表立即出现（App
+// 刷新 wbNotes）。
+//
 // 录音诚实纪律：audio 笔记以指针形状展示（audioPath + 时长）；真机录音
 // 入口在 Capacitor 录音插件安装前标 NOT_IMPLEMENTED —— 本屏不渲染一个
 // 假的录音按钮。
@@ -55,11 +61,15 @@ function fmtDuration(ms) {
 export function NotesScreen({
   notes, tasks, places, projects,
   onRemoveNote, onOpenTask, flash, onImportNotes,
+  onCreateNote, onUpdateNote,
 }) {
   const [query, setQuery] = React.useState("");
   const [kind, setKind] = React.useState("all");
   // V3 Phase A (gap 2): hidden file input for the system file picker.
   const fileInputRef = React.useRef(null);
+  // V3J (P1): composer state — null = closed, else the draft being written.
+  // One object drives BOTH 新建 and 编辑 (editingId distinguishes them).
+  const [composer, setComposer] = React.useState(null); // { text, taskId, projectId, placeId, editingId }
 
   const list = React.useMemo(() => {
     let out = notes || [];
@@ -97,6 +107,36 @@ export function NotesScreen({
     }
   };
 
+  // ── V3J (P1): composer open/close/save — all writes go through the
+  // facade props (App owns the store calls); this screen never touches
+  // localStorage. Empty/whitespace text is refused (no empty notes).
+  const openComposer = () => setComposer({ text: "", taskId: "", projectId: "", placeId: "", editingId: null });
+  const closeComposer = () => setComposer(null);
+  const saveComposer = () => {
+    if (!composer) return;
+    const text = String(composer.text || "").trim();
+    if (!text) return;
+    if (composer.editingId) {
+      if (onUpdateNote) onUpdateNote(composer.editingId, text);
+    } else if (onCreateNote) {
+      onCreateNote(text, {
+        taskId: composer.taskId || null,
+        projectId: composer.projectId || null,
+        placeId: composer.placeId || null,
+      });
+    }
+    setComposer(null);
+  };
+  const startEditNote = (n) => {
+    setComposer({
+      text: String(n.text || ""),
+      taskId: n.taskId || "",
+      projectId: n.projectId || "",
+      placeId: n.placeId || "",
+      editingId: n.id,
+    });
+  };
+
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }} data-gg-screen="workbench-notes">
       <div style={{ padding: "28px 16px 40px", maxWidth: 860, margin: "0 auto", width: "100%" }}>
@@ -104,10 +144,23 @@ export function NotesScreen({
           <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 24, color: "var(--text-strong)", margin: 0 }}>
             笔记
           </h1>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <span style={{ fontSize: 12, color: "var(--text-faint)" }}>
               {(notes || []).length} 条 · 本地数据
             </span>
+            {/* V3J (P1): the PRIMARY 新建 entry — always visible when the
+                facade handler is wired, independent of 导入. */}
+            {onCreateNote && (
+              <button data-testid="workbench-notes-new" onClick={openComposer}
+                style={{
+                  border: "none", background: "var(--brand)", color: "#fff",
+                  fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  padding: "9px 16px", minHeight: 44, borderRadius: "var(--radius-pill)", fontFamily: "var(--font-sans)",
+                  display: "inline-flex", alignItems: "center", gap: 5, touchAction: "manipulation",
+                }}>
+                <Icon name="plus" style={{ width: 15, height: 15 }} />新建笔记
+              </button>
+            )}
             {onImportNotes && (
               <button data-testid="workbench-notes-import" onClick={() => fileInputRef.current && fileInputRef.current.click()}
                 style={{
@@ -181,11 +234,76 @@ export function NotesScreen({
           })}
         </div>
 
+        {/* V3J (P1): composer — 新建 / 编辑共用一个表单（editingId 区分）。
+            正文必填；关联任务/项目/地点均为可选（（不关联）= null）。 */}
+        {composer && (
+          <div data-testid="workbench-notes-composer" style={{
+            background: "var(--surface-card)", border: "1px solid var(--brand)",
+            borderRadius: "var(--radius-md)", padding: "14px 16px", marginBottom: 14,
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-strong)", marginBottom: 9 }}>
+              {composer.editingId ? "编辑笔记" : "新建笔记"}
+            </div>
+            <textarea
+              aria-label="笔记内容"
+              data-testid="workbench-notes-composer-text"
+              placeholder="写点什么…例如：现场需要带身份证，提前 30 分钟到"
+              value={composer.text}
+              onChange={(e) => setComposer((c) => c ? { ...c, text: e.target.value } : c)}
+              rows={4}
+              style={{
+                width: "100%", boxSizing: "border-box", border: "1px solid var(--border-subtle)", outline: "none",
+                borderRadius: "var(--radius-sm)", padding: "9px 12px", background: "var(--bg-sunken)",
+                fontFamily: "var(--font-sans)", fontSize: 13.5, color: "var(--text-strong)", lineHeight: 1.65, resize: "vertical",
+              }}
+            />
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 9 }}>
+              {tasks && tasks.length > 0 && (
+                <select aria-label="关联任务" data-testid="workbench-notes-composer-task"
+                  value={composer.taskId || ""}
+                  onChange={(e) => setComposer((c) => c ? { ...c, taskId: e.target.value } : c)}
+                  style={{ border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "7px 10px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--text-strong)", minHeight: 40 }}>
+                  <option value="">关联任务：（不关联）</option>
+                  {tasks.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                </select>
+              )}
+              {projects && projects.length > 0 && (
+                <select aria-label="关联项目" data-testid="workbench-notes-composer-project"
+                  value={composer.projectId || ""}
+                  onChange={(e) => setComposer((c) => c ? { ...c, projectId: e.target.value } : c)}
+                  style={{ border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "7px 10px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--text-strong)", minHeight: 40 }}>
+                  <option value="">关联项目：（不关联）</option>
+                  {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+                </select>
+              )}
+              {places && places.length > 0 && (
+                <select aria-label="关联地点" data-testid="workbench-notes-composer-place"
+                  value={composer.placeId || ""}
+                  onChange={(e) => setComposer((c) => c ? { ...c, placeId: e.target.value } : c)}
+                  style={{ border: "1px solid var(--border-subtle)", outline: "none", borderRadius: "var(--radius-sm)", padding: "7px 10px", background: "var(--bg-sunken)", fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--text-strong)", minHeight: 40 }}>
+                  <option value="">关联地点：（不关联）</option>
+                  {places.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 11 }}>
+              <Button size="sm" variant="ghost" data-testid="workbench-notes-composer-cancel" onClick={closeComposer}>取消</Button>
+              <Button size="sm" variant="primary" data-testid="workbench-notes-composer-save"
+                onClick={saveComposer} disabled={!String(composer.text || "").trim()}>
+                {composer.editingId ? "保存修改" : "保存笔记"}
+              </Button>
+              {!String(composer.text || "").trim() && (
+                <span style={{ fontSize: 11.5, color: "var(--text-faint)", alignSelf: "center" }}>写点内容才能保存</span>
+              )}
+            </div>
+          </div>
+        )}
+
         {list.length === 0 ? (
           <div style={{ fontSize: 13.5, color: "var(--text-faint)", padding: "30px 0", lineHeight: 1.7 }}>
             {(query || kind !== "all")
               ? "没有符合条件的笔记。换个关键词或筛选试试。"
-              : "还没有笔记。在项目、地点或任务详情里记一笔，都会汇总到这里。"}
+              : "还没有笔记。点右上角「+ 新建笔记」直接写一篇，或在项目、地点、任务详情里记一笔，都会汇总到这里。"}
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 9 }} data-testid="workbench-notes-list">
@@ -225,6 +343,14 @@ export function NotesScreen({
                       </span>
                     )}
                     <span style={{ flex: 1 }} />
+                    {/* V3J (P1): edit reuses the composer (one form, both paths). */}
+                    {(onCreateNote || onUpdateNote) && !isAudio && (
+                      <button data-testid="workbench-note-edit" onClick={() => startEditNote(n)}
+                        aria-label="编辑笔记"
+                        style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--brand)", fontSize: 11.5, fontWeight: 600, padding: "6px", minHeight: 36, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                        <Icon name="pencil" style={{ width: 12, height: 12 }} />编辑
+                      </button>
+                    )}
                     {onRemoveNote && (
                       <button data-testid="workbench-note-remove" onClick={() => { if (window.confirm("删除这条笔记？此操作不可撤销。")) onRemoveNote(n.id); }}
                         aria-label="删除笔记"

@@ -119,6 +119,36 @@ test("summary: extract with all-empty arrays -> null (fallback to raw JSON)", ()
   assert.equal(summarizeResult(result), null);
 });
 
+/* ── V3I: scene checklist group ─────────────────────────────────────── */
+
+test("summary: scene checklist renders as its own titled group (V3I)", () => {
+  const result = {
+    type: "json",
+    content: {
+      dates: ["明天"], times: [], urls: [], amounts: [], emails: [], phones: [],
+      todos: [],
+      checklist: { title: "面试准备清单", items: ["更新简历", "研究公司背景", "准备问题"] },
+    },
+  };
+  const s = summarizeResult(result);
+  assert.equal(s.kind, "facts");
+  assert.equal(s.groups.length, 2);
+  assert.deepEqual(s.groups.map((g) => g.label), ["日期", "面试准备清单"]);
+  assert.equal(s.groups[1].checklist, true);
+  assert.deepEqual(s.groups[1].values, ["更新简历", "研究公司背景", "准备问题"]);
+});
+
+test("summary: checklist with no items is ignored (V3I)", () => {
+  const result = {
+    type: "json",
+    content: {
+      dates: [], times: [], urls: [], amounts: [], emails: [], phones: [], todos: [],
+      checklist: { title: "空清单", items: [] },
+    },
+  };
+  assert.equal(summarizeResult(result), null);
+});
+
 /* ── passthrough / fallback ─────────────────────────────────────────── */
 
 test("summary: text and plan results return null (screen renders them directly)", () => {

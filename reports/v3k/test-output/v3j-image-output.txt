@@ -1,0 +1,17 @@
+[v3j-image-e2e] checking build prerequisites ...
+PASS  dist/ exists (run vite build first)
+PASS  dist bundle carries real doubanio image URLs
+PASS  dist bundle carries imageSource listing-thumbnail
+[v3j-image-e2e] starting vite preview (dist/) ...
+PASS  servers up (vite preview)
+PASS  搜索 tab 渲染 SearchScreen
+[v3j-image-e2e] first card HTML: <article class="v3k-activity" data-v3k-image-state="loading"><div class="v3k-activity__cover" data-testid="v3k-search-card-cover" data-v3k-image-state="loading" role="img" aria-label="相约人间仙境黄山,打卡中国画里乡村-宏村的来源图片" style="background-image: url(&quot;https://img2.doubanio.com/pview/event_poster/median/pu
+PASS  场景A: 搜索卡片渲染真实豆瓣海报 URL  — ["douban_37585353","douban_36845432","douban_37616278"]
+PASS  场景A: cover URL 为 https doubanio 原始链接（无改写）
+FAIL  场景A: 海报 URL 在 WebView 环境真实加载成功  — timeout
+PASS  场景C: 失效链接 onError 可捕获（失败回退路径存在）  — error
+PASS  场景B: 无 [object Object] 破图（对象 URL 解析修复）  — {"bad":0,"gradient":0,"image":3}
+PASS  带图卡片可打开详情（无崩溃）
+PASS  console errors = 0（除 doubanio 网络噪声）
+
+[v3j-image-e2e] 11 passed, 1 failed

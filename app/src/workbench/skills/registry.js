@@ -12,8 +12,10 @@ import extractSkill from "./extract-skill.js";
 import summarizeSkill from "./summarize-skill.js";
 import planSkill from "./plan-skill.js";
 import writeSkill from "./write-skill.js";
+// V3N (P1 closed loop): 搜索活动→筛选→生成清单 (§5 scenario 2).
+import activityChecklistSkill from "./activity-checklist-skill.js";
 
-const SKILLS = [searchSkill, extractSkill, summarizeSkill, planSkill, writeSkill];
+const SKILLS = [searchSkill, extractSkill, summarizeSkill, planSkill, writeSkill, activityChecklistSkill];
 
 const byId = new Map();
 for (const s of SKILLS) {

@@ -97,7 +97,14 @@ function DiscoverCard({ v, synced, onSync, onOpen }) {
       <div style={{ padding: 10, paddingBottom: 0 }}>
         <C.ActivityImage image={v.image} alt={v.title} ratio="16 / 10" radius="var(--radius-md)">
           <C.PlaceholderNote image={v.image} />
-          <div style={{ position: "absolute", top: 8, right: 8, zIndex: 2 }}>
+          <div style={{ position: "absolute", top: 8, right: 8, zIndex: 2, display: "flex", gap: 6 }}>
+            {/* V2.4: mode badge — 线上/线下/混合，有 mode 才显示 */}
+            {v.modeLabel && (
+              <span style={{
+                fontSize: 10.5, fontWeight: 700, padding: "3px 8px", borderRadius: "var(--radius-pill)",
+                background: "rgba(12,13,18,0.72)", color: "#fff", letterSpacing: "0.02em",
+              }}>{v.modeLabel}</span>
+            )}
             <C.TrustChip status={v.trust} size="sm" withIcon={false} />
           </div>
         </C.ActivityImage>
@@ -116,6 +123,15 @@ function DiscoverCard({ v, synced, onSync, onOpen }) {
           <span style={{ fontSize: 13, fontWeight: 700, color: v.priceType === "free" ? "var(--accent-strong, #047857)" : "var(--text-body)" }}>{v.priceLabel}</span>
           {v.tags.slice(0, 2).map((t) => <Tag key={t} size="sm" tone="neutral">{t}</Tag>)}
         </div>
+        {/* V2.4: deadline countdown — 有截止时间才显示；已截止变灰 */}
+        {v.deadlineCountdown && (
+          <div data-testid="discover-deadline-badge" style={{
+            fontSize: 11.5, fontWeight: 700,
+            color: v.deadlineCountdown === "已截止" ? "var(--text-faint)" : "var(--danger)",
+          }}>
+            {v.deadlineCountdown === "已截止" ? "报名已截止" : "报名 " + v.deadlineCountdown}
+          </div>
+        )}
         <div style={{ flex: 1 }} />
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <Button variant={isSynced ? "mint" : "secondary"} size="sm" onClick={(e) => { e.stopPropagation(); onSync(v); }}
@@ -161,6 +177,10 @@ export function DiscoverScreen({ synced, onSync, onOpen, onGoSearch, onGoSmart, 
   const [when, setWhen] = React.useState("未来7天");
   const [showFilters, setShowFilters] = React.useState(false);
   const [onlyFree, setOnlyFree] = React.useState(false);
+  // V2.4 hackathon-discovery (ADDITIVE): mode filter + deadline-first sort.
+  // Absent filters change nothing; the base list stays identical.
+  const [mode, setMode] = React.useState(null); // null | "online" | "offline" | "hybrid"
+  const [deadlineFirst, setDeadlineFirst] = React.useState(false);
 
   // V3F.1: the production surface EXCLUDES demo activities by default —
   // demo-seed rows (demo=true) never appear in the discovery list. Real
@@ -226,13 +246,21 @@ export function DiscoverScreen({ synced, onSync, onOpen, onGoSearch, onGoSmart, 
     if (cat !== "all" && a.category !== cat) return false;
     if (onlyFree && a.price !== "免费" && a.priceType !== "free") return false;
     if (!D.matches(a, district)) return false;
+    // V2.4: mode filter — records without a mode field only survive when no
+    // mode filter is active (an online event must not vanish under 线上).
+    if (mode && a.mode !== mode) return false;
     return true;
-  }), [realActivities, whenIds, when, cat, onlyFree, district]);
+  }), [realActivities, whenIds, when, cat, onlyFree, district, mode]);
 
-  const views = React.useMemo(() => list.map((a) => V.toView(a)), [list]);
+  // V2.4: deadline-first sort is applied AFTER filtering, only when on.
+  const sortedList = React.useMemo(
+    () => (deadlineFirst ? V.sortByDeadline(list) : list),
+    [list, deadlineFirst]);
 
-  const anyFilter = onlyFree || districtActive;
-  const resetFilters = () => { setOnlyFree(false); onDistrictChange(D.ALL); };
+  const views = React.useMemo(() => sortedList.map((a) => V.toView(a)), [sortedList]);
+
+  const anyFilter = onlyFree || districtActive || !!mode;
+  const resetFilters = () => { setOnlyFree(false); setMode(null); onDistrictChange(D.ALL); };
 
   const nearCount = views.filter((v) => v.district === HOME_DISTRICT).length;
   const freeCount = views.filter((v) => v.priceType === "free").length;
@@ -379,11 +407,25 @@ export function DiscoverScreen({ synced, onSync, onOpen, onGoSearch, onGoSmart, 
             <button onClick={() => setOnlyFree((v) => !v)} style={pillStyle(onlyFree)}>
               <Icon name="ticket" style={{ width: 14, height: 14 }} />只看免费
             </button>
+            {/* V2.4: mode filter — 点击已选中的即清除 */}
+            {[
+              { key: "offline", label: "线下" },
+              { key: "online", label: "线上" },
+              { key: "hybrid", label: "线上+线下" },
+            ].map((m) => (
+              <button key={m.key} onClick={() => setMode(mode === m.key ? null : m.key)} style={pillStyle(mode === m.key)}>{m.label}</button>
+            ))}
             {/* The same district state as the picker above — two controls, one
                 source of truth. Clicking the active one clears the filter. */}
             {districts.map((d) => (
               <button key={d} onClick={() => onDistrictChange(district === d ? D.ALL : d)} style={pillStyle(district === d)}>{d}</button>
             ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {/* V2.4: deadline-first sort — 截止优先，报名将截止的排前面 */}
+            <button onClick={() => setDeadlineFirst((v) => !v)} style={pillStyle(deadlineFirst)} data-testid="discover-deadline-sort">
+              <Icon name="clock" style={{ width: 14, height: 14 }} />截止优先
+            </button>
           </div>
           {anyFilter && (
             <button onClick={resetFilters} style={{ alignSelf: "flex-start", border: "none", background: "transparent", color: "var(--brand)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}>

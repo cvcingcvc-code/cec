@@ -71,13 +71,33 @@ class JsonSourceAdapter(SourceAdapter):
 
 
 def ingest_raw(raw_dir, collected_at=None):
-    """Stage entry point: returns list of raw activities with collectedAt."""
+    """Stage entry point: returns list of raw activities with collectedAt.
+
+    OPT (2026-10-21): records are deduped by id across files (first
+    occurrence wins, later identical-id records are dropped). Raw ids are
+    deterministic (e.g. douban_<eventId>), so the same event landing in two
+    raw files — a re-crawl writing douban_<city>.json next to the tracked
+    douban_<date>.json, or any duplicate-source accident — MUST collapse to
+    one record instead of flowing through the whole pipeline twice and
+    surfacing as duplicate approved rows (16 douban dupes, 2026-10-16).
+    Deterministic: file order is sorted, so first-wins is stable.
+    """
     import datetime
 
     stamp = collected_at or datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
     acts = JsonSourceAdapter(raw_dir).collect_all()
+    seen = set()
+    deduped = []
+    dropped = 0
     for act in acts:
+        act_id = act.get("id")
+        if act_id and act_id in seen:
+            dropped += 1
+            continue
+        if act_id:
+            seen.add(act_id)
         if not act.get("collectedAt"):
             act["collectedAt"] = stamp
         act.setdefault("status", "raw")
-    return acts
+        deduped.append(act)
+    return deduped

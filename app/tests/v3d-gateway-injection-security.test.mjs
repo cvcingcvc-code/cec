@@ -3,6 +3,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+
+// WorkBuddy sandbox shim compatibility: the host's node-safe-delete-shim
+// may turn a bulk rmSync into SAFE_DELETE_BULK_CONFIRM_REQUIRED (>=50
+// deletions in one turn). Scratch state dirs are disposable, so cleanup
+// is best-effort here — never a test failure.
+function rmSyncBestEffort(target, options) {
+  try {
+    fs.rmSync(target, options);
+  } catch (error) {
+    if (String(error && error.message || error).includes("SAFE_DELETE")) return;
+    throw error;
+  }
+}
 import path from "node:path";
 import net from "node:net";
 import { spawn } from "node:child_process";
@@ -78,7 +91,7 @@ async function fixture(t, options = {}) {
     }
     const relative = path.relative(ROOT, dir);
     assert.ok(relative && !relative.startsWith("..") && !path.isAbsolute(relative));
-    fs.rmSync(dir, { recursive: true, force: true });
+    rmSyncBestEffort(dir, { recursive: true, force: true });
   });
   let ready = false;
   for (let i = 0; i < 100; i++) {

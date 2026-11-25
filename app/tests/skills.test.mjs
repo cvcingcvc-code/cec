@@ -212,3 +212,59 @@ test("V3H: weekday words still parse (下周三 / 本周末)", () => {
   assert.deepEqual(extractStructured("下周三有安排").dates, ["下周三"]);
   assert.deepEqual(extractStructured("本周末参加活动").dates, ["本周末"]);
 });
+
+/* ── V3I: scenario A — interview prep produces a scene checklist ───────── */
+
+test("V3I scenario A: interview goal attaches a rule-based prep checklist", () => {
+  const d = extractStructured("明天下午我要去面试，帮我整理准备事项。");
+  assert.deepEqual(d.dates, ["明天"], "date extraction must not regress");
+  assert.ok(d.checklist, "checklist must be attached for 面试");
+  assert.equal(d.checklist.title, "面试准备清单");
+  assert.ok(d.checklist.items.length >= 5, "checklist has concrete items");
+  assert.ok(d.checklist.items.some((s) => s.includes("简历")));
+  assert.ok(d.checklist.items.some((s) => s.includes("公司")));
+});
+
+test("V3I scenario A: interview checklist flows through the skill result", () => {
+  const r = extractSkill.execute({ goal: "明天下午我要去面试，帮我整理准备事项。" });
+  assert.equal(r.ok, true);
+  assert.equal(r.result.type, "json");
+  assert.ok(r.result.content.checklist, "result carries the checklist");
+  assert.ok(r.summary.includes("清单建议"), "summary mentions the checklist");
+  assert.equal(r.metadata.method, "regex", "still deterministic — no model");
+});
+
+test("V3I: no checklist for goals that do not mention 面试", () => {
+  const d = extractStructured("帮我找上海这周末可以参加的 AI 活动。");
+  assert.equal(d.checklist, null);
+  const d2 = extractStructured("今天天气真不错");
+  assert.equal(d2.checklist, null);
+});
+
+/* ── V3I: scenario C — numbered lines are recognized as todos ──────────── */
+
+test("V3I scenario C: numbered todo lines are extracted", () => {
+  const d = extractStructured("帮我把明天的事情整理成任务清单。\n1. 更新简历\n2、准备自我介绍\n3) 查看公司评价");
+  assert.ok(d.todos.includes("更新简历"), JSON.stringify(d.todos));
+  assert.ok(d.todos.includes("准备自我介绍"));
+  assert.ok(d.todos.includes("查看公司评价"));
+});
+
+test("V3I scenario C: cn-numbered lines and mixed markers are extracted", () => {
+  const d = extractStructured("1、买礼物\n2. 写周报\n- 预约牙医\n待办：交房租");
+  assert.ok(d.todos.includes("买礼物"));
+  assert.ok(d.todos.includes("写周报"));
+  assert.ok(d.todos.includes("预约牙医"));
+  assert.ok(d.todos.includes("交房租"));
+});
+
+test("V3I scenario C: lone number lines and dates are NOT todos", () => {
+  const d = extractStructured("10.12 是截止日\n3. \n第五步");
+  assert.ok(!d.todos.includes("12 是截止日"), "10.12 must not be split into a todo");
+  assert.ok(!d.todos.some((s) => /^\d+$/.test(s)), "bare numbers are not todo items");
+});
+
+test("V3I scenario C: chit-chat still yields no todos", () => {
+  const d = extractStructured("今天天气真不错，我们聊聊天");
+  assert.deepEqual(d.todos, []);
+});

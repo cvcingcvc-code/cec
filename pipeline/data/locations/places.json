@@ -1,0 +1,393 @@
+{
+  "_notice": "REAL geocoded coordinates via Amap REST API (GCJ-02). Demo seeds: address+venue / district+venue queries. Douban rows: address queries (the address IS the venue text; the crawler records no venueName). District cross-validation: a resolution whose district disagrees with the record is a wrong match — status district_mismatch, NO lat/lng. Never a guessed or centroid coordinate.",
+  "provider": "amap",
+  "coordSystem": "gcj02",
+  "places": [
+    {
+      "key": "创智天地 7 号楼|上海市杨浦区淞沪路创智天地",
+      "venue": "创智天地 7 号楼",
+      "address": "上海市杨浦区淞沪路创智天地",
+      "district": "杨浦",
+      "activityIds": [
+        "a02"
+      ],
+      "query": "上海市杨浦区淞沪路创智天地创智天地7号楼",
+      "status": "resolved",
+      "lat": 31.320873,
+      "lng": 121.506652,
+      "displayName": "上海市杨浦区淞沪路",
+      "provider": "amap",
+      "coordSystem": "gcj02"
+    },
+    {
+      "key": "育音堂|",
+      "venue": "育音堂",
+      "address": "",
+      "district": "长宁",
+      "activityIds": [
+        "a03",
+        "b08"
+      ],
+      "query": "上海长宁育音堂",
+      "status": "resolved",
+      "lat": 31.220537,
+      "lng": 121.424751,
+      "displayName": "上海市长宁区",
+      "provider": "amap",
+      "coordSystem": "gcj02"
+    },
+    {
+      "key": "杨浦区图书馆|",
+      "venue": "杨浦区图书馆",
+      "address": "",
+      "district": "杨浦",
+      "activityIds": [
+        "a04"
+      ],
+      "query": "上海杨浦杨浦区图书馆",
+      "status": "resolved",
+      "lat": 31.271831,
+      "lng": 121.533684,
+      "displayName": "上海市杨浦区杨浦区图书馆(平凉分馆)",
+      "provider": "amap",
+      "coordSystem": "gcj02"
+    },
+    {
+      "key": "西岸美术馆|",
+      "venue": "西岸美术馆",
+      "address": "",
+      "district": "徐汇",
+      "activityIds": [
+        "a05"
+      ],
+      "query": "上海徐汇西岸美术馆",
+      "status": "resolved",
+      "lat": 31.167682,
+      "lng": 121.463841,
+      "displayName": "上海市徐汇区西岸美术馆",
+      "provider": "amap",
+      "coordSystem": "gcj02"
+    },
+    {
+      "key": "西岸智塔 AI 空间|",
+      "venue": "西岸智塔 AI 空间",
+      "address": "",
+      "district": "徐汇",
+      "activityIds": [
+        "a08"
+      ],
+      "query": "上海徐汇西岸智塔AI空间",
+      "status": "resolved",
+      "lat": 31.188544,
+      "lng": 121.424299,
+      "displayName": "上海市徐汇区西岸",
+      "provider": "amap",
+      "coordSystem": "gcj02"
+    },
+    {
+      "key": "永康路咖啡实验室|",
+      "venue": "永康路咖啡实验室",
+      "address": "",
+      "district": "徐汇",
+      "activityIds": [
+        "a10"
+      ],
+      "query": "上海徐汇永康路咖啡实验室",
+      "status": "resolved",
+      "lat": 31.210215,
+      "lng": 121.456225,
+      "displayName": "上海市徐汇区永康路",
+      "provider": "amap",
+      "coordSystem": "gcj02"
+    },
+    {
+      "key": "创智天地 7 号楼|",
+      "venue": "创智天地 7 号楼",
+      "address": "",
+      "district": "杨浦",
+      "activityIds": [
+        "b03"
+      ],
+      "query": "上海杨浦创智天地7号楼",
+      "status": "district_mismatch",
+      "lat": null,
+      "lng": null,
+      "displayName": "上海市嘉定区创智天地",
+      "provider": "amap",
+      "coordSystem": "gcj02",
+      "detail": "高德返回的地点 (上海市嘉定区创智天地) 与记录标注的区 (杨浦) 不一致 — 拒绝错误匹配"
+    },
+    {
+      "key": "杨浦滨江|",
+      "venue": "杨浦滨江",
+      "address": "",
+      "district": "杨浦",
+      "activityIds": [
+        "b05"
+      ],
+      "query": "上海杨浦杨浦滨江",
+      "status": "resolved",
+      "lat": 31.250421,
+      "lng": 121.529673,
+      "displayName": "上海市杨浦区杨浦滨江",
+      "provider": "amap",
+      "coordSystem": "gcj02"
+    },
+    {
+      "key": "杨浦图书馆少儿馆|",
+      "venue": "杨浦图书馆少儿馆",
+      "address": "",
+      "district": "杨浦",
+      "activityIds": [
+        "b06"
+      ],
+      "query": "上海杨浦杨浦图书馆少儿馆",
+      "status": "resolved",
+      "lat": 31.308071,
+      "lng": 121.523114,
+      "displayName": "上海市杨浦区杨浦图书馆(南门)",
+      "provider": "amap",
+      "coordSystem": "gcj02"
+    },
+    {
+      "key": "大学路|",
+      "venue": "大学路",
+      "address": "",
+      "district": "杨浦",
+      "activityIds": [
+        "b07"
+      ],
+      "query": "上海杨浦大学路",
+      "status": "resolved",
+      "lat": 31.30337,
+      "lng": 121.508141,
+      "displayName": "上海市杨浦区大学路",
+      "provider": "amap",
+      "coordSystem": "gcj02"
+    },
+    {
+      "key": "复旦大学邯郸校区|",
+      "venue": "复旦大学邯郸校区",
+      "address": "",
+      "district": "杨浦",
+      "activityIds": [
+        "b09"
+      ],
+      "query": "上海杨浦复旦大学邯郸校区",
+      "status": "resolved",
+      "lat": 31.296443,
+      "lng": 121.503458,
+      "displayName": "上海市杨浦区复旦大学邯郸校区",
+      "provider": "amap",
+      "coordSystem": "gcj02"
+    },
+    {
+      "key": "西岸大草坪|",
+      "venue": "西岸大草坪",
+      "address": "",
+      "district": "徐汇",
+      "activityIds": [
+        "c03"
+      ],
+      "query": "上海徐汇西岸大草坪",
+      "status": "resolved",
+      "lat": 31.188544,
+      "lng": 121.424299,
+      "displayName": "上海市徐汇区西岸",
+      "provider": "amap",
+      "coordSystem": "gcj02"
+    },
+    {
+      "key": "大学路中央广场|",
+      "venue": "大学路中央广场",
+      "address": "",
+      "district": "杨浦",
+      "activityIds": [
+        "c04"
+      ],
+      "query": "上海杨浦大学路中央广场",
+      "status": "resolved",
+      "lat": 31.30337,
+      "lng": 121.508141,
+      "displayName": "上海市杨浦区大学路",
+      "provider": "amap",
+      "coordSystem": "gcj02"
+    },
+    {
+      "key": "嘉定汽车博物馆|",
+      "venue": "嘉定汽车博物馆",
+      "address": "",
+      "district": "嘉定",
+      "activityIds": [
+        "c05"
+      ],
+      "query": "上海嘉定嘉定汽车博物馆",
+      "status": "resolved",
+      "lat": 31.279046,
+      "lng": 121.170462,
+      "displayName": "上海市嘉定区上海汽车博物馆(北门)",
+      "provider": "amap",
+      "coordSystem": "gcj02"
+    },
+    {
+      "key": "M50创意园|",
+      "venue": "M50创意园",
+      "address": "",
+      "district": "普陀",
+      "activityIds": [
+        "c06"
+      ],
+      "query": "上海普陀M50创意园",
+      "status": "resolved",
+      "lat": 31.247606,
+      "lng": 121.448637,
+      "displayName": "上海市普陀区M50创意园(正门)",
+      "provider": "amap",
+      "coordSystem": "gcj02"
+    },
+    {
+      "key": "武康大楼门口|",
+      "venue": "武康大楼门口",
+      "address": "",
+      "district": "徐汇",
+      "activityIds": [
+        "c07"
+      ],
+      "query": "上海徐汇武康大楼门口",
+      "status": "resolved",
+      "lat": 31.20443,
+      "lng": 121.438278,
+      "displayName": "上海市徐汇区武康大楼",
+      "provider": "amap",
+      "coordSystem": "gcj02"
+    },
+    {
+      "key": "|虹桥路地铁站3口",
+      "venue": null,
+      "address": "虹桥路地铁站3口",
+      "district": "长宁",
+      "activityIds": [
+        "douban_36988401",
+        "douban_36737403",
+        "douban_36737272",
+        "douban_36737390",
+        "douban_36845432",
+        "douban_36908935"
+      ],
+      "query": "上海虹桥路地铁站3口",
+      "status": "resolved",
+      "lat": 31.197524,
+      "lng": 121.420814,
+      "displayName": "上海市长宁区虹桥路(地铁站)",
+      "provider": "amap",
+      "coordSystem": "gcj02",
+      "detail": null
+    },
+    {
+      "key": "|浦东美术馆-乔治.莫兰迪大展 滨江大道2777号",
+      "venue": null,
+      "address": "浦东美术馆-乔治.莫兰迪大展 滨江大道2777号",
+      "district": "浦东",
+      "activityIds": [
+        "douban_37611085"
+      ],
+      "query": "上海浦东美术馆-乔治.莫兰迪大展滨江大道2777号",
+      "status": "resolved",
+      "lat": 31.238115,
+      "lng": 121.49631,
+      "displayName": "上海市浦东新区浦东镇滨江大道2777号",
+      "provider": "amap",
+      "coordSystem": "gcj02",
+      "detail": null
+    },
+    {
+      "key": "|汶水路地铁站",
+      "venue": null,
+      "address": "汶水路地铁站",
+      "district": "静安",
+      "activityIds": [
+        "douban_36947253"
+      ],
+      "query": "上海汶水路地铁站",
+      "status": "resolved",
+      "lat": 31.292556,
+      "lng": 121.450251,
+      "displayName": "上海市静安区汶水路(地铁站)",
+      "provider": "amap",
+      "coordSystem": "gcj02",
+      "detail": null
+    },
+    {
+      "key": "|SpicyComedy-新天地时尚一期店 兴业路123弄6-7号3层南里食集北区14号",
+      "venue": null,
+      "address": "SpicyComedy-新天地时尚一期店 兴业路123弄6-7号3层南里食集北区14号",
+      "district": "黄浦",
+      "activityIds": [
+        "douban_36977803"
+      ],
+      "query": "上海SpicyComedy-新天地时尚一期店兴业路123弄6-7号3层南里食集北区14号",
+      "status": "resolved",
+      "lat": 31.219089,
+      "lng": 121.475044,
+      "displayName": "上海市黄浦区新天地时尚一期兴业路123弄6-7号",
+      "provider": "amap",
+      "coordSystem": "gcj02",
+      "detail": null
+    },
+    {
+      "key": "|龙阳路地铁站",
+      "venue": null,
+      "address": "龙阳路地铁站",
+      "district": "浦东",
+      "activityIds": [
+        "douban_37485604",
+        "douban_37497883",
+        "douban_37585353",
+        "douban_37616278",
+        "douban_38070714"
+      ],
+      "query": "上海龙阳路地铁站",
+      "status": "resolved",
+      "lat": 31.203575,
+      "lng": 121.557634,
+      "displayName": "上海市浦东新区龙阳路(地铁站)",
+      "provider": "amap",
+      "coordSystem": "gcj02",
+      "detail": null
+    },
+    {
+      "key": "|Fotografiska影像艺术中心单日通票 光复路127号",
+      "venue": null,
+      "address": "Fotografiska影像艺术中心单日通票 光复路127号",
+      "district": "静安",
+      "activityIds": [
+        "douban_36976894"
+      ],
+      "query": "上海Fotografiska影像艺术中心单日通票光复路127号",
+      "status": "resolved",
+      "lat": 31.239722,
+      "lng": 121.469785,
+      "displayName": "上海市静安区光复路127号",
+      "provider": "amap",
+      "coordSystem": "gcj02",
+      "detail": null
+    },
+    {
+      "key": "|【时光剧场】音乐剧《时光代理人》 西藏南路一号大世界二楼E厅",
+      "venue": null,
+      "address": "【时光剧场】音乐剧《时光代理人》 西藏南路一号大世界二楼E厅",
+      "district": "黄浦",
+      "activityIds": [
+        "douban_36314185"
+      ],
+      "query": "上海【时光剧场】音乐剧《时光代理人》西藏南路一号大世界二楼E厅",
+      "status": "not_found",
+      "lat": null,
+      "lng": null,
+      "displayName": null,
+      "provider": "amap",
+      "coordSystem": null,
+      "detail": null
+    }
+  ]
+}
