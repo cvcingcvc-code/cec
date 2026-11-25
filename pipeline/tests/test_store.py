@@ -350,7 +350,7 @@ class SearchTest(unittest.TestCase):
     def test_keyword_matches_title(self):
         with EventRepository(":memory:") as repo:
             self._seed(repo)
-            rows = repo.search(keyword="音乐")
+            rows = repo.search(keyword="音乐", today=date(2026, 9, 22))
             self.assertEqual(1, len(rows))
             self.assertEqual("上海音乐节", rows[0]["title"])
 
