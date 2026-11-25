@@ -101,7 +101,7 @@ async function setViewport(session, width, height) {
 // unreachable from a sandboxed network) is reported but not asserted.
 function appErrors(session) {
   return session.errors.filter((e) =>
-    !/favicon|fonts\.googleapis|fonts\.gstatic|net::ERR_INTERNET_DISCONNECTED/i.test(e));
+    !/favicon|fonts\.googleapis|fonts\.gstatic|doubanio\.com|net::ERR_INTERNET_DISCONNECTED/i.test(e));
 }
 
 /* ── scenarios ────────────────────────────────────────────────────────── */
